@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{008E2D09-17A3-4A13-A3C0-406F93A5F9A3}</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Optimized>true</Optimized>
+    <Optimized Condition="'$(Configuration)'=='Debug'">false</Optimized>
+    <RuntimeLibrarySuffix Condition="'$(Configuration)'=='Debug'">Debug</RuntimeLibrarySuffix>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <UseDebugLibraries Condition="'$(Configuration)'=='Debug'">true</UseDebugLibraries>
+    <WholeProgramOptimization Condition="'$(Configuration)'=='Debug'">false</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)_builds\$(ProjectName)\$(Configuration)\bin\</OutDir>
+    <IntDir>$(SolutionDir)_builds\$(ProjectName)\$(Configuration)\obj\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\extern</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 /Zc:strictStrings %(AdditionalOptions)</AdditionalOptions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <FloatingPointExceptions>false</FloatingPointExceptions>
+      <FunctionLevelLinking>$(Optimized)</FunctionLevelLinking>
+      <IntrinsicFunctions>$(Optimized)</IntrinsicFunctions>
+      <Optimization Condition="'$(Optimized)'=='false'">Disabled</Optimization>
+      <Optimization Condition="'$(Optimized)'=='true'">MaxSpeed</Optimization>
+      <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">_DEBUG;_CRT_SECURE_NO_WARNINGS;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)'=='Development'">RAPTOR_BUILD_DEVELOPMENT;NDEBUG;_CRT_SECURE_NO_WARNINGS;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">NDEBUG;_CRT_SECURE_NO_WARNINGS;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded$(RuntimeLibrarySuffix)DLL</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\extern\zlib\contrib\minizip\crypt.h" />
+    <ClInclude Include="..\extern\zlib\contrib\minizip\ioapi.h" />
+    <ClInclude Include="..\extern\zlib\contrib\minizip\iowin32.h" />
+    <ClInclude Include="..\extern\zlib\contrib\minizip\unzip.h" />
+    <ClInclude Include="..\extern\zlib\contrib\minizip\zip.h" />
+    <ClInclude Include="..\extern\zlib\crc32.h" />
+    <ClInclude Include="..\extern\zlib\deflate.h" />
+    <ClInclude Include="..\extern\zlib\gzguts.h" />
+    <ClInclude Include="..\extern\zlib\inffast.h" />
+    <ClInclude Include="..\extern\zlib\inffixed.h" />
+    <ClInclude Include="..\extern\zlib\inflate.h" />
+    <ClInclude Include="..\extern\zlib\inftrees.h" />
+    <ClInclude Include="..\extern\zlib\trees.h" />
+    <ClInclude Include="..\extern\zlib\zconf.h" />
+    <ClInclude Include="..\extern\zlib\zlib.h" />
+    <ClInclude Include="..\extern\zlib\zutil.h" />
+    <ClInclude Include="..\src\gli_core.h" />
+    <ClInclude Include="..\src\gli_file.h" />
+    <ClInclude Include="..\src\gli_opengl.h" />
+    <ClInclude Include="..\src\gli_log.h" />
+    <ClInclude Include="..\src\gli.h" />
+    <ClInclude Include="..\src\opengl40\glad.h" />
+    <ClInclude Include="..\src\opengl40\khrplatform.h" />
+    <ClInclude Include="..\src\wglext.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\extern\zlib\adler32.c" />
+    <ClCompile Include="..\extern\zlib\compress.c" />
+    <ClCompile Include="..\extern\zlib\contrib\minizip\ioapi.c">
+      <AdditionalIncludeDirectories>..\extern\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\contrib\minizip\iowin32.c">
+      <AdditionalIncludeDirectories>..\extern\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4067</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\contrib\minizip\unzip.c">
+      <AdditionalIncludeDirectories>..\extern\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\contrib\minizip\zip.c">
+      <AdditionalIncludeDirectories>..\extern\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\crc32.c" />
+    <ClCompile Include="..\extern\zlib\deflate.c" />
+    <ClCompile Include="..\extern\zlib\gzclose.c" />
+    <ClCompile Include="..\extern\zlib\gzlib.c">
+      <DisableSpecificWarnings>4996</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\gzread.c">
+      <DisableSpecificWarnings>4996;4267</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\gzwrite.c">
+      <DisableSpecificWarnings>4996;4267</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\infback.c" />
+    <ClCompile Include="..\extern\zlib\inffast.c" />
+    <ClCompile Include="..\extern\zlib\inflate.c" />
+    <ClCompile Include="..\extern\zlib\inftrees.c" />
+    <ClCompile Include="..\extern\zlib\trees.c" />
+    <ClCompile Include="..\extern\zlib\uncompr.c" />
+    <ClCompile Include="..\extern\zlib\zutil.c" />
+    <ClCompile Include="..\src\gli_core.cpp" />
+    <ClCompile Include="..\src\gli_file.cpp">
+      <AdditionalIncludeDirectories>..\extern\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="..\src\gli_log.cpp" />
+    <ClCompile Include="..\src\gli_opengl.cpp" />
+    <ClCompile Include="..\src\opengl40\glad.c" />
+    <ClCompile Include="..\src\test_app.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="..\res\vga9.png">
+      <Command>_builds\fontgen\$(Configuration)\bin\fontgen.exe -o ..\src\vga9.h -n vga9 %(Identity)</Command>
+      <Message>Generating vga9 font</Message>
+      <Outputs>..\src\vga9.h</Outputs>
+      <OutputItemType>ClInclude</OutputItemType>
+      <AdditionalInputs>_builds\fontgen\$(Configuration)\bin\fontgen.exe</AdditionalInputs>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\tools\fontgen\project\fontgen.vcxproj">
+      <Project>{5d156c02-4d05-4352-8dd9-c8feaa22e410}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\tools\bin2h\project\bin2h.vcxproj">
+      <Project>{36a9e5e3-8e3d-47cc-b833-2d17065d1f77}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

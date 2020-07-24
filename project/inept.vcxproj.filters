@@ -1,0 +1,182 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{1C2C5C6F-14A4-4796-A919-8BDCDD2D3752}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="inc">
+      <UniqueIdentifier>{1FFF6B3D-4BD1-49CA-8061-6FF44D8A6F20}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="res">
+      <UniqueIdentifier>{1F14E774-A814-460B-8D65-13A549363C78}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="zlib">
+      <UniqueIdentifier>{68153f00-7812-43ac-a14e-ee233dcbb1cb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="zlib\minzip">
+      <UniqueIdentifier>{bde3a791-9da7-46f8-b937-59b0a521908c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="opengl">
+      <UniqueIdentifier>{54b451ad-977d-4bf1-8174-f8ac485a261a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\extern\zlib\crc32.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\deflate.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\gzguts.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\inffast.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\inffixed.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\inflate.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\inftrees.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\trees.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\zconf.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\zlib.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\zutil.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\contrib\minizip\crypt.h">
+      <Filter>zlib\minzip</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\contrib\minizip\ioapi.h">
+      <Filter>zlib\minzip</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\contrib\minizip\iowin32.h">
+      <Filter>zlib\minzip</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\contrib\minizip\unzip.h">
+      <Filter>zlib\minzip</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extern\zlib\contrib\minizip\zip.h">
+      <Filter>zlib\minzip</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\gli_file.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\gli_log.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\gli.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\gli_core.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\wglext.h">
+      <Filter>opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\opengl40\glad.h">
+      <Filter>opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\opengl40\khrplatform.h">
+      <Filter>opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\gli_opengl.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\extern\zlib\adler32.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\compress.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\crc32.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\deflate.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\gzclose.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\gzlib.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\gzread.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\gzwrite.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\infback.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\inffast.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\inflate.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\inftrees.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\trees.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\uncompr.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\zutil.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\contrib\minizip\ioapi.c">
+      <Filter>zlib\minzip</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\contrib\minizip\iowin32.c">
+      <Filter>zlib\minzip</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\contrib\minizip\unzip.c">
+      <Filter>zlib\minzip</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extern\zlib\contrib\minizip\zip.c">
+      <Filter>zlib\minzip</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gli_file.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gli_log.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gli_core.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\test_app.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gli_opengl.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\opengl40\glad.c">
+      <Filter>opengl</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="..\res\vga9.png">
+      <Filter>res</Filter>
+    </CustomBuild>
+  </ItemGroup>
+</Project>
