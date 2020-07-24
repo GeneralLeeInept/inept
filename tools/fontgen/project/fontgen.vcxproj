@@ -58,7 +58,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\fontgen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\stb_image.h" />
