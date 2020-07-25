@@ -6,6 +6,8 @@
 #include "opengl40/glad.h"
 
 #include <objbase.h>
+
+#include <atomic>
 #include <thread>
 
 
@@ -55,6 +57,8 @@ GLuint _shader_program{};
 GLuint _vbo = 0;
 GLuint _vao = 0;
 GLuint _texture = 0;
+std::atomic<bool> _active;
+
 
 bool App::initialize(const char* name, int screen_width_, int screen_height_, int window_scale)
 {
@@ -222,6 +226,7 @@ bool App::initialize(const char* name, int screen_width_, int screen_height_, in
 
 void App::run()
 {
+    _active = true;
     std::thread game_thread = std::thread(&App::engine_loop, this);
     pump_messages();
     game_thread.join();
@@ -521,16 +526,14 @@ void App::engine_loop()
 {
     if (!on_create())
     {
-        PostQuitMessage(0);
-        return;
+        _active = false;
     }
 
     ShowWindow(m_hwnd, SW_SHOW);
 
-    bool active = true;
     auto prev_time = std::chrono::system_clock::now();
 
-    while (active)
+    while (_active)
     {
         auto current_time = std::chrono::system_clock::now();
         std::chrono::duration<float> elapsed_time = current_time - prev_time;
@@ -544,7 +547,7 @@ void App::engine_loop()
         // User update
         if (!on_update(delta))
         {
-            active = false;
+            _active = false;
         }
 
         // Present
@@ -555,12 +558,11 @@ void App::engine_loop()
         glBindVertexArray(_vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         _opengl.end_frame();
-
-        // Check if Window closed
-        active = active && !!IsWindow(m_hwnd);
     }
 
     on_destroy();
+
+    PostMessage(m_hwnd, WM_DESTROY, 0, 0);
 }
 
 
@@ -581,9 +583,10 @@ LRESULT App::window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
             break;
         }
-        case WM_ACTIVATEAPP:
+        case WM_CLOSE:
         {
-            break;
+            _active = false;
+            return 0;
         }
         case WM_DESTROY:
         {
@@ -616,7 +619,7 @@ wchar_t* utf8_to_wchar(const char* utf8)
 } // namespace gli
 
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
+int wWinMainInternal(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
     CoInitializeEx(0, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
@@ -637,4 +640,29 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     CoUninitialize();
 
     return 0;
+}
+
+
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
+{
+    int result;
+
+    if (IsDebuggerPresent())
+    {
+        result = wWinMainInternal(hInstance, hPrevInstance, GetCommandLineW(), nCmdShow);
+    }
+    else
+    {
+        __try
+        {
+            result = wWinMainInternal(hInstance, hPrevInstance, GetCommandLineW(), nCmdShow);
+        }
+        __except (UnhandledExceptionFilter(GetExceptionInformation()))
+        {
+            MessageBoxW(0, L"A wild exception appears! The application will die horribly now.", L"Oh no!", MB_ICONERROR | MB_OK);
+            result = -1;
+        }
+    }
+
+    return result;
 }
