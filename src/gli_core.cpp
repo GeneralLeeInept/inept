@@ -57,6 +57,7 @@ GLuint _shader_program{};
 GLuint _vbo = 0;
 GLuint _vao = 0;
 GLuint _texture = 0;
+std::atomic<bool> _quit;
 std::atomic<bool> _active;
 
 
@@ -226,6 +227,7 @@ bool App::initialize(const char* name, int screen_width_, int screen_height_, in
 
 void App::run()
 {
+    _quit = false;
     _active = true;
     std::thread game_thread = std::thread(&App::engine_loop, this);
     pump_messages();
@@ -526,14 +528,14 @@ void App::engine_loop()
 {
     if (!on_create())
     {
-        _active = false;
+        _quit = true;
     }
 
     ShowWindow(m_hwnd, SW_SHOW);
 
     auto prev_time = std::chrono::system_clock::now();
 
-    while (_active)
+    while (!_quit)
     {
         auto current_time = std::chrono::system_clock::now();
         std::chrono::duration<float> elapsed_time = current_time - prev_time;
@@ -544,10 +546,40 @@ void App::engine_loop()
         swprintf(title, 256, L"%s - %llu us (%0.2f fps)", m_title, uint64_t(delta * 1000000.0), 1.0f / delta);
         SetWindowText(m_hwnd, title);
 
+        if (_active)
+        {
+            short* current_keystate = m_keystate[m_current_keystate];
+            short* prev_keystate = m_keystate[m_current_keystate ^ 1];
+
+            for (int i = 0; i < 256; i++)
+            {
+                current_keystate[i] = GetAsyncKeyState(i);
+
+                m_keys[i].pressed = false;
+                m_keys[i].released = false;
+
+                if (current_keystate[i] != prev_keystate[i])
+                {
+                    if (current_keystate[i] & 0x8000)
+                    {
+                        m_keys[i].pressed = !m_keys[i].down;
+                        m_keys[i].down = true;
+                    }
+                    else
+                    {
+                        m_keys[i].released = true;
+                        m_keys[i].down = false;
+                    }
+                }
+            }
+
+            m_current_keystate ^= 1;
+        }
+
         // User update
         if (!on_update(delta))
         {
-            _active = false;
+            _quit = true;
         }
 
         // Present
@@ -583,9 +615,14 @@ LRESULT App::window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
             break;
         }
+        case WM_ACTIVATEAPP:
+        {
+            _active = !!wparam;
+            break;
+        }
         case WM_CLOSE:
         {
-            _active = false;
+            _quit = true;
             return 0;
         }
         case WM_DESTROY:
