@@ -1,2 +1,2 @@
 # zilg
-A z-machine interpreter built on VGFW.
+A z-machine interpreter built on ~~VGFW~~ Inept.
