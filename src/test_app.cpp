@@ -28,7 +28,9 @@ public:
 
         clear_screen(clear_color);
         draw_line(10, 10, 100, 100, 255 - clear_color);
-        format_string(10, 80, vga9_glyphs, vga9_glyph_width, vga9_glyph_height, 255 - clear_color, clear_color, "Hello, %s!", "World");
+        draw_line(11, 10, 101, 100, 255 - clear_color);
+        draw_line(12, 10, 102, 100, 255 - clear_color);
+        format_string(10, 120, vga9_glyphs, vga9_glyph_width, vga9_glyph_height, 255 - clear_color, clear_color, "Hello, %s!", "World");
         return true;
     }
 };
