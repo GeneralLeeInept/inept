@@ -9,9 +9,11 @@
 class Zilg : public gli::App
 {
 public:
+    std::string storyfile;
+
     bool on_create() override
     {
-        if (!fs.read_entire_file("//zork1.zip//DATA/ZORK1.DAT", story_data))
+        if (!fs.read_entire_file(storyfile.c_str(), story_data))
         {
             return false;
         }
@@ -142,6 +144,13 @@ Zilg zilg;
 
 int gli_main(int argc, char** argv)
 {
+    if (argc < 2)
+    {
+        return 0;
+    }
+
+    zilg.storyfile = argv[1];
+
     if (zilg.initialize("ZILG - Can I offer you a Z-Machine Interpreter in these trying times?",
         vga9_glyph_width * 120 + 16, vga9_glyph_height * 40 + 16, 1))
     {
