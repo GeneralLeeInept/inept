@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <thread>
+#include <unordered_map>
 
 
 extern int gli_main(int argc, char** argv);
@@ -61,14 +62,19 @@ std::atomic<bool> _quit;
 std::atomic<bool> _active;
 
 
-bool App::initialize(const char* name, int screen_width_, int screen_height_, int window_scale)
+bool App::initialize(const char* name, int screen_width, int screen_height, int window_scale)
 {
+    if (screen_width <= 0 || screen_height <= 0 || window_scale <= 0)
+    {
+        return false;
+    }
+
     m_title = utf8_to_wchar(name);
 
-    screen_width = screen_width_;
-    screen_height = screen_height_;
-    window_width = screen_width * window_scale;
-    window_height = screen_height * window_scale;
+    m_screen_width = screen_width;
+    m_screen_height = screen_height;
+    m_window_width = screen_width * window_scale;
+    m_window_height = screen_height * window_scale;
 
     // Create window
     WNDCLASSEXW wc = {};
@@ -87,7 +93,7 @@ bool App::initialize(const char* name, int screen_width_, int screen_height_, in
     DWORD dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;
     DWORD dwStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
 
-    RECT client_rect = { 0, 0, window_width, window_height };
+    RECT client_rect = { 0, 0, m_window_width, m_window_height };
     AdjustWindowRectEx(&client_rect, dwStyle, FALSE, dwExStyle);
     int width = client_rect.right - client_rect.left;
     int height = client_rect.bottom - client_rect.top;
@@ -110,9 +116,113 @@ bool App::initialize(const char* name, int screen_width_, int screen_height_, in
         memset(m_keystate[i], 0, sizeof(short) * 256);
     }
 
+    // Map of gli::Key codes to Windows virtual keys
+    m_keymap[Key_A] = 'A';
+    m_keymap[Key_B] = 'B';
+    m_keymap[Key_C] = 'C';
+    m_keymap[Key_D] = 'D';
+    m_keymap[Key_E] = 'E';
+    m_keymap[Key_F] = 'F';
+    m_keymap[Key_G] = 'G';
+    m_keymap[Key_H] = 'H';
+    m_keymap[Key_I] = 'I';
+    m_keymap[Key_J] = 'J';
+    m_keymap[Key_K] = 'K';
+    m_keymap[Key_L] = 'L';
+    m_keymap[Key_M] = 'M';
+    m_keymap[Key_N] = 'N';
+    m_keymap[Key_O] = 'O';
+    m_keymap[Key_P] = 'P';
+    m_keymap[Key_Q] = 'Q';
+    m_keymap[Key_R] = 'R';
+    m_keymap[Key_S] = 'S';
+    m_keymap[Key_T] = 'T';
+    m_keymap[Key_U] = 'U';
+    m_keymap[Key_V] = 'V';
+    m_keymap[Key_W] = 'W';
+    m_keymap[Key_X] = 'X';
+    m_keymap[Key_Y] = 'Y';
+    m_keymap[Key_Z] = 'Z';
+    m_keymap[Key_0] = '0';
+    m_keymap[Key_1] = '1';
+    m_keymap[Key_2] = '2';
+    m_keymap[Key_3] = '3';
+    m_keymap[Key_4] = '4';
+    m_keymap[Key_5] = '5';
+    m_keymap[Key_6] = '6';
+    m_keymap[Key_7] = '7';
+    m_keymap[Key_8] = '8';
+    m_keymap[Key_9] = '9';
+    m_keymap[Key_Space] = VK_SPACE;
+    m_keymap[Key_BackTick] = VK_OEM_3;
+    m_keymap[Key_Minus] = VK_OEM_MINUS;
+    m_keymap[Key_Equals] = VK_OEM_PLUS;
+    m_keymap[Key_LeftBracket] = VK_OEM_4;
+    m_keymap[Key_RightBracket] = VK_OEM_6;
+    m_keymap[Key_Backslash] = VK_OEM_5;
+    m_keymap[Key_Semicolon] = VK_OEM_1;
+    m_keymap[Key_Apostrophe] = VK_OEM_7;
+    m_keymap[Key_Comma] = VK_OEM_COMMA;
+    m_keymap[Key_Period] = VK_OEM_PERIOD;
+    m_keymap[Key_Slash] = VK_OEM_2;
+    m_keymap[Key_Backspace] = VK_BACK;
+    m_keymap[Key_Tab] = VK_TAB;
+    m_keymap[Key_Enter] = VK_RETURN;
+    m_keymap[Key_Escape] = VK_ESCAPE;
+    m_keymap[Key_Menu] = VK_APPS;
+    m_keymap[Key_LeftSystem] = VK_LWIN;
+    m_keymap[Key_RightSystem] = VK_RWIN;
+    m_keymap[Key_F1] = VK_F1;
+    m_keymap[Key_F2] = VK_F2;
+    m_keymap[Key_F3] = VK_F3;
+    m_keymap[Key_F4] = VK_F4;
+    m_keymap[Key_F5] = VK_F5;
+    m_keymap[Key_F6] = VK_F6;
+    m_keymap[Key_F7] = VK_F7;
+    m_keymap[Key_F8] = VK_F8;
+    m_keymap[Key_F9] = VK_F9;
+    m_keymap[Key_F10] = VK_F10;
+    m_keymap[Key_F11] = VK_F11;
+    m_keymap[Key_F12] = VK_F12;
+    m_keymap[Key_LeftShift] = VK_LSHIFT;
+    m_keymap[Key_RightShift] = VK_RSHIFT;
+    m_keymap[Key_LeftControl] = VK_LCONTROL;
+    m_keymap[Key_RightControl] = VK_RCONTROL;
+    m_keymap[Key_LeftAlt] = VK_LMENU;
+    m_keymap[Key_RightAlt] = VK_RMENU;
+    m_keymap[Key_Left] = VK_LEFT;
+    m_keymap[Key_Right] = VK_RIGHT;
+    m_keymap[Key_Up] = VK_UP;
+    m_keymap[Key_Down] = VK_DOWN;
+    m_keymap[Key_PageUp] = VK_PRIOR;
+    m_keymap[Key_PageDown] = VK_NEXT;
+    m_keymap[Key_Home] = VK_HOME;
+    m_keymap[Key_End] = VK_END;
+    m_keymap[Key_Insert] = VK_INSERT;
+    m_keymap[Key_Delete] = VK_DELETE;
+    m_keymap[Key_ScrollLock] = VK_SCROLL;
+    m_keymap[Key_CapsLock] = VK_CAPITAL;
+    m_keymap[Key_NumLock] = VK_NUMLOCK;
+    m_keymap[Key_Num_0] = VK_NUMPAD0;
+    m_keymap[Key_Num_1] = VK_NUMPAD1;
+    m_keymap[Key_Num_2] = VK_NUMPAD2;
+    m_keymap[Key_Num_3] = VK_NUMPAD3;
+    m_keymap[Key_Num_4] = VK_NUMPAD4;
+    m_keymap[Key_Num_5] = VK_NUMPAD5;
+    m_keymap[Key_Num_6] = VK_NUMPAD6;
+    m_keymap[Key_Num_7] = VK_NUMPAD7;
+    m_keymap[Key_Num_8] = VK_NUMPAD8;
+    m_keymap[Key_Num_9] = VK_NUMPAD9;
+    m_keymap[Key_Num_Add] = VK_ADD;
+    m_keymap[Key_Num_Subtract] = VK_SUBTRACT;
+    m_keymap[Key_Num_Multiply] = VK_MULTIPLY;
+    m_keymap[Key_Num_Divide] = VK_DIVIDE;
+    m_keymap[Key_Num_Decimal] = VK_DECIMAL;
+    m_keymap[Key_Num_Enter] = VK_RETURN; // TODO - need to handle WM_KEY* and look at lparam to distinguish from other enter key
+
     // Initialise frame buffer
-    size_t buffer_size = size_t(screen_width) * size_t(screen_height);
-    m_framebuffer = new uint8_t[screen_width * screen_height * 3];
+    size_t buffer_size = size_t(screen_width) * size_t(screen_height) * 3;
+    m_framebuffer = new uint8_t[buffer_size];
 
     // Set default palette
     static uint32_t default_palette[256] = {
@@ -155,7 +265,7 @@ bool App::initialize(const char* name, int screen_width_, int screen_height_, in
     glCompileShader(vertex_shader);
     glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &status);
 
-    if(!status)
+    if (!status)
     {
         GLint log_length;
         glGetShaderiv(vertex_shader, GL_INFO_LOG_LENGTH, &log_length);
@@ -206,7 +316,7 @@ bool App::initialize(const char* name, int screen_width_, int screen_height_, in
     glGenVertexArrays(1, &_vao);
 
     glBindVertexArray(_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, _vbo);  
+    glBindBuffer(GL_ARRAY_BUFFER, _vbo);
 
     static const float verts[] = { -1.0f, 1.0f, -1.0f, -3.0f, 3.0f, 1.0f };
     glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
@@ -235,6 +345,85 @@ void App::run()
     shutdown();
 }
 
+
+const App::KeyState& App::key_state(Key key)
+{
+    return m_keys[key];
+}
+
+
+// TODO: Repeat events - wire directly to windows keyboard events instead of synthesizing these from key states
+void App::process_key_events(KeyEventHandler handler)
+{
+    static const std::unordered_map<Key, std::pair<char, char>> ascii_map{
+        { Key_BackTick, { '`', '~' } },     { Key_Minus, { '-', '_' } },      { Key_Equals, { '=', '+' } },    { Key_LeftBracket, { '[', '{' } },
+        { Key_RightBracket, { ']', '}' } }, { Key_Backslash, { '\\', '|' } }, { Key_Semicolon, { ';', ':' } }, { Key_Apostrophe, { '\'', '"' } },
+        { Key_Comma, { ',', '<' } },        { Key_Period, { '.', '>' } },     { Key_Slash, { '/', '?' } }
+    };
+
+    for (int i = 0; i < Key_Count; ++i)
+    {
+        if (m_keys[i].pressed)
+        {
+            KeyEvent keypress{};
+            keypress.event = Pressed;
+            keypress.key = Key(i);
+
+            if (!m_keys[Key_RightAlt].down && !m_keys[Key_LeftAlt].down)
+            {
+                bool shift = (m_keys[Key_LeftShift].down || m_keys[Key_RightShift].down);
+
+                if (i >= Key_A && i <= Key_Z)
+                {
+                    keypress.ascii_code = (i - Key_A) + (shift ? 'A' : 'a');
+                }
+                else if (i >= Key_0 && i <= Key_9)
+                {
+                    if (shift)
+                    {
+                        keypress.ascii_code = ")!@#$%^&*("[i - Key_0];
+                    }
+                    else
+                    {
+                        keypress.ascii_code = '0' + (i - Key_0);
+                    }
+                }
+                else if (i == Key_Space)
+                {
+                    keypress.ascii_code = ' ';
+                }
+                else
+                {
+                    const auto& lookup = ascii_map.find(Key(i));
+
+                    if (lookup != ascii_map.end())
+                    {
+                        keypress.ascii_code = shift ? lookup->second.second : lookup->second.first;
+                    }
+                }
+            }
+
+            handler(keypress);
+        }
+        else if (m_keys[i].released)
+        {
+            KeyEvent keypress{};
+            keypress.event = Released;
+            keypress.key = Key(i);
+        }
+    }
+} // namespace gli
+
+int App::screen_width()
+{
+    return m_screen_width;
+}
+
+
+int App::screen_height()
+{
+    return m_screen_height;
+}
 
 void App::set_palette(uint32_t rgbx[256])
 {
@@ -283,9 +472,9 @@ void App::clear_screen(uint8_t c)
     RGBQUAD color = m_palette[c];
     uint8_t* pixel = m_framebuffer;
 
-    for (int y = 0; y < screen_height; ++y)
+    for (int y = 0; y < m_screen_height; ++y)
     {
-        for (int x = 0; x < screen_width; ++x)
+        for (int x = 0; x < m_screen_width; ++x)
         {
             *pixel++ = color.rgbRed;
             *pixel++ = color.rgbGreen;
@@ -298,7 +487,7 @@ void App::clear_screen(uint8_t c)
 void App::set_pixel(int x, int y, uint8_t p)
 {
     RGBQUAD color = m_palette[p];
-    uint8_t* pixel = &m_framebuffer[((y * screen_width) + x) * 3];
+    uint8_t* pixel = &m_framebuffer[((y * m_screen_width) + x) * 3];
     pixel[0] = color.rgbRed;
     pixel[1] = color.rgbGreen;
     pixel[2] = color.rgbBlue;
@@ -446,7 +635,7 @@ void App::fill_rect(int x, int y, int w, int h, int bw, uint8_t fg, uint8_t bg)
 
 void App::copy_rect(int x, int y, int w, int h, const uint8_t* src, uint32_t stride)
 {
-#if 0   // UNTESTED
+#if 0 // UNTESTED
     if (y < 0)
     {
         src += stride * -y;
@@ -488,9 +677,7 @@ void App::copy_rect(int x, int y, int w, int h, const uint8_t* src, uint32_t str
 #endif
 }
 
-void App::copy_rect_scaled(int x, int y, int w, int h, const uint8_t* src, uint32_t stride, int pixel_scale)
-{
-}
+void App::copy_rect_scaled(int x, int y, int w, int h, const uint8_t* src, uint32_t stride, int pixel_scale) {}
 
 
 void App::shutdown()
@@ -551,9 +738,9 @@ void App::engine_loop()
             short* current_keystate = m_keystate[m_current_keystate];
             short* prev_keystate = m_keystate[m_current_keystate ^ 1];
 
-            for (int i = 0; i < 256; i++)
+            for (int i = 0; i < Key_Count; i++)
             {
-                current_keystate[i] = GetAsyncKeyState(i);
+                current_keystate[i] = GetAsyncKeyState(m_keymap[i]);
 
                 m_keys[i].pressed = false;
                 m_keys[i].released = false;
@@ -585,7 +772,7 @@ void App::engine_loop()
         // Present
         _opengl.begin_frame();
         glBindTexture(GL_TEXTURE_2D, _texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, screen_width, screen_height, 0, GL_RGB, GL_UNSIGNED_BYTE, m_framebuffer);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_screen_width, m_screen_height, 0, GL_RGB, GL_UNSIGNED_BYTE, m_framebuffer);
         glUseProgram(_shader_program);
         glBindVertexArray(_vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);

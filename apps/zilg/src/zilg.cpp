@@ -78,28 +78,23 @@ public:
         ZMachine::State state = zm.update();
 
         // Process keyboard input
-        // TODO: Process keyboard events and send them directly to the machine
-        // The machine can handle building up the input line (will also make read_char easy)
-        for (int i = 0; i < 256; ++i)
-        {
-            if (m_keys[i].pressed)
+        // TODO: Send keypreses directly to the machine. The machine can handle building up the input line (will also make read_char easy).
+        process_key_events([&](gli::KeyEvent & event){
+            if (event.key == gli::Key_Backspace && !input_buffer.empty())
             {
-                if (i >= 0x20 && i <= 0x7F)
-                {
-                    input_buffer.push_back(i);
-                }
-                else if (i == VK_BACK && !input_buffer.empty())
-                {
-                    input_buffer.pop_back();
-                }
-                else if (i == VK_RETURN)
-                {
-                    zm.input(input_buffer);
-                    gli::logf("User input: %s\n", input_buffer.c_str());
-                    input_buffer.clear();
-                }
+                input_buffer.pop_back();
             }
-        }
+            else if (event.key == gli::Key_Enter)
+            {
+                zm.input(input_buffer);
+                gli::logf("User input: %s\n", input_buffer.c_str());
+                input_buffer.clear();
+            }
+            else if (event.ascii_code)
+            {
+                input_buffer.push_back(event.ascii_code);
+            }
+        });
 
         // Draw screen
         clear_screen(0);
