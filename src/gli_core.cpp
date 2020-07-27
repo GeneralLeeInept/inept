@@ -797,9 +797,6 @@ LRESULT App::window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             {
                 return 0;
             }
-
-            gli::logf("wParam = %04X, lParam = %04X\n", wparam, lparam);
-
             break;
         }
         case WM_ACTIVATEAPP:

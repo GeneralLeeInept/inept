@@ -41,14 +41,18 @@ def process_template(context, target_dir, template_dir):
                 dest_file = target_dir / dst_filename
                 print(f"Processing file {child} -> {dest_file}...")
 
-                if child.name == 'template.vcxproj':
-                    context.project_path = dest_file
+                if str(child.name).startswith('template.vcxproj'):
+                    if child.suffix == '.vcxproj':
+                        context.project_path = dest_file
+
                     Xml.register_namespace('', "http://schemas.microsoft.com/developer/msbuild/2003")
                     tree = Xml.parse(child)
+
                     guidnode = tree.find('.//{http://schemas.microsoft.com/developer/msbuild/2003}ProjectGuid')
-                    guidnode.text = context.project_guid
-                    filenodes = tree.findall('.//*[@Include]')
+                    if guidnode:
+                        guidnode.text = context.project_guid
 
+                    filenodes = tree.findall('.//*[@Include]')
                     for n in filenodes:
                         filename = Path(n.attrib['Include'])
                         if filename.name.startswith('template'):
@@ -57,21 +61,18 @@ def process_template(context, target_dir, template_dir):
 
                     with open(dest_file, 'wb') as output:
                         tree.write(output, encoding='UTF-8')
-
-                elif child.name == 'template.vcxproj.filters':
-                    Xml.register_namespace('', "http://schemas.microsoft.com/developer/msbuild/2003")
-                    tree = Xml.parse(child)
-                    filenodes = tree.findall('.//*[@Include]')
-
-                    for n in filenodes:
-                        filename = Path(n.attrib['Include'])
-                        if filename.name.startswith('template'):
-                            filename = filename.parent / Path(context.project_name + filename.suffix)
-                            n.attrib['Include'] = str(filename)
-
-                    with open(dest_file, 'wb') as output:
-                        tree.write(output, encoding='UTF-8')
-
+                elif child.suffix == '.ico':
+                    dest_file = target_dir / child.name
+                    shutil.copy(child, dest_file)
+                else:
+                    with open(child, 'rt') as src, open(dest_file, 'wt') as dest:
+                        for line in src:
+                            line = line.replace('${Template}', context.app_name)
+                            dest.write(line)
+            else:
+                dest_file = target_dir / child.name
+                print(f"Copying file {child} -> {dest_file}...")
+                shutil.copy(child, dest_file)
         else:
             target_child_dir = target_dir / child.name
             template_child_dir = child

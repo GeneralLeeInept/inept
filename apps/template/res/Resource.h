@@ -1,12 +1,12 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by zilg.rc
+// Used by ${template}.rc
 
 #define IDS_APP_TITLE			103
 
-#define IDI_ZILG			107
+#define IDI_${TEMPLATE}			107
 #define IDI_SMALL				108
-#define IDC_ZILG			109
+#define IDC_${TEMPLATE}			109
 #define IDC_MYICON				2
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
