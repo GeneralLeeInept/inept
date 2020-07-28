@@ -60,7 +60,8 @@ GLuint _vao = 0;
 GLuint _texture = 0;
 std::atomic<bool> _quit;
 std::atomic<bool> _active;
-
+std::atomic<bool> _mouse_active;
+std::atomic<App::MouseState> _mouse_state;
 
 bool App::initialize(const char* name, int screen_width, int screen_height, int window_scale)
 {
@@ -352,6 +353,12 @@ const App::KeyState& App::key_state(Key key)
 }
 
 
+const App::MouseState& App::mouse_state()
+{
+    return m_mouse;
+}
+
+
 // TODO: Repeat events - wire directly to windows keyboard events instead of synthesizing these from key states
 void App::process_key_events(KeyEventHandler handler)
 {
@@ -486,11 +493,14 @@ void App::clear_screen(uint8_t c)
 
 void App::set_pixel(int x, int y, uint8_t p)
 {
-    RGBQUAD color = m_palette[p];
-    uint8_t* pixel = &m_framebuffer[((y * m_screen_width) + x) * 3];
-    pixel[0] = color.rgbRed;
-    pixel[1] = color.rgbGreen;
-    pixel[2] = color.rgbBlue;
+    if (x >= 0 && x < m_screen_width && y >= 0 && y < m_screen_height)
+    {
+        RGBQUAD color = m_palette[p];
+        uint8_t* pixel = &m_framebuffer[((y * m_screen_width) + x) * 3];
+        pixel[0] = color.rgbRed;
+        pixel[1] = color.rgbGreen;
+        pixel[2] = color.rgbBlue;
+    }
 }
 
 
@@ -763,6 +773,26 @@ void App::engine_loop()
             m_current_keystate ^= 1;
         }
 
+        MouseState new_mouse_state = _mouse_state.load();
+
+        if (!_mouse_active)
+        {
+            m_mouse.x = 0;
+            m_mouse.y = 0;
+        }
+        else
+        {
+            m_mouse.x = new_mouse_state.x;
+            m_mouse.y = new_mouse_state.y;
+
+            for (int i = 0; i < 3; ++i)
+            {
+                m_mouse.buttons[i].pressed = !m_mouse.buttons[i].down && new_mouse_state.buttons[i].down;
+                m_mouse.buttons[i].released = m_mouse.buttons[i].down && !new_mouse_state.buttons[i].down;
+                m_mouse.buttons[i].down = new_mouse_state.buttons[i].down;
+            }
+        }
+
         // User update
         if (!on_update(delta))
         {
@@ -813,6 +843,63 @@ LRESULT App::window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         {
             PostQuitMessage(0);
             return 0;
+        }
+        case WM_MOUSELEAVE:
+        {
+            _mouse_active = false;
+            return 0;
+        }
+        case WM_MOUSEMOVE:
+        {
+            MouseState state = _mouse_state.load();
+            int window_scale = app->m_window_width / app->m_screen_width;
+            state.x = int(lparam & 0xFFFF) / window_scale;
+            state.y = int(lparam >> 16) / window_scale;
+            _mouse_state.store(state);
+            _mouse_active = true;
+            return 0;
+        }
+        case WM_LBUTTONDOWN:
+        {
+            MouseState state = _mouse_state.load();
+            state.buttons[0].down = true;
+            _mouse_state.store(state);
+            break;
+        }
+        case WM_MBUTTONDOWN:
+        {
+            MouseState state = _mouse_state.load();
+            state.buttons[1].down = true;
+            _mouse_state.store(state);
+            break;
+        }
+        case WM_RBUTTONDOWN:
+        {
+            MouseState state = _mouse_state.load();
+            state.buttons[2].down = true;
+            _mouse_state.store(state);
+            break;
+        }
+        case WM_LBUTTONUP:
+        {
+            MouseState state = _mouse_state.load();
+            state.buttons[0].down = false;
+            _mouse_state.store(state);
+            break;
+        }
+        case WM_MBUTTONUP:
+        {
+            MouseState state = _mouse_state.load();
+            state.buttons[1].down = false;
+            _mouse_state.store(state);
+            break;
+        }
+        case WM_RBUTTONUP:
+        {
+            MouseState state = _mouse_state.load();
+            state.buttons[2].down = false;
+            _mouse_state.store(state);
+            break;
         }
     }
 

@@ -161,6 +161,13 @@ public:
         bool down;
     };
 
+    struct MouseState
+    {
+        int x;                  // Screen coords fixed for scale
+        int y;
+        KeyState buttons[3];    // 0 = LMB, 1 = MMB, 2 = RMB
+    };
+
     virtual ~App() = default;
 
     virtual bool on_create() = 0;
@@ -174,6 +181,7 @@ public:
     int screen_height();
 
     const KeyState& key_state(Key key);
+    const MouseState& mouse_state();
 
     using KeyEventHandler = std::function<void(KeyEvent&)>;
     void process_key_events(KeyEventHandler handler);
@@ -208,6 +216,7 @@ private:
     wchar_t* m_title = nullptr;
     RGBQUAD m_palette[256] = {};
     KeyState m_keys[Key_Count] = {};
+    MouseState m_mouse = {};
     int m_keymap[Key_Count] = {};
     int m_screen_width;
     int m_screen_height;
