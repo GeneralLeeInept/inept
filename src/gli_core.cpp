@@ -785,11 +785,16 @@ void App::engine_loop()
             m_mouse.x = new_mouse_state.x;
             m_mouse.y = new_mouse_state.y;
 
+            static const int VkMouseButtons[3] = { VK_LBUTTON, VK_MBUTTON, VK_RBUTTON };
+
             for (int i = 0; i < 3; ++i)
             {
-                m_mouse.buttons[i].pressed = !m_mouse.buttons[i].down && new_mouse_state.buttons[i].down;
-                m_mouse.buttons[i].released = m_mouse.buttons[i].down && !new_mouse_state.buttons[i].down;
-                m_mouse.buttons[i].down = new_mouse_state.buttons[i].down;
+                short state = GetAsyncKeyState(VkMouseButtons[i]);
+                bool was_down = m_mouse.buttons[i].down;
+                bool is_down = state & 0x8000;
+                m_mouse.buttons[i].down = is_down;
+                m_mouse.buttons[i].pressed = is_down && !was_down;
+                m_mouse.buttons[i].released = was_down && !is_down;
             }
         }
 
@@ -858,48 +863,6 @@ LRESULT App::window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             _mouse_state.store(state);
             _mouse_active = true;
             return 0;
-        }
-        case WM_LBUTTONDOWN:
-        {
-            MouseState state = _mouse_state.load();
-            state.buttons[0].down = true;
-            _mouse_state.store(state);
-            break;
-        }
-        case WM_MBUTTONDOWN:
-        {
-            MouseState state = _mouse_state.load();
-            state.buttons[1].down = true;
-            _mouse_state.store(state);
-            break;
-        }
-        case WM_RBUTTONDOWN:
-        {
-            MouseState state = _mouse_state.load();
-            state.buttons[2].down = true;
-            _mouse_state.store(state);
-            break;
-        }
-        case WM_LBUTTONUP:
-        {
-            MouseState state = _mouse_state.load();
-            state.buttons[0].down = false;
-            _mouse_state.store(state);
-            break;
-        }
-        case WM_MBUTTONUP:
-        {
-            MouseState state = _mouse_state.load();
-            state.buttons[1].down = false;
-            _mouse_state.store(state);
-            break;
-        }
-        case WM_RBUTTONUP:
-        {
-            MouseState state = _mouse_state.load();
-            state.buttons[2].down = false;
-            _mouse_state.store(state);
-            break;
         }
     }
 
