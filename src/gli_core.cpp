@@ -436,24 +436,21 @@ void App::set_palette(uint32_t rgbx[256])
 {
     for (int p = 0; p < 256; ++p)
     {
-        RGBQUAD entry = {};
-        entry.rgbRed = (rgbx[p] >> 16) & 255;
-        entry.rgbGreen = (rgbx[p] >> 8) & 255;
-        entry.rgbBlue = rgbx[p] & 255;
-        m_palette[p] = entry;
+        m_palette[p] = 0xFF000000 | (rgbx[p] >> 8);
     }
 }
 
 
 void App::set_palette(const uint8_t* palette, int size)
 {
-    RGBQUAD* dest = m_palette;
+    Pixel* dest = m_palette;
 
     for (int p = 0; p < size; p += 3)
     {
-        dest->rgbRed = palette[p];
-        dest->rgbGreen = palette[p + 1];
-        dest->rgbBlue = palette[p + 2];
+        dest->r = palette[p];
+        dest->g = palette[p + 1];
+        dest->b = palette[p + 2];
+        dest->a = 0xFF;
         dest++;
     }
 }
@@ -476,30 +473,41 @@ void App::load_palette(const std::string& path)
 
 void App::clear_screen(uint8_t c)
 {
-    RGBQUAD color = m_palette[c];
+    clear_screen(m_palette[c]);
+}
+
+
+void App::set_pixel(int x, int y, uint8_t p)
+{
+    set_pixel(x, y, m_palette[p]);
+}
+
+
+void App::clear_screen(Pixel p)
+{
     uint8_t* pixel = m_framebuffer;
 
     for (int y = 0; y < m_screen_height; ++y)
     {
         for (int x = 0; x < m_screen_width; ++x)
         {
-            *pixel++ = color.rgbRed;
-            *pixel++ = color.rgbGreen;
-            *pixel++ = color.rgbBlue;
+            pixel[0] = p.r;
+            pixel[1] = p.g;
+            pixel[2] = p.b;
+            pixel += 3;
         }
     }
 }
 
 
-void App::set_pixel(int x, int y, uint8_t p)
+void App::set_pixel(int x, int y, Pixel p)
 {
     if (x >= 0 && x < m_screen_width && y >= 0 && y < m_screen_height)
     {
-        RGBQUAD color = m_palette[p];
         uint8_t* pixel = &m_framebuffer[((y * m_screen_width) + x) * 3];
-        pixel[0] = color.rgbRed;
-        pixel[1] = color.rgbGreen;
-        pixel[2] = color.rgbBlue;
+        pixel[0] = p.r;
+        pixel[1] = p.g;
+        pixel[2] = p.b;
     }
 }
 
@@ -630,7 +638,15 @@ void App::draw_rect(int x, int y, int w, int h, uint8_t c)
 
 void App::fill_rect(int x, int y, int w, int h, int bw, uint8_t fg, uint8_t bg)
 {
-    uint8_t colors[2] = { fg, bg };
+    Pixel pfg = 0xFF000000 | *(uint32_t*)&m_palette[fg];
+    Pixel pbg = 0xFF000000 | *(uint32_t*)&m_palette[bg];
+    fill_rect(x, y, w, h, bw, pfg, pbg);
+}
+
+
+void App::fill_rect(int x, int y, int w, int h, int bw, Pixel fg, Pixel bg)
+{
+    Pixel colors[2] = { fg, bg };
 
     for (int py = 0; py < h; ++py)
     {

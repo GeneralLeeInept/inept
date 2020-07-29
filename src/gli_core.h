@@ -151,6 +151,24 @@ struct KeyEvent
     char ascii_code;
 };
 
+struct Pixel
+{
+    Pixel() = default;
+
+    constexpr Pixel(uint32_t argb)
+    {
+        a = (argb >> 24) & 0xFF;
+        r = (argb >> 16) & 0xFF;
+        g = (argb >> 8) & 0xFF;
+        b = argb & 0xFF;
+    }
+
+    uint8_t b = 0;
+    uint8_t g = 0;
+    uint8_t r = 0;
+    uint8_t a = 0xFF;
+};
+
 class App
 {
 public:
@@ -193,12 +211,16 @@ public:
     void clear_screen(uint8_t c);
     void set_pixel(int x, int y, uint8_t p);
 
+    void clear_screen(Pixel p);
+    void set_pixel(int x, int y, Pixel p);
+
     void draw_line(int x1, int y1, int x2, int y2, uint8_t c);
     void draw_char(int x, int y, char c, const int* glyphs, int w, int h, uint8_t fg, uint8_t bg);
     void draw_string(int x, int y, const char* str, const int* glyphs, int w, int h, uint8_t fg, uint8_t bg);
     void format_string(int x, int y, const int* glyphs, int w, int h, uint8_t fg, uint8_t bg, const char* fmt, ...);
     void draw_rect(int x, int y, int w, int h, uint8_t c);
     void fill_rect(int x, int y, int w, int h, int bw, uint8_t fg, uint8_t bg);
+    void fill_rect(int x, int y, int w, int h, int bw, Pixel fg, Pixel bg);
     void copy_rect(int x, int y, int w, int h, const uint8_t* src, uint32_t stride);
     void copy_rect_scaled(int x, int y, int w, int h, const uint8_t* src, uint32_t stride, int pixel_scale);
 
@@ -214,7 +236,7 @@ private:
     int m_current_keystate = 0;
     uint8_t* m_framebuffer = {};
     wchar_t* m_title = nullptr;
-    RGBQUAD m_palette[256] = {};
+    Pixel m_palette[256] = {};
     KeyState m_keys[Key_Count] = {};
     MouseState m_mouse = {};
     int m_keymap[Key_Count] = {};

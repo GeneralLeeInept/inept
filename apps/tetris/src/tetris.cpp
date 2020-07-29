@@ -75,6 +75,19 @@ class Tetris : public gli::App
         return bitmap;
     }
 
+    static constexpr gli::Pixel palette[10] = {
+            0xFF000000,
+            0xFF2325EF,
+            0xFFE4950B,
+            0xFF1FE40B,
+            0xFFD40BE4,
+            0xFFE4300B,
+            0xFFE4DE0B,
+            0xFF5AD0FF,
+            0xFF9F98A1,
+            0xFFFFFFFF
+    };
+
 public:
     bool on_create() override
     {
@@ -465,7 +478,7 @@ public:
 
                     if (shape & (1 << bit))
                     {
-                        fill_rect(tx, ty, 16, 16, 1, color, 0);
+                        fill_rect(tx, ty, 16, 16, 1, palette[color], 0);
                     }
 
                     tx += 16;
