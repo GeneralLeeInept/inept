@@ -59,6 +59,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\extern\stb\stb_image.h" />
     <ClInclude Include="..\extern\zlib\contrib\minizip\crypt.h" />
     <ClInclude Include="..\extern\zlib\contrib\minizip\ioapi.h" />
     <ClInclude Include="..\extern\zlib\contrib\minizip\iowin32.h" />
@@ -80,6 +81,7 @@
     <ClInclude Include="..\src\gli_opengl.h" />
     <ClInclude Include="..\src\gli_log.h" />
     <ClInclude Include="..\src\gli.h" />
+    <ClInclude Include="..\src\gli_sprite.h" />
     <ClInclude Include="..\src\opengl40\glad.h" />
     <ClInclude Include="..\src\opengl40\khrplatform.h" />
     <ClInclude Include="..\src\wglext.h" />
@@ -125,7 +127,9 @@
     </ClCompile>
     <ClCompile Include="..\src\gli_log.cpp" />
     <ClCompile Include="..\src\gli_opengl.cpp" />
+    <ClCompile Include="..\src\gli_sprite.cpp" />
     <ClCompile Include="..\src\opengl40\glad.c" />
+    <ClCompile Include="..\src\stb_image.cpp" />
     <ClCompile Include="..\src\test_app.cpp" />
   </ItemGroup>
   <ItemGroup>

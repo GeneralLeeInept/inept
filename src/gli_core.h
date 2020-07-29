@@ -169,6 +169,8 @@ struct Pixel
     uint8_t a = 0xFF;
 };
 
+class Sprite;
+
 class App
 {
 public:
@@ -223,6 +225,8 @@ public:
     void fill_rect(int x, int y, int w, int h, int bw, Pixel fg, Pixel bg);
     void copy_rect(int x, int y, int w, int h, const uint8_t* src, uint32_t stride);
     void copy_rect_scaled(int x, int y, int w, int h, const uint8_t* src, uint32_t stride, int pixel_scale);
+    void draw_sprite(int x, int y, const Sprite* sprite);
+    void draw_partial_sprite(int x, int y, const Sprite* sprite, int ox, int oy, int w, int h);
 
 private:
     void shutdown();
@@ -234,7 +238,7 @@ private:
     HWND m_hwnd = NULL;
     short* m_keystate[2] = {};
     int m_current_keystate = 0;
-    uint8_t* m_framebuffer = {};
+    Pixel* m_framebuffer = {};
     wchar_t* m_title = nullptr;
     Pixel m_palette[256] = {};
     KeyState m_keys[Key_Count] = {};

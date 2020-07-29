@@ -2,6 +2,7 @@
 
 #include "gli_log.h"
 #include "gli_opengl.h"
+#include "gli_sprite.h"
 
 #include "opengl40/glad.h"
 
@@ -222,8 +223,7 @@ bool App::initialize(const char* name, int screen_width, int screen_height, int 
     m_keymap[Key_Num_Enter] = VK_RETURN; // TODO - need to handle WM_KEY* and look at lparam to distinguish from other enter key
 
     // Initialise frame buffer
-    size_t buffer_size = size_t(screen_width) * size_t(screen_height) * 3;
-    m_framebuffer = new uint8_t[buffer_size];
+    m_framebuffer = new Pixel[screen_width * screen_height];
 
     // Set default palette
     static uint32_t default_palette[256] = {
@@ -485,16 +485,13 @@ void App::set_pixel(int x, int y, uint8_t p)
 
 void App::clear_screen(Pixel p)
 {
-    uint8_t* pixel = m_framebuffer;
+    Pixel* pixel = m_framebuffer;
 
     for (int y = 0; y < m_screen_height; ++y)
     {
         for (int x = 0; x < m_screen_width; ++x)
         {
-            pixel[0] = p.r;
-            pixel[1] = p.g;
-            pixel[2] = p.b;
-            pixel += 3;
+            *pixel++ = p;
         }
     }
 }
@@ -504,10 +501,7 @@ void App::set_pixel(int x, int y, Pixel p)
 {
     if (x >= 0 && x < m_screen_width && y >= 0 && y < m_screen_height)
     {
-        uint8_t* pixel = &m_framebuffer[((y * m_screen_width) + x) * 3];
-        pixel[0] = p.r;
-        pixel[1] = p.g;
-        pixel[2] = p.b;
+        m_framebuffer[(y * m_screen_width) + x] = p;
     }
 }
 
@@ -706,6 +700,58 @@ void App::copy_rect(int x, int y, int w, int h, const uint8_t* src, uint32_t str
 void App::copy_rect_scaled(int x, int y, int w, int h, const uint8_t* src, uint32_t stride, int pixel_scale) {}
 
 
+void App::draw_sprite(int x, int y, const Sprite* sprite)
+{
+    draw_partial_sprite(x, y, sprite, 0, 0, sprite->width(), sprite->height());
+}
+
+
+void App::draw_partial_sprite(int x, int y, const Sprite* sprite, int ox, int oy, int w, int h)
+{
+    if (x + w < 0 || y + w < 0 || x >= m_screen_width || h >= m_screen_height)
+    {
+        return;
+    }
+
+    if (x < 0)
+    {
+        ox -= x;
+        w += x;
+        x = 0;
+    }
+
+    if (y < 0)
+    {
+        oy -= y;
+        h += y;
+        y = 0;
+    }
+
+    if (x > m_screen_width - w)
+    {
+        w = m_screen_width - x;
+    }
+
+    if (y > m_screen_height - h)
+    {
+        h = m_screen_height - y;
+    }
+
+    if (w >= 0 && h >= 0)
+    {
+        Pixel* src = sprite->pixels() + ox + (oy * sprite->width());
+        Pixel* dest = m_framebuffer + x + (y * m_screen_width);
+
+        while (h--)
+        {
+            memcpy(dest, src, sizeof(Pixel) * w);
+            src += sprite->width();
+            dest += m_screen_width;
+        }
+    }
+}
+
+
 void App::shutdown()
 {
     glDeleteTextures(1, &_texture);
@@ -823,7 +869,7 @@ void App::engine_loop()
         // Present
         _opengl.begin_frame();
         glBindTexture(GL_TEXTURE_2D, _texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_screen_width, m_screen_height, 0, GL_RGB, GL_UNSIGNED_BYTE, m_framebuffer);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_screen_width, m_screen_height, 0, GL_BGRA, GL_UNSIGNED_BYTE, m_framebuffer);
         glUseProgram(_shader_program);
         glBindVertexArray(_vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);

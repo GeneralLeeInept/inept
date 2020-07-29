@@ -2,6 +2,8 @@
 
 #include "vga9.h"
 
+#include <memory>
+
 class Tetris : public gli::App
 {
     /*
@@ -75,18 +77,7 @@ class Tetris : public gli::App
         return bitmap;
     }
 
-    static constexpr gli::Pixel palette[10] = {
-            0xFF000000,
-            0xFF2325EF,
-            0xFFE4950B,
-            0xFF1FE40B,
-            0xFFD40BE4,
-            0xFFE4300B,
-            0xFFE4DE0B,
-            0xFF5AD0FF,
-            0xFF9F98A1,
-            0xFFFFFFFF
-    };
+    std::unique_ptr<gli::Sprite> m_sprite;
 
 public:
     bool on_create() override
@@ -104,181 +95,173 @@ public:
             m_playfield[x + 40 * 12] = 8;
         }
 
-        uint8_t palette[] = {
-            0x00, 0x00, 0x00,
-            0x23, 0x25, 0xEF,
-            0xE4, 0x95, 0x0B,
-            0x1F, 0xE4, 0x0B,
-            0xD4, 0x0B, 0xE4,
-            0xE4, 0x30, 0x0B,
-            0xE4, 0xDE, 0x0B,
-            0x5A, 0xD0, 0xFF,
-            0x9F, 0x98, 0xA1,
-            0xFF, 0xFF, 0xFF
-        };
-
-        set_palette(palette, sizeof(palette));
-
         // J
-        m_tetronimos[0].shape[0] = generate_tetronimo_shape(
-                "#..."
-                "###."
-                "...."
-                "....");
-        m_tetronimos[0].shape[1] = generate_tetronimo_shape(
-                ".##."
-                ".#.."
-                ".#.."
-                "....");
-        m_tetronimos[0].shape[2] = generate_tetronimo_shape(
-                "...."
-                "###."
-                "..#."
-                "....");
-        m_tetronimos[0].shape[3] = generate_tetronimo_shape(
-                ".#.."
-                ".#.."
-                "##.."
-                "....");
-        m_tetronimos[0].kick_table = &kick_table_jlstz;
-
-        // L
         m_tetronimos[1].shape[0] = generate_tetronimo_shape(
-                "..#."
+                "#..."
                 "###."
                 "...."
                 "....");
         m_tetronimos[1].shape[1] = generate_tetronimo_shape(
-                ".#.."
-                ".#.."
                 ".##."
+                ".#.."
+                ".#.."
                 "....");
         m_tetronimos[1].shape[2] = generate_tetronimo_shape(
                 "...."
                 "###."
-                "#..."
+                "..#."
                 "....");
         m_tetronimos[1].shape[3] = generate_tetronimo_shape(
+                ".#.."
+                ".#.."
                 "##.."
-                ".#.."
-                ".#.."
                 "....");
         m_tetronimos[1].kick_table = &kick_table_jlstz;
 
-        // S
+        // L
         m_tetronimos[2].shape[0] = generate_tetronimo_shape(
-                ".##."
-                "##.."
+                "..#."
+                "###."
                 "...."
                 "....");
         m_tetronimos[2].shape[1] = generate_tetronimo_shape(
                 ".#.."
+                ".#.."
                 ".##."
-                "..#."
                 "....");
         m_tetronimos[2].shape[2] = generate_tetronimo_shape(
                 "...."
-                ".##."
-                "##.."
+                "###."
+                "#..."
                 "....");
         m_tetronimos[2].shape[3] = generate_tetronimo_shape(
-                "#..."
                 "##.."
+                ".#.."
                 ".#.."
                 "....");
         m_tetronimos[2].kick_table = &kick_table_jlstz;
 
-        // T
-        m_tetronimos[3].shape[0] = generate_tetronimo_shape(
-                ".#.."
-                "###."
-                "...."
-                "....");
-        m_tetronimos[3].shape[1] = generate_tetronimo_shape(
-                ".#.."
-                ".##."
-                ".#.."
-                "....");
-        m_tetronimos[3].shape[2] = generate_tetronimo_shape(
-                "...."
-                "###."
-                ".#.."
-                "....");
-        m_tetronimos[3].shape[3] = generate_tetronimo_shape(
-                ".#.."
-                "##.."
-                ".#.."
-                "....");
-        m_tetronimos[3].kick_table = &kick_table_jlstz;
-
-        // Z
+        // S
         m_tetronimos[4].shape[0] = generate_tetronimo_shape(
-                "##.."
                 ".##."
+                "##.."
                 "...."
                 "....");
         m_tetronimos[4].shape[1] = generate_tetronimo_shape(
-                "..#."
-                ".##."
                 ".#.."
+                ".##."
+                "..#."
                 "....");
         m_tetronimos[4].shape[2] = generate_tetronimo_shape(
                 "...."
-                "##.."
                 ".##."
+                "##.."
                 "....");
         m_tetronimos[4].shape[3] = generate_tetronimo_shape(
-                ".#.."
-                "##.."
                 "#..."
+                "##.."
+                ".#.."
                 "....");
         m_tetronimos[4].kick_table = &kick_table_jlstz;
 
-        // O
-        m_tetronimos[5].shape[0] = generate_tetronimo_shape(
+        // T
+        m_tetronimos[6].shape[0] = generate_tetronimo_shape(
+                ".#.."
+                "###."
+                "...."
+                "....");
+        m_tetronimos[6].shape[1] = generate_tetronimo_shape(
+                ".#.."
                 ".##."
+                ".#.."
+                "....");
+        m_tetronimos[6].shape[2] = generate_tetronimo_shape(
+                "...."
+                "###."
+                ".#.."
+                "....");
+        m_tetronimos[6].shape[3] = generate_tetronimo_shape(
+                ".#.."
+                "##.."
+                ".#.."
+                "....");
+        m_tetronimos[6].kick_table = &kick_table_jlstz;
+
+        // Z
+        m_tetronimos[5].shape[0] = generate_tetronimo_shape(
+                "##.."
                 ".##."
                 "...."
                 "....");
         m_tetronimos[5].shape[1] = generate_tetronimo_shape(
+                "..#."
                 ".##."
-                ".##."
-                "...."
+                ".#.."
                 "....");
         m_tetronimos[5].shape[2] = generate_tetronimo_shape(
-                ".##."
-                ".##."
                 "...."
+                "##.."
+                ".##."
                 "....");
         m_tetronimos[5].shape[3] = generate_tetronimo_shape(
+                ".#.."
+                "##.."
+                "#..."
+                "....");
+        m_tetronimos[5].kick_table = &kick_table_jlstz;
+
+        // O
+        m_tetronimos[3].shape[0] = generate_tetronimo_shape(
                 ".##."
                 ".##."
                 "...."
                 "....");
-        m_tetronimos[5].kick_table = &kick_table_o;
+        m_tetronimos[3].shape[1] = generate_tetronimo_shape(
+                ".##."
+                ".##."
+                "...."
+                "....");
+        m_tetronimos[3].shape[2] = generate_tetronimo_shape(
+                ".##."
+                ".##."
+                "...."
+                "....");
+        m_tetronimos[3].shape[3] = generate_tetronimo_shape(
+                ".##."
+                ".##."
+                "...."
+                "....");
+        m_tetronimos[3].kick_table = &kick_table_o;
 
         // I
-        m_tetronimos[6].shape[0] = generate_tetronimo_shape(
+        m_tetronimos[0].shape[0] = generate_tetronimo_shape(
                 "...."
                 "####"
                 "...."
                 "....");
-        m_tetronimos[6].shape[1] = generate_tetronimo_shape(
+        m_tetronimos[0].shape[1] = generate_tetronimo_shape(
                 "..#."
                 "..#."
                 "..#."
                 "..#.");
-        m_tetronimos[6].shape[2] = generate_tetronimo_shape(
+        m_tetronimos[0].shape[2] = generate_tetronimo_shape(
                 "...."
                 "...."
                 "####"
                 "....");
-        m_tetronimos[6].shape[3] = generate_tetronimo_shape(
+        m_tetronimos[0].shape[3] = generate_tetronimo_shape(
                 ".#.."
                 ".#.."
                 ".#.."
                 ".#..");
-        m_tetronimos[6].kick_table = &kick_table_i;
+        m_tetronimos[0].kick_table = &kick_table_i;
+
+        m_sprite = std::make_unique<gli::Sprite>();
+
+        if (!m_sprite->load("res/tetronimos.png"))
+        {
+            return false;
+        }
 
         return true;
     }
@@ -453,7 +436,13 @@ public:
 
                 for (int x = 0; x < 12; ++x)
                 {
-                    fill_rect(tx, ty, 16, 16, 1, m_playfield[x + y * 12], 0);
+                    int ox = (m_playfield[x + y * 12] - 1) * 16;
+
+                    if (ox >= 0)
+                    {
+                        draw_partial_sprite(tx, ty, m_sprite.get(), ox, 0, 16, 16);
+                    }
+
                     tx += 16;
                 }
 
@@ -465,7 +454,7 @@ public:
         {
             const Tetronimo* tetronimo = &m_tetronimos[m_tetronimo - 1];
             uint16_t shape = tetronimo->shape[m_tetr];
-            uint8_t color = m_tetronimo;
+            int ox = (m_tetronimo - 1) * 16;
             int ty = (m_tety - 20) * 16;
 
             for (int y = 0; y < 4; ++y)
@@ -478,7 +467,7 @@ public:
 
                     if (shape & (1 << bit))
                     {
-                        fill_rect(tx, ty, 16, 16, 1, palette[color], 0);
+                        draw_partial_sprite(tx, ty, m_sprite.get(), ox, 0, 16, 16);
                     }
 
                     tx += 16;
