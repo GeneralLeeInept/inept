@@ -2,4 +2,4 @@ Added zlib 1.2.11 subtree -
 git subtree add --prefix extern/zlib https://github.com/madler/zlib.git v1.2.11 --squash
 
 Added stb -
-git subtree add --prefix extern/stb https://github.com/nothings/stb.git --squash
+git subtree add --prefix extern/stb https://github.com/nothings/stb.git master --squash
