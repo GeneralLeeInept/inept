@@ -219,6 +219,7 @@ public:
     void draw_line(int x1, int y1, int x2, int y2, uint8_t c);
     void draw_char(int x, int y, char c, const int* glyphs, int w, int h, uint8_t fg, uint8_t bg);
     void draw_string(int x, int y, const char* str, const int* glyphs, int w, int h, uint8_t fg, uint8_t bg);
+    void draw_string(int x, int y, const char* str, const int* glyphs, int w, int h, Pixel fg, Pixel bg);
     void format_string(int x, int y, const int* glyphs, int w, int h, uint8_t fg, uint8_t bg, const char* fmt, ...);
     void draw_rect(int x, int y, int w, int h, uint8_t c);
     void fill_rect(int x, int y, int w, int h, int bw, uint8_t fg, uint8_t bg);

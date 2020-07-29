@@ -419,7 +419,8 @@ void App::process_key_events(KeyEventHandler handler)
             keypress.key = Key(i);
         }
     }
-} // namespace gli
+}
+
 
 int App::screen_width()
 {
@@ -571,7 +572,13 @@ void App::draw_char(int x, int y, char c, const int* glyphs, int w, int h, uint8
 
 void App::draw_string(int x, int y, const char* str, const int* glyphs, int w, int h, uint8_t fg, uint8_t bg)
 {
-    uint8_t colors[2] = { bg, fg };
+    draw_string(x, y, str, glyphs, w, h, m_palette[fg], m_palette[bg]);
+}
+
+
+void App::draw_string(int x, int y, const char* str, const int* glyphs, int w, int h, Pixel fg, Pixel bg)
+{
+    Pixel colors[2] = { bg, fg };
 
     for (const char* c = str; *c; ++c)
     {
