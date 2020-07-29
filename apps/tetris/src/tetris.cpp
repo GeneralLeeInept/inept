@@ -375,6 +375,7 @@ public:
         return true;
     }
 
+
     void add_to_playfield(int t, int tx, int ty, int r)
     {
         const Tetronimo* tetronimo = &m_tetronimos[t - 1];
