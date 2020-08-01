@@ -11,9 +11,21 @@
     <ClInclude Include="..\res\targetver.h">
       <Filter>res</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\gs_play.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\igamestate.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\tetris.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\tetris.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gs_play.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
