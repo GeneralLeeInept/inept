@@ -3,11 +3,9 @@
 #include "tetris.h"
 #include "vga9.h"
 
-bool GameStatePlay::on_init(Tetris* app)
+bool GsPlay::on_init(Tetris* app)
 {
     m_app = app;
-
-    memset(m_playfield, 0, sizeof(m_playfield));
 
     // J
     m_tetronimos[1].shape[0] = generate_tetronimo_shape(
@@ -177,50 +175,61 @@ bool GameStatePlay::on_init(Tetris* app)
         return false;
     }
 
+    int screen_tiles_w = m_app->screen_width() / s_tile_size;
+    int screen_tiles_h = m_app->screen_height() / s_tile_size;
+    m_playfield_screen_min.x = ((screen_tiles_w - s_playfield_width) / 2) * s_tile_size;
+    m_playfield_screen_min.y = ((screen_tiles_h - s_visible_rows) / 2) * s_tile_size;
+    m_playfield_screen_max.x = m_playfield_screen_min.x + s_playfield_width * s_tile_size;
+    m_playfield_screen_max.y = m_playfield_screen_min.y + s_visible_rows * s_tile_size;
+
     m_random_generator.seed(m_random_device());
     return true;
 }
 
 
-void GameStatePlay::on_destroy()
+void GsPlay::on_destroy()
 {
 }
 
 
-bool GameStatePlay::on_enter()
+bool GsPlay::on_enter()
 {
     refill_bag(true);
-
+    memset(m_playfield, 0, sizeof(m_playfield));
     m_tetronimo = 0;
     m_tetx = 3;
     m_tety = s_buffer_bottom + 1;
     m_tetr = 0;
     m_drop_timer = 0.5f;
     m_move_timer = 0.0f;
+    m_game_over = false;
     return true;
 }
 
 
-bool GameStatePlay::on_exit()
-{
-    return false;
-}
-
-
-void GameStatePlay::on_suspend()
+void GsPlay::on_exit()
 {
 }
 
 
-void GameStatePlay::on_resume()
+void GsPlay::on_suspend()
 {
 }
 
 
-bool GameStatePlay::on_update(float delta)
+void GsPlay::on_resume()
+{
+}
+
+
+bool GsPlay::on_update(float delta)
 {
     if (m_game_over)
     {
+        if (m_app->key_state(gli::Key::Key_Escape).released)
+        {
+            m_app->set_next_state(Tetris::GS_FRONTEND);
+        }
     }
     else
     {
@@ -266,22 +275,26 @@ bool GameStatePlay::on_update(float delta)
                 m_move_timer = 0.0f;
             }
 
-            if (m_app->key_state(gli::Key_A).pressed || (m_app->key_state(gli::Key_A).down && m_move_timer <= 0.0f))
+            if (m_app->key_state(gli::Key_Space).pressed)
+            {
+                hard_drop();
+            }
+            else if (m_app->key_state(gli::Key_A).pressed || (m_app->key_state(gli::Key_A).down && m_move_timer <= 0.0f))
             {
                 attempt_move(-1, 0);
                 m_move_timer = 0.2f;
             }
-            if (m_app->key_state(gli::Key_D).pressed || (m_app->key_state(gli::Key_D).down && m_move_timer <= 0.0f))
+            else if (m_app->key_state(gli::Key_D).pressed || (m_app->key_state(gli::Key_D).down && m_move_timer <= 0.0f))
             {
                 attempt_move(1, 0);
                 m_move_timer = 0.2f;
             }
-            if (m_app->key_state(gli::Key_Left).pressed || (m_app->key_state(gli::Key_Left).down && m_move_timer <= 0.0f))
+            else if (m_app->key_state(gli::Key_Left).pressed || (m_app->key_state(gli::Key_Left).down && m_move_timer <= 0.0f))
             {
                 attempt_rotation(-1);
                 m_move_timer = 0.2f;
             }
-            if (m_app->key_state(gli::Key_Right).pressed || (m_app->key_state(gli::Key_Right).down && m_move_timer <= 0.0f))
+            else if (m_app->key_state(gli::Key_Right).pressed || (m_app->key_state(gli::Key_Right).down && m_move_timer <= 0.0f))
             {
                 attempt_rotation(1);
                 m_move_timer = 0.2f;
@@ -292,28 +305,22 @@ bool GameStatePlay::on_update(float delta)
     m_app->clear_screen(0);
 
     {
-        int sy = 0;
-
         for (int y = 0; y < s_visible_rows; ++y)
         {
-            int sx = s_tile_size;
-
             for (int x = 0; x < s_playfield_width; ++x)
             {
-                V2i pf_pos = screen_to_playfield({ sx, sy });
+                V2i pf_pos{ x, y };
+                V2i tile_pos = playfield_to_screen(pf_pos);
                 int ox = read_playfield(pf_pos) * s_tile_size;
 
                 if (ox >= 0)
                 {
-                    m_app->draw_partial_sprite(sx, sy, m_sprite.get(), ox, 0, s_tile_size, s_tile_size);
+                    m_app->draw_partial_sprite(tile_pos.x, tile_pos.y, m_sprite.get(), ox, 0, s_tile_size, s_tile_size);
                 }
-
-                sx += s_tile_size;
             }
-
-            sy += s_tile_size;
         }
 
+        #if 0
         int ox = s_border_index * s_tile_size;
         sy = 0;
 
@@ -332,6 +339,7 @@ bool GameStatePlay::on_update(float delta)
             m_app->draw_partial_sprite(sx, sy, m_sprite.get(), ox, 0, s_tile_size, s_tile_size);
             sx += s_tile_size;
         }
+        #endif
     }
 
     if (m_tetronimo)
@@ -350,17 +358,19 @@ bool GameStatePlay::on_update(float delta)
         if (ghost_y != m_tety)
         {
             screen_pos = playfield_to_screen({ m_tetx, ghost_y });
-            draw_tetronimo(screen_pos.x, screen_pos.y, m_tetronimo, m_tetr, true);
+            draw_tetronimo(screen_pos.x, screen_pos.y, m_tetronimo, m_tetr, true, true);
         }
 
         screen_pos = playfield_to_screen({ m_tetx, m_tety });
-        draw_tetronimo(screen_pos.x, screen_pos.y, m_tetronimo, m_tetr, false);
+        draw_tetronimo(screen_pos.x, screen_pos.y, m_tetronimo, m_tetr, true, false);
     }
 
+    #if 0
     for (int i = 0; i < 5; ++i)
     {
-        draw_tetronimo(13 * 16, (i * 4 + 1) * 16, peek_bag(i), 0, i > 0);
+        draw_tetronimo(13 * 16, (i * 4 + 1) * 16, peek_bag(i), 0, false, false);
     }
+    #endif
 
     if (m_game_over)
     {
@@ -374,7 +384,7 @@ bool GameStatePlay::on_update(float delta)
 }
 
 
-uint16_t GameStatePlay::generate_tetronimo_shape(const char* desc)
+uint16_t GsPlay::generate_tetronimo_shape(const char* desc)
 {
     uint16_t bitmap = 0;
 
@@ -387,7 +397,7 @@ uint16_t GameStatePlay::generate_tetronimo_shape(const char* desc)
 }
 
 
-void GameStatePlay::refill_bag(bool initial)
+void GsPlay::refill_bag(bool initial)
 {
     std::uniform_int_distribution<> distribution;
 
@@ -426,7 +436,7 @@ void GameStatePlay::refill_bag(bool initial)
 }
 
 
-uint8_t GameStatePlay::next_tetronimo()
+uint8_t GsPlay::next_tetronimo()
 {
     uint8_t t = m_bag[(m_bag_read_ptr++) & 0xF];
 
@@ -439,13 +449,13 @@ uint8_t GameStatePlay::next_tetronimo()
 }
 
 
-uint8_t GameStatePlay::peek_bag(uint8_t index)
+uint8_t GsPlay::peek_bag(uint8_t index)
 {
     return m_bag[(m_bag_read_ptr + index) & 0xF] + 1;
 }
 
 
-bool GameStatePlay::fits(uint16_t shape, int tx, int ty)
+bool GsPlay::fits(uint16_t shape, int tx, int ty)
 {
     int by = ty;
 
@@ -480,7 +490,7 @@ bool GameStatePlay::fits(uint16_t shape, int tx, int ty)
 }
 
 
-void GameStatePlay::add_to_playfield(int t, int tx, int ty, int r)
+void GsPlay::add_to_playfield(int t, int tx, int ty, int r)
 {
     const Tetronimo* tetronimo = &m_tetronimos[t - 1];
     uint16_t shape = tetronimo->shape[r];
@@ -507,7 +517,7 @@ void GameStatePlay::add_to_playfield(int t, int tx, int ty, int r)
 }
 
 
-bool GameStatePlay::remove_full_row()
+bool GsPlay::remove_full_row()
 {
     int full_rows = 0;
 
@@ -539,25 +549,25 @@ bool GameStatePlay::remove_full_row()
 }
 
 
-V2i GameStatePlay::playfield_to_screen(const V2i& pf_pos)
+V2i GsPlay::playfield_to_screen(const V2i& pf_pos)
 {
     V2i screen_pos;
-    screen_pos.x = (pf_pos.x + 1) * s_tile_size;
-    screen_pos.y = (s_visible_rows - pf_pos.y - 1) * s_tile_size;
+    screen_pos.x = pf_pos.x * s_tile_size + m_playfield_screen_min.x;
+    screen_pos.y = (s_visible_rows - 1 - pf_pos.y) * s_tile_size + m_playfield_screen_min.y;
     return screen_pos;
 }
 
 
-V2i GameStatePlay::screen_to_playfield(const V2i& screen_pos)
+V2i GsPlay::screen_to_playfield(const V2i& screen_pos)
 {
     V2i pf_pos;
-    pf_pos.x = (screen_pos.x / s_tile_size) - 1;
-    pf_pos.y = s_visible_rows - (screen_pos.y / s_tile_size) - 1;
+    pf_pos.x = (screen_pos.x - m_playfield_screen_min.x) / s_tile_size;
+    pf_pos.y = ((m_playfield_screen_min.y - screen_pos.y) / s_tile_size) + (s_visible_rows - 1);
     return pf_pos;
 }
 
 
-uint8_t GameStatePlay::read_playfield(const V2i& pf_pos)
+uint8_t GsPlay::read_playfield(const V2i& pf_pos)
 {
     uint8_t p = 0;
 
@@ -570,7 +580,7 @@ uint8_t GameStatePlay::read_playfield(const V2i& pf_pos)
 }
 
 
-bool GameStatePlay::attempt_rotation(int dir)
+bool GsPlay::attempt_rotation(int dir)
 {
     int target_r = (m_tetr + dir) & 3;
     const Tetronimo* tetronimo = &m_tetronimos[m_tetronimo - 1];
@@ -596,7 +606,7 @@ bool GameStatePlay::attempt_rotation(int dir)
 }
 
 
-bool GameStatePlay::attempt_move(int dx, int dy)
+bool GsPlay::attempt_move(int dx, int dy)
 {
     const Tetronimo* tetronimo = &m_tetronimos[m_tetronimo - 1];
     uint16_t shape = tetronimo->shape[m_tetr];
@@ -612,29 +622,49 @@ bool GameStatePlay::attempt_move(int dx, int dy)
 }
 
 
-void GameStatePlay::draw_tetronimo(int x, int y, int t, int r, bool ghost)
+void GsPlay::hard_drop()
+{
+    const Tetronimo* tetronimo = &m_tetronimos[m_tetronimo - 1];
+    uint16_t shape = tetronimo->shape[m_tetr];
+
+    while (fits(shape, m_tetx, m_tety - 1))
+    {
+        m_tety -= 1;
+    }
+    
+    add_to_playfield(m_tetronimo, m_tetx, m_tety, m_tetr);
+}
+
+
+void GsPlay::draw_tetronimo(int x, int y, int t, int r, bool clip_to_payfield, bool ghost)
 {
     const Tetronimo* tetronimo = &m_tetronimos[t - 1];
     uint16_t shape = tetronimo->shape[r];
     int ox = (ghost ? s_ghost_index : t) * s_tile_size;
     int ty = y;
 
-    for (int y = 0; y < 4; ++y)
+    for (int y = 0; y < 4; ++y, ty += s_tile_size)
     {
+        if (clip_to_payfield && (ty < m_playfield_screen_min.y || ty >= m_playfield_screen_max.y))
+        {
+            continue;
+        }
+
         int tx = x;
 
-        for (int x = 0; x < 4; ++x)
+        for (int x = 0; x < 4; ++x, tx += s_tile_size)
         {
+            if (clip_to_payfield && (tx < m_playfield_screen_min.x || tx >= m_playfield_screen_max.x))
+            {
+                continue;
+            }
+
             int bit = x + y * 4;
 
             if (shape & (1 << bit))
             {
                 m_app->draw_partial_sprite(tx, ty, m_sprite.get(), ox, 0, s_tile_size, s_tile_size);
             }
-
-            tx += s_tile_size;
         }
-
-        ty += s_tile_size;
     }
 }

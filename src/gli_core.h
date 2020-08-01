@@ -196,6 +196,7 @@ public:
 
     bool initialize(const char* name, int screen_width_, int screen_height_, int window_scale);
     void run();
+    void quit();
 
     int screen_width();
     int screen_height();

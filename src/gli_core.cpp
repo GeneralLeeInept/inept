@@ -347,6 +347,12 @@ void App::run()
 }
 
 
+void App::quit()
+{
+    _quit = true;
+}
+
+
 const App::KeyState& App::key_state(Key key)
 {
     return m_keys[key];
@@ -417,6 +423,7 @@ void App::process_key_events(KeyEventHandler handler)
             KeyEvent keypress{};
             keypress.event = Released;
             keypress.key = Key(i);
+            handler(keypress);
         }
     }
 }

@@ -20,12 +20,18 @@
     <ClInclude Include="..\src\tetris.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\gs_frontend.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\tetris.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\gs_play.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gs_frontend.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

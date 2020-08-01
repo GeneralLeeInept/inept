@@ -17,7 +17,7 @@ public:
     virtual bool on_enter() = 0;
 
     // Called when the gamestate is no longer the active gamestate
-    virtual bool on_exit() = 0;
+    virtual void on_exit() = 0;
 
     // Called when the application is suspended and the gamestate is active
     virtual void on_suspend() = 0;

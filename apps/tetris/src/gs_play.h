@@ -14,14 +14,14 @@ struct V2i
 };
 
 
-class GameStatePlay : public IGameState
+class GsPlay : public IGameState
 {
 public:
     // IGameState
     bool on_init(Tetris* app) override;
     void on_destroy() override;
     bool on_enter() override;
-    bool on_exit() override;
+    void on_exit() override;
     void on_suspend() override;
     void on_resume() override;
     bool on_update(float delta) override;
@@ -128,8 +128,9 @@ private:
     int m_tetx;
     int m_tety;
     int m_tetr;
-    bool m_game_over = false;
-
+    bool m_game_over;
+    V2i m_playfield_screen_min;
+    V2i m_playfield_screen_max;
 
     uint16_t generate_tetronimo_shape(const char* desc);
     void refill_bag(bool initial);
@@ -143,5 +144,6 @@ private:
     uint8_t read_playfield(const V2i& pf_pos);
     bool attempt_rotation(int dir);
     bool attempt_move(int dx, int dy);
-    void draw_tetronimo(int x, int y, int t, int r, bool ghost);
+    void hard_drop();
+    void draw_tetronimo(int x, int y, int t, int r, bool clip_to_payfield, bool ghost);
 };

@@ -61,11 +61,13 @@
   <ItemGroup>
     <ClInclude Include="..\res\Resource.h" />
     <ClInclude Include="..\res\targetver.h" />
+    <ClInclude Include="..\src\gs_frontend.h" />
     <ClInclude Include="..\src\gs_play.h" />
     <ClInclude Include="..\src\igamestate.h" />
     <ClInclude Include="..\src\tetris.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\gs_frontend.cpp" />
     <ClCompile Include="..\src\gs_play.cpp" />
     <ClCompile Include="..\src\tetris.cpp" />
   </ItemGroup>
