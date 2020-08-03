@@ -125,12 +125,16 @@ private:
     std::random_device m_random_device;
     std::mt19937 m_random_generator;
     int m_tetronimo;
+    int m_tetronimo_held;
     int m_tetx;
     int m_tety;
     int m_tetr;
     bool m_game_over;
     V2i m_playfield_screen_min;
     V2i m_playfield_screen_max;
+    int m_lines;
+    int m_level;
+    float m_gamespeed;
 
     uint16_t generate_tetronimo_shape(const char* desc);
     void refill_bag(bool initial);
@@ -146,4 +150,5 @@ private:
     bool attempt_move(int dx, int dy);
     void hard_drop();
     void draw_tetronimo(int x, int y, int t, int r, bool clip_to_payfield, bool ghost);
+    void hold();
 };

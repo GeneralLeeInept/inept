@@ -628,6 +628,30 @@ void App::format_string(int x, int y, const int* glyphs, int w, int h, uint8_t f
 }
 
 
+void App::format_string(int x, int y, const int* glyphs, int w, int h, Pixel fg, Pixel bg, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(nullptr, 0, fmt, args) + 1;
+    va_end(args);
+
+    char* buf = (char*)_malloca(len);
+
+    if (!buf)
+    {
+        return;
+    }
+
+    va_start(args, fmt);
+    vsnprintf(buf, len, fmt, args);
+    va_end(args);
+
+    draw_string(x, y, buf, glyphs, w, h, fg, bg);
+
+    _freea(buf);
+}
+
+
 void App::draw_rect(int x, int y, int w, int h, uint8_t c)
 {
     for (int px = 0; px < w; ++px)

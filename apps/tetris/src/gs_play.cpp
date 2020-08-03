@@ -197,12 +197,17 @@ bool GsPlay::on_enter()
     refill_bag(true);
     memset(m_playfield, 0, sizeof(m_playfield));
     m_tetronimo = 0;
+    m_tetronimo_held = 0;
     m_tetx = 3;
     m_tety = s_buffer_bottom + 1;
     m_tetr = 0;
-    m_drop_timer = 0.5f;
+    m_drop_timer = 0.0f;
     m_move_timer = 0.0f;
     m_game_over = false;
+    m_lines = 0;
+    m_level = 0;
+    m_gamespeed = powf(0.8f - (m_level * 0.007f), m_level);
+
     return true;
 }
 
@@ -233,11 +238,14 @@ bool GsPlay::on_update(float delta)
     }
     else
     {
-        m_drop_timer -= delta;
+        m_drop_timer += delta;
 
-        if (m_drop_timer <= 0.0f)
+        int level = m_lines / 10;
+        float speed = powf(0.8f - (level * 0.007f), level);
+
+        if (m_drop_timer >= speed)
         {
-            m_drop_timer += 0.5f;
+            m_drop_timer -= speed;
 
             if (m_tetronimo)
             {
@@ -299,6 +307,10 @@ bool GsPlay::on_update(float delta)
                 attempt_rotation(1);
                 m_move_timer = 0.2f;
             }
+            else if (m_app->key_state(gli::Key_C).pressed)
+            {
+                hold();
+            }
         }
     }
 
@@ -320,26 +332,23 @@ bool GsPlay::on_update(float delta)
             }
         }
 
-        #if 0
         int ox = s_border_index * s_tile_size;
-        sy = 0;
+        int sy = m_playfield_screen_min.y;
 
-        for (int y = 0; y <= s_visible_rows; ++y)
+        for (int y = 0; y < s_visible_rows; ++y)
         {
-            m_app->draw_partial_sprite(0, sy, m_sprite.get(), ox, 0, s_tile_size, s_tile_size);
-            m_app->draw_partial_sprite(s_tile_size * (s_playfield_width + 1), sy, m_sprite.get(), ox, 0, s_tile_size, s_tile_size);
+            m_app->draw_partial_sprite(m_playfield_screen_min.x - s_tile_size, sy, m_sprite.get(), ox, 0, s_tile_size, s_tile_size);
+            m_app->draw_partial_sprite(m_playfield_screen_max.x, sy, m_sprite.get(), ox, 0, s_tile_size, s_tile_size);
             sy += s_tile_size;
         }
 
-        int sx = s_tile_size;
-        sy = s_tile_size * s_visible_rows;
+        int sx = m_playfield_screen_min.x - s_tile_size;
 
-        for (int x = 0; x < s_playfield_width; ++x)
+        for (int x = 0; x < s_playfield_width + 2; ++x)
         {
             m_app->draw_partial_sprite(sx, sy, m_sprite.get(), ox, 0, s_tile_size, s_tile_size);
             sx += s_tile_size;
         }
-        #endif
     }
 
     if (m_tetronimo)
@@ -365,19 +374,30 @@ bool GsPlay::on_update(float delta)
         draw_tetronimo(screen_pos.x, screen_pos.y, m_tetronimo, m_tetr, true, false);
     }
 
-    #if 0
     for (int i = 0; i < 5; ++i)
     {
-        draw_tetronimo(13 * 16, (i * 4 + 1) * 16, peek_bag(i), 0, false, false);
+        draw_tetronimo(m_playfield_screen_max.x + s_tile_size * 3, m_playfield_screen_min.y + (i * 4) * s_tile_size, peek_bag(i), 0, false, (i > 0));
     }
-    #endif
+
+    if (m_tetronimo_held)
+    {
+        draw_tetronimo(m_playfield_screen_min.x - s_tile_size * 7, m_playfield_screen_min.y, m_tetronimo_held, 0, false, false);
+    }
+
+    m_app->draw_string(m_playfield_screen_min.x - s_tile_size * 9, m_playfield_screen_max.y - 64, "LEVEL:", vga9_glyphs, vga9_glyph_width,
+                       vga9_glyph_height, gli::Pixel(0xFFFFFFFF), gli::Pixel(0xFF000000));
+    m_app->format_string(m_playfield_screen_min.x - s_tile_size * 9, m_playfield_screen_max.y - 48, vga9_glyphs, vga9_glyph_width, vga9_glyph_height,
+                       gli::Pixel(0xFFFFFFFF), gli::Pixel(0xFF000000), "%-5d", m_level + 1);
+    m_app->draw_string(m_playfield_screen_min.x - s_tile_size * 9, m_playfield_screen_max.y - 32, "LINES:", vga9_glyphs, vga9_glyph_width,
+                       vga9_glyph_height, gli::Pixel(0xFFFFFFFF), gli::Pixel(0xFF000000));
+    m_app->format_string(m_playfield_screen_min.x - s_tile_size * 9, m_playfield_screen_max.y - 16, vga9_glyphs, vga9_glyph_width, vga9_glyph_height,
+                         gli::Pixel(0xFFFFFFFF), gli::Pixel(0xFF000000), "%d", m_lines);
 
     if (m_game_over)
     {
         m_app->fill_rect(0, (m_app->screen_height() - 32) / 2, m_app->screen_width(), 32, 0, gli::Pixel(0xFF000000U), gli::Pixel(0xFF000000U));
         m_app->draw_string((m_app->screen_width() - 81) / 2, (m_app->screen_height() - 16) / 2, "GAME OVER", vga9_glyphs, vga9_glyph_width,
-                           vga9_glyph_height,
-                    gli::Pixel(0xFFFFFFFFU), gli::Pixel(0xFF000000U));
+            vga9_glyph_height, gli::Pixel(0xFFFFFFFFU), gli::Pixel(0xFF000000U));
     }
 
     return true;
@@ -541,6 +561,9 @@ bool GsPlay::remove_full_row()
                 memcpy(&m_playfield[j * s_playfield_width], &m_playfield[(j + 1) * s_playfield_width], s_playfield_width * sizeof(m_playfield[0]));
             }
             memset(&m_playfield[(s_playfield_height - 1) * s_playfield_width], 0, s_playfield_width * sizeof(m_playfield[0]));
+            m_lines++;
+            m_level = m_lines / 10;
+            m_gamespeed = powf(0.8f - (m_level * 0.007f), m_level);
             return true;
         }
     }
@@ -631,7 +654,7 @@ void GsPlay::hard_drop()
     {
         m_tety -= 1;
     }
-    
+
     add_to_playfield(m_tetronimo, m_tetx, m_tety, m_tetr);
 }
 
@@ -667,4 +690,12 @@ void GsPlay::draw_tetronimo(int x, int y, int t, int r, bool clip_to_payfield, b
             }
         }
     }
+}
+
+void GsPlay::hold()
+{
+    std::swap(m_tetronimo, m_tetronimo_held);
+    m_tetx = 3;
+    m_tety = s_buffer_bottom + 1;
+    m_tetr = 0;
 }
