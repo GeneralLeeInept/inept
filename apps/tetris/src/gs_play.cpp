@@ -240,12 +240,9 @@ bool GsPlay::on_update(float delta)
     {
         m_drop_timer += delta;
 
-        int level = m_lines / 10;
-        float speed = powf(0.8f - (level * 0.007f), level);
-
-        if (m_drop_timer >= speed)
+        if (m_drop_timer >= m_gamespeed)
         {
-            m_drop_timer -= speed;
+            m_drop_timer -= m_gamespeed;
 
             if (m_tetronimo)
             {
