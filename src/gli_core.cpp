@@ -7,6 +7,7 @@
 #include "opengl40/glad.h"
 
 #include <objbase.h>
+#include <Xinput.h>
 
 #include <atomic>
 #include <thread>
@@ -49,6 +50,20 @@ void main()
     )"
 };
 
+DWORD WINAPI XInputGetStateStub(DWORD, XINPUT_STATE*)
+{
+    return ERROR_DEVICE_NOT_CONNECTED;
+}
+
+using XInputGetStateFuncPtr = decltype(&(XInputGetStateStub));
+
+struct ControllerState
+{
+    bool connected;
+    XINPUT_GAMEPAD current_state;
+    XINPUT_GAMEPAD prev_state;
+};
+
 namespace gli
 {
 
@@ -63,6 +78,10 @@ std::atomic<bool> _quit;
 std::atomic<bool> _active;
 std::atomic<bool> _mouse_active;
 std::atomic<App::MouseState> _mouse_state;
+std::atomic<bool> _poll_controllers;
+HMODULE _xinput_dll = NULL;
+XInputGetStateFuncPtr XInputGetState = XInputGetStateStub;
+ControllerState _controller_states[4]{};
 
 bool App::initialize(const char* name, int screen_width, int screen_height, int window_scale)
 {
@@ -250,6 +269,7 @@ bool App::initialize(const char* name, int screen_width, int screen_height, int 
 
     set_palette(default_palette);
 
+    // Initialize OpenGL
     if (!_opengl.init(m_hwnd))
     {
         return false;
@@ -332,6 +352,22 @@ bool App::initialize(const char* name, int screen_width, int screen_height, int 
 
     _opengl.make_current(false);
 
+    // Initialize XInput
+    if ((_xinput_dll = LoadLibrary(XINPUT_DLL)))
+    {
+        if (!(XInputGetState = (XInputGetStateFuncPtr)GetProcAddress(_xinput_dll, "XInputGetState")))
+        {
+            XInputGetState = XInputGetStateStub;
+        }
+
+        XINPUT_STATE state;
+
+        for (int i = 0; i < 4; ++i)
+        {
+            _controller_states[i].connected = XInputGetState(i, &state) == ERROR_SUCCESS;
+        }
+    }
+
     return true;
 }
 
@@ -362,6 +398,37 @@ const App::KeyState& App::key_state(Key key)
 const App::MouseState& App::mouse_state()
 {
     return m_mouse;
+}
+
+
+App::ControllerState App::controller_state(int controller)
+{
+    ControllerState state{};
+    ::ControllerState* lowlevel_state = &_controller_states[controller];
+
+    if (lowlevel_state->connected)
+    {
+        state.lx = lowlevel_state->current_state.sThumbLX < 0 ? lowlevel_state->current_state.sThumbLX / 32768.0f :
+                                                                lowlevel_state->current_state.sThumbLX / 32767.0f;
+        state.ly = lowlevel_state->current_state.sThumbLY < 0 ? lowlevel_state->current_state.sThumbLY / 32768.0f :
+                                                                lowlevel_state->current_state.sThumbLY / 32767.0f;
+        state.rx = lowlevel_state->current_state.sThumbRX < 0 ? lowlevel_state->current_state.sThumbRX / 32768.0f :
+                                                                lowlevel_state->current_state.sThumbRX / 32767.0f;
+        state.ry = lowlevel_state->current_state.sThumbRY < 0 ? lowlevel_state->current_state.sThumbRY / 32768.0f :
+                                                                lowlevel_state->current_state.sThumbRY / 32767.0f;
+        state.lt = lowlevel_state->current_state.bLeftTrigger / 255.0f;
+        state.rt = lowlevel_state->current_state.bRightTrigger / 255.0f;
+        
+        for (int i = 0; i < 16; ++i)
+        {
+            WORD button_mask = (1 << i);
+            state.buttons[i].down = (lowlevel_state->current_state.wButtons & button_mask);
+            state.buttons[i].pressed = state.buttons[i].down && (lowlevel_state->prev_state.wButtons & button_mask) == 0;
+            state.buttons[i].released = !state.buttons[i].down && (lowlevel_state->prev_state.wButtons & button_mask);
+        }
+    }
+
+    return state;
 }
 
 
@@ -898,6 +965,27 @@ void App::engine_loop()
             }
         }
 
+        bool poll_controllers = _poll_controllers.exchange(false);
+        XINPUT_STATE xinput_state;
+
+        for (int i = 0; i < 4; ++i)
+        {
+            if (_controller_states[i].connected)
+            {
+                _controller_states[i].prev_state = _controller_states[i].current_state;
+            }
+
+            if (poll_controllers || _controller_states[i].connected)
+            {
+                _controller_states[i].connected = XInputGetState(i, &xinput_state) == ERROR_SUCCESS;
+            }
+
+            if (_controller_states[i].connected)
+            {
+                _controller_states[i].current_state = xinput_state.Gamepad;
+            }
+        }
+
         // User update
         if (!on_update(delta))
         {
@@ -926,14 +1014,6 @@ LRESULT App::window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
     switch (msg)
     {
-        case WM_SYSKEYDOWN:
-        {
-            if (wparam == VK_F10)
-            {
-                return 0;
-            }
-            break;
-        }
         case WM_ACTIVATEAPP:
         {
             _active = !!wparam;
@@ -947,6 +1027,11 @@ LRESULT App::window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         case WM_DESTROY:
         {
             PostQuitMessage(0);
+            return 0;
+        }
+        case WM_DEVICECHANGE:
+        {
+            _poll_controllers = true;
             return 0;
         }
         case WM_MOUSELEAVE:
@@ -963,6 +1048,14 @@ LRESULT App::window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             _mouse_state.store(state);
             _mouse_active = true;
             return 0;
+        }
+        case WM_SYSKEYDOWN:
+        {
+            if (wparam == VK_F10)
+            {
+                return 0;
+            }
+            break;
         }
     }
 

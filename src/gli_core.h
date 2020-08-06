@@ -188,6 +188,17 @@ public:
         KeyState buttons[3];    // 0 = LMB, 1 = MMB, 2 = RMB
     };
 
+    struct ControllerState
+    {
+        float lx;
+        float ly;
+        float rx;
+        float ry;
+        float lt;
+        float rt;
+        KeyState buttons[16];
+    };
+
     virtual ~App() = default;
 
     virtual bool on_create() = 0;
@@ -203,6 +214,7 @@ public:
 
     const KeyState& key_state(Key key);
     const MouseState& mouse_state();
+    ControllerState controller_state(int controller);
 
     using KeyEventHandler = std::function<void(KeyEvent&)>;
     void process_key_events(KeyEventHandler handler);

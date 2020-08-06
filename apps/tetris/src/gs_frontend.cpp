@@ -198,6 +198,21 @@ bool GsFrontend::on_update(float delta)
         y += vga9_glyph_height;
     }
 
+    gli::App::ControllerState cs = m_app->controller_state(0);
+
+    uint16_t btns = 0;
+    for (int i = 0; i < 16; ++i)
+    {
+        if (cs.buttons[i].down)
+        {
+            btns |= (1 << i);
+        }
+    }
+
+    m_app->format_string(4, 4, vga9_glyphs, vga9_glyph_width, vga9_glyph_height, gli::Pixel(0xFFFFFFFF), gli::Pixel(0xFF000000),
+        "LS{%0.1f, %0.1f} RS{%0.1f, %0.1f} LT{%0.1f} RT{%0.1f} %04u",
+        cs.lx, cs.ly, cs.rx, cs.ry, cs.lt, cs.rt, btns);
+
     return true;
 }
 

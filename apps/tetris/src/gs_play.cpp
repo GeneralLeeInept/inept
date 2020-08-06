@@ -206,7 +206,7 @@ bool GsPlay::on_enter()
     m_game_over = false;
     m_lines = 0;
     m_level = 0;
-    m_gamespeed = powf(0.8f - (m_level * 0.007f), m_level);
+    m_gamespeed = powf(0.8f - ((float)m_level * 0.007f), (float)m_level);
 
     return true;
 }
@@ -560,7 +560,7 @@ bool GsPlay::remove_full_row()
             memset(&m_playfield[(s_playfield_height - 1) * s_playfield_width], 0, s_playfield_width * sizeof(m_playfield[0]));
             m_lines++;
             m_level = m_lines / 10;
-            m_gamespeed = powf(0.8f - (m_level * 0.007f), m_level);
+            m_gamespeed = powf(0.8f - ((float)m_level * 0.007f), (float)m_level);
             return true;
         }
     }
