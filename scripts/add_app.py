@@ -132,8 +132,10 @@ def add_project_to_solution(context, target_dir):
                                 added_configuration = m.group('project_guid') == next_project_guid
 
                         if added_configuration:
-                            dst.write(f'\t\t{context.project_guid}.Release|x64.ActiveCfg = Debug|x64\n')
-                            dst.write(f'\t\t{context.project_guid}.Release|x64.Build.0 = Debug|x64\n')
+                            dst.write(f'\t\t{context.project_guid}.Debug|x64.ActiveCfg = Debug|x64\n')
+                            dst.write(f'\t\t{context.project_guid}.Debug|x64.Build.0 = Debug|x64\n')
+                            dst.write(f'\t\t{context.project_guid}.Development|x64.ActiveCfg = Development|x64\n')
+                            dst.write(f'\t\t{context.project_guid}.Development|x64.Build.0 = Development|x64\n')
                             dst.write(f'\t\t{context.project_guid}.Release|x64.ActiveCfg = Release|x64\n')
                             dst.write(f'\t\t{context.project_guid}.Release|x64.Build.0 = Release|x64\n')
 

@@ -105,6 +105,9 @@
     <ClInclude Include="..\extern\stb\stb_image.h">
       <Filter>stb</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\gli_debug.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\extern\zlib\adler32.c">

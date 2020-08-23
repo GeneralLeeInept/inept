@@ -1,8 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Development|x64">
+      <Configuration>Development</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
@@ -12,7 +15,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid>
+    <ProjectGuid>{EC8156B4-A8ED-48E5-A522-ADB08582F1D9}</ProjectGuid>
   </PropertyGroup>
   <PropertyGroup>
     <Optimized>true</Optimized>
@@ -64,14 +67,14 @@
     <ClInclude Include="..\res\targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\template.cpp" />
+    <ClCompile Include="..\src\platformer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\res\small.ico" />
-    <Image Include="..\res\template.ico" />
+    <Image Include="..\res\platformer.ico" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="..\res\template.rc" />
+    <ResourceCompile Include="..\res\platformer.rc" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\project\inept.vcxproj">
