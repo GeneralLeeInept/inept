@@ -11,9 +11,27 @@
     <ClInclude Include="..\res\targetver.h">
       <Filter>res</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\iappstate.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\splash.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\version.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\appstate.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\bootstrap.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\bootstrap.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\splash.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
