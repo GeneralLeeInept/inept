@@ -1,0 +1,33 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="src" />
+    <Filter Include="inc" />
+    <Filter Include="res" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\res\Resource.h">
+      <Filter>res</Filter>
+    </ClInclude>
+    <ClInclude Include="..\res\targetver.h">
+      <Filter>res</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\bootstrap.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\res\small.ico">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="..\res\bootstrap.ico">
+      <Filter>res</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\res\bootstrap.rc">
+      <Filter>res</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>
