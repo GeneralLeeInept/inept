@@ -129,6 +129,7 @@
     <ClCompile Include="..\extern\zlib\uncompr.c" />
     <ClCompile Include="..\extern\zlib\zutil.c" />
     <ClCompile Include="..\src\gli_core.cpp" />
+    <ClCompile Include="..\src\gli_debug.cpp" />
     <ClCompile Include="..\src\gli_file.cpp">
       <AdditionalIncludeDirectories>..\extern\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>

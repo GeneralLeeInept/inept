@@ -191,6 +191,9 @@
     <ClCompile Include="..\src\stb_image.cpp">
       <Filter>stb</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\gli_debug.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\res\vga9.png">
