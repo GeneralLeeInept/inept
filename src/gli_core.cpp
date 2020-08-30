@@ -813,7 +813,59 @@ void App::draw_sprite(int x, int y, const Sprite* sprite)
 
 void App::draw_partial_sprite(int x, int y, const Sprite* sprite, int ox, int oy, int w, int h)
 {
-    if (x + w < 0 || y + w < 0 || x >= m_screen_width || h >= m_screen_height)
+    if (x + w < 0 || y + w < 0 || x >= m_screen_width || y >= m_screen_height)
+    {
+        return;
+    }
+
+    if (x < 0)
+    {
+        ox -= x;
+        w += x;
+        x = 0;
+    }
+
+    if (y < 0)
+    {
+        oy -= y;
+        h += y;
+        y = 0;
+    }
+
+    if (x > m_screen_width - w)
+    {
+        w = m_screen_width - x;
+    }
+
+    if (y > m_screen_height - h)
+    {
+        h = m_screen_height - y;
+    }
+
+    if (w > 0 && h > 0)
+    {
+        Pixel* src = sprite->pixels() + ox + (oy * sprite->width());
+        Pixel* dest = m_framebuffer + x + (y * m_screen_width);
+
+        while (h--)
+        {
+            memcpy(dest, src, sizeof(Pixel) * w);
+            src += sprite->width();
+            dest += m_screen_width;
+        }
+    }
+}
+
+
+void App::blend_sprite(int x, int y, const Sprite& sprite, uint8_t alpha)
+{
+    blend_partial_sprite(x, y, sprite, 0, 0, sprite.width(), sprite.height(), alpha);
+}
+
+
+void App::blend_partial_sprite(int x, int y, const Sprite& sprite, int ox, int oy, int w, int h, uint8_t alpha)
+{
+    if (x + w < 0 || y + w < 0 || x >= m_screen_width || y >= m_screen_height)
     {
         return;
     }
@@ -844,13 +896,32 @@ void App::draw_partial_sprite(int x, int y, const Sprite* sprite, int ox, int oy
 
     if (w >= 0 && h >= 0)
     {
-        Pixel* src = sprite->pixels() + ox + (oy * sprite->width());
+        Pixel* src = sprite.pixels() + ox + (oy * sprite.width());
         Pixel* dest = m_framebuffer + x + (y * m_screen_width);
+        const float denom = 1.0f / 255.0f;
 
         while (h--)
         {
-            memcpy(dest, src, sizeof(Pixel) * w);
-            src += sprite->width();
+            for (int i = 0; i < w; ++i)
+            {
+                float sr = src[i].r * denom;
+                float sg = src[i].g * denom;
+                float sb = src[i].b * denom;
+                float dr = dest[i].r * denom;
+                float dg = dest[i].g * denom;
+                float db = dest[i].b * denom;
+                float w = alpha * denom * src[i].a * denom;
+                float r = (sr * w) + dr * (1.0f - w);
+                float g = (sg * w) + dg * (1.0f - w);
+                float b = (sb * w) + db * (1.0f - w);
+
+                dest[i].r = r < 0.0f ? 0 : (r > 1.0f ? 255 : (uint8_t)(r * 255.0f));
+                dest[i].g = g < 0.0f ? 0 : (g > 1.0f ? 255 : (uint8_t)(g * 255.0f));
+                dest[i].b = b < 0.0f ? 0 : (b > 1.0f ? 255 : (uint8_t)(b * 255.0f));
+                dest[i].a = 255;
+            }
+
+            src += sprite.width();
             dest += m_screen_width;
         }
     }
@@ -896,7 +967,6 @@ void App::engine_loop()
     }
 
     ShowWindow(m_hwnd, SW_SHOW);
-
     auto prev_time = std::chrono::system_clock::now();
 
     while (!_quit)

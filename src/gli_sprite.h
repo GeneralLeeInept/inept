@@ -2,6 +2,7 @@
 
 #include "gli_core.h"   // for gli::Pixel
 
+#include <memory>
 #include <string>
 
 namespace gli
@@ -15,6 +16,8 @@ public:
     ~Sprite();
 
     bool load(const std::string& path);
+    void unload();
+
     void set_pixel(int x, int y, Pixel p);
 
     int width() const;
@@ -24,7 +27,7 @@ public:
 private:
     int m_width{};
     int m_height{};
-    Pixel* m_pixels{};
+    std::unique_ptr<Pixel> m_pixels{};
 };
 
 }

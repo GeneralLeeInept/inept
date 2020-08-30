@@ -41,8 +41,8 @@ if __name__ == "__main__":
     try:
         inept_root = get_inept_root()
         repo = Repo(inept_root)
-        # if repo.is_dirty():
-        #     raise RuntimeError("Repository is not up to date, cannot continue.")
+        if repo.is_dirty():
+            raise RuntimeError("Repository is not up to date, cannot continue.")
 
         # Build ID
         head = repo.head.commit

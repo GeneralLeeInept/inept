@@ -4,6 +4,8 @@
 #include "zlib/zlib.h"
 #include "zlib/contrib/minizip/unzip.h"
 
+#include <stdio.h>
+
 bool GliFileContainer::open(const char* path, GliFile*& handle)
 {
     void* handlei = nullptr;
@@ -80,7 +82,46 @@ public:
     bool open_internal(const char* path, void*& handle) override { return false; }
     void close_internal(void* handle) override {}
     bool valid_internal(void* handle) override { return false; }
-    bool read_entire_file_internal(const char* path, std::vector<uint8_t>& contents) override { return false; }
+    bool read_entire_file_internal(const char* path, std::vector<uint8_t>& contents) override
+    {
+        // FIXME: do this better (Windows file functions / unicode paths / etc)
+        FILE *fp = fopen(path, "rb");
+        bool result = !!fp;
+
+        if (result)
+        {
+            result = fseek(fp, 0, SEEK_END) == 0;
+        }
+
+        if (result)
+        {
+            long length = ftell(fp);
+            result = length > 0;
+
+            if (result)
+            {
+                contents.resize(length);
+            }
+        }
+
+        if (result)
+        {
+            result = fseek(fp, 0, SEEK_SET) == 0;
+        }
+
+        if (result)
+        {
+            size_t bytes_read = fread(&contents[0], 1, contents.size(), fp);
+            result = bytes_read == contents.size();
+        }
+
+        if (fp)
+        {
+            fclose(fp);
+        }
+
+        return result;
+    }
 };
 
 
@@ -217,6 +258,16 @@ private:
 };
 
 
+GliFileSystem g_singleton;
+GliFileSystem* GliFileSystem::_singleton = &g_singleton;
+
+
+GliFileSystem* GliFileSystem::get()
+{
+    return _singleton;
+}
+
+
 GliFileSystem::~GliFileSystem()
 {
     shutdown();
@@ -256,6 +307,9 @@ bool GliFileSystem::open(const char* path, GliFile*& handle)
         container = get_or_create_container(container_name);
         spath = spath.substr(delim + 2);
     }
+    else
+    {
+    }
 
     if (container)
     {
@@ -290,6 +344,10 @@ bool GliFileSystem::read_entire_file(const char* path, std::vector<uint8_t>& con
         container = get_or_create_container(container_name);
         spath = spath.substr(delim + 2);
     }
+    else
+    {
+        container = get_or_create_container("");
+    }
 
     if (container)
     {
@@ -311,33 +369,34 @@ GliFileContainer* GliFileSystem::get_or_create_container(const std::string& cont
     if (it == _container_lookup.end())
     {
         GliFileContainerPtr new_container;
-        size_t ext = container_name.rfind('.');
 
-        if (ext != std::string::npos)
+        if (container_name.empty())
         {
-            if (container_name.compare(ext, 3, ".zip"))
-            {
-                gli::logf("GliFileSystem::get_or_create: Creating zip file container for '%s'\n", container_name.c_str());
-                new_container = std::make_unique<GliFileContainerZipFile>();
-
-                if (!new_container->attach(container_name.c_str()))
-                {
-                    gli::logf("GliFileSystem::get_or_create: Failed to attach zip file container for '%s'\n", container_name.c_str());
-                    return nullptr;
-                }
-
-                auto result = _container_lookup.emplace(container_name, _containers.size());
-
-                if (!result.second)
-                {
-                    gli::logf("GliFileSystem::get_or_create: Failed to insert container for '%s' into map\n", container_name.c_str());
-                    return nullptr;
-                }
-
-                _containers.push_back(std::move(new_container));
-                it = result.first;
-            }
+            gli::logf("GliFileSystem::get_or_create: Creating system file container.\n");
+            new_container = std::make_unique<GliFileContainerSystem>();
         }
+        else
+        {
+            gli::logf("GliFileSystem::get_or_create: Creating zip file container for '%s'\n", container_name.c_str());
+            new_container = std::make_unique<GliFileContainerZipFile>();
+        }
+
+        if (!new_container->attach(container_name.c_str()))
+        {
+            gli::logf("GliFileSystem::get_or_create: Failed to attach zip file container for '%s'\n", container_name.c_str());
+            return nullptr;
+        }
+
+        auto result = _container_lookup.emplace(container_name, _containers.size());
+
+        if (!result.second)
+        {
+            gli::logf("GliFileSystem::get_or_create: Failed to insert container for '%s' into map\n", container_name.c_str());
+            return nullptr;
+        }
+
+        _containers.push_back(std::move(new_container));
+        it = result.first;
     }
 
     return _containers[it->second].get();

@@ -48,6 +48,8 @@ protected:
 class GliFileSystem
 {
 public:
+    static GliFileSystem* get();
+
     ~GliFileSystem();
 
     void shutdown();
@@ -64,4 +66,6 @@ private:
     GliFileContainerLookup _container_lookup;
 
     GliFileContainer* get_or_create_container(const std::string& container_name);
+
+    static GliFileSystem* _singleton;
 };

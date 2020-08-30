@@ -1,0 +1,7 @@
+* Having all apps build under the inept solution is not great - create solutions for each apps
+* File system isn't working for me - the //<container/... path idea is fine but I'd also like to be able to mount a container or directory and then open files with //<mountpoint>/... paths
+* File loads are synchronous
+* draw functions are a bit of a shit show - get rid of palettes, beef up rendering a lot
+* draw_sprite takes a pointer, should be a const ref
+* Add appversion to project template (cf build_release.py)
+* resource files are a mess, I'm not even sure what I intend to do with them

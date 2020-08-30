@@ -1,4 +1,3 @@
-_build
 _builds
 generated
 .suo
@@ -8,18 +7,6 @@ generated
 *.log
 .vscode
 *.iml
-.gradle
-prototypes/android-memory/local.properties
-.idea
 .DS_Store
-prototypes/android-memory/build
-prototypes/android-memory/captures
-.externalNativeBuild
-raptor/lib/
-prototypes/QtTest/bin/
-prototypes/memory/platforms/android/project/bin/
-prototypes/memory/platforms/android/project/lib/
-prototypes/memory/platforms/android/project/obj/
-projects/test_project/assets
 **/.vs
 **/imgui.ini

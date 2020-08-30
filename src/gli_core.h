@@ -77,7 +77,7 @@ enum Key
 
     Key_Escape,
     Key_Menu,
-    Key_LeftSystem, // Windows / Super / Command
+    Key_LeftSystem,  // Windows / Super / Command
     Key_RightSystem, // Windows / Super / Command
 
     Key_F1,
@@ -154,19 +154,27 @@ struct KeyEvent
 struct Pixel
 {
     Pixel() = default;
+    constexpr Pixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) { argb = (a << 24) | (r << 16) | (g << 8) | b; }
+    constexpr Pixel(uint32_t argb_in) { argb = argb_in; }
 
-    constexpr Pixel(uint32_t argb)
+    union
     {
-        a = (argb >> 24) & 0xFF;
-        r = (argb >> 16) & 0xFF;
-        g = (argb >> 8) & 0xFF;
-        b = argb & 0xFF;
-    }
+        uint32_t argb = 0xFF000000;
+        struct
+        {
+            uint8_t b;
+            uint8_t g;
+            uint8_t r;
+            uint8_t a;
+        };
+    };
 
-    uint8_t b = 0;
-    uint8_t g = 0;
-    uint8_t r = 0;
-    uint8_t a = 0xFF;
+    static const uint32_t Black = 0xFF000000;
+    static const uint32_t White = 0xFFFFFFFF;
+    static const uint32_t Red = 0xFFFF0000;
+    static const uint32_t Green = 0xFF00FF00;
+    static const uint32_t Blue = 0xFF0000FF;
+    static const uint32_t Clear = 0x00FFFFFF;
 };
 
 class Sprite;
@@ -183,9 +191,9 @@ public:
 
     struct MouseState
     {
-        int x;                  // Screen coords fixed for scale
+        int x; // Screen coords fixed for scale
         int y;
-        KeyState buttons[3];    // 0 = LMB, 1 = MMB, 2 = RMB
+        KeyState buttons[3]; // 0 = LMB, 1 = MMB, 2 = RMB
     };
 
     struct ControllerState
@@ -242,6 +250,8 @@ public:
     void copy_rect_scaled(int x, int y, int w, int h, const uint8_t* src, uint32_t stride, int pixel_scale);
     void draw_sprite(int x, int y, const Sprite* sprite);
     void draw_partial_sprite(int x, int y, const Sprite* sprite, int ox, int oy, int w, int h);
+    void blend_sprite(int x, int y, const Sprite& sprite, uint8_t alpha);
+    void blend_partial_sprite(int x, int y, const Sprite& sprite, int ox, int oy, int w, int h, uint8_t alpha);
 
 private:
     void shutdown();
@@ -265,4 +275,4 @@ private:
     int m_window_height;
 };
 
-}
+} // namespace gli
