@@ -1,14 +1,9 @@
 #include "splash.h"
 
+#include "assets.h"
 #include "bootstrap.h"
 
 #include <cmath>
-
-#if GLI_SHIPPING
-#define GliMediaPath(p) R"(//assets.glp//)" p
-#else
-#define GliMediaPath(p) p
-#endif
 
 namespace Bootstrap
 {
@@ -44,8 +39,8 @@ void SplashState::on_destroy() {}
 bool SplashState::on_enter()
 {
     // Load images now - would like to be able to do this async
-    static const char* filenames[Screens::Count] = { GliMediaPath("frontend/gli_presents.png"), GliMediaPath("frontend/an_inept_game.png"),
-                                                     GliMediaPath("frontend/olc_codejam.png"), GliMediaPath("frontend/bootstrap.png") };
+    static const char* filenames[Screens::Count] = { GliAssetPath("frontend/gli_presents.png"), GliAssetPath("frontend/an_inept_game.png"),
+                                                     GliAssetPath("frontend/olc_codejam.png"), GliAssetPath("frontend/bootstrap.png") };
 
     for (int i = 0; i < Screens::Count; ++i)
     {

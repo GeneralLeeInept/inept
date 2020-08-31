@@ -2,7 +2,7 @@
 
 An olcCodeJam2020 entry.
 
-Hello 0xA5A5A5A5, we have a very important job for you.
+Hello 0xFFFC, we have a very important job for you.
 
 As you know, The Great Machine is the computer which runs the simulation which we call "the universe". While preparing his next YouTube video, "Code-It-Yourself: Universe Simulator", the simulacrum Javidx9 has triggered the inception protection mechanism and The Great Machine has been shutdown, but not before significant damage was done to multiple critical circuits. We need you to repair the damage and bring The Great Machine back on line.
 

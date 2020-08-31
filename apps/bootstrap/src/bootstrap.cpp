@@ -1,6 +1,7 @@
 #include "bootstrap.h"
 
 #include "appstate.h"
+#include "gameplaystate.h"
 #include "iappstate.h"
 #include "splash.h"
 #include "version.h"
@@ -8,25 +9,35 @@
 #include <memory>
 #include <string>
 
+
+#include "tilemap.h"
+
 namespace Bootstrap
 {
 
 bool App::on_create()
 {
     _states.reserve(AppState::Count);
+    _states.insert(std::pair<AppState, AppStatePtr>(AppState::Splash, std::make_unique<SplashState>()));
+    _states.insert(std::pair<AppState, AppStatePtr>(AppState::InGame, std::make_unique<GamePlayState>()));
 
-    AppStatePtr state = std::make_unique<SplashState>();
-
-    if (!state->on_init(this))
+    for (const auto& kvp : _states)
     {
-        return false;
+        if (kvp.second)
+        {
+            if (!kvp.second->on_init(this))
+            {
+                return false;
+            }
+        }
     }
 
-    _states.insert(std::pair<AppState, AppStatePtr>(AppState::Splash, std::move(state)));
-
     _state = AppState::Count;
-    _next_state = AppState::Splash;
+    _next_state = AppState::InGame;
     _active_state = nullptr;
+
+    TileMap tm;
+    tm.load("maps/main.bin");
 
     return true;
 }

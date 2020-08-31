@@ -72,14 +72,19 @@
     <ClInclude Include="..\res\Resource.h" />
     <ClInclude Include="..\res\targetver.h" />
     <ClInclude Include="..\src\appstate.h" />
+    <ClInclude Include="..\src\assets.h" />
     <ClInclude Include="..\src\bootstrap.h" />
+    <ClInclude Include="..\src\gameplaystate.h" />
     <ClInclude Include="..\src\iappstate.h" />
     <ClInclude Include="..\src\splash.h" />
+    <ClInclude Include="..\src\tilemap.h" />
     <ClInclude Include="..\src\version.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\bootstrap.cpp" />
+    <ClCompile Include="..\src\gameplaystate.cpp" />
     <ClCompile Include="..\src\splash.cpp" />
+    <ClCompile Include="..\src\tilemap.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\res\small.ico" />

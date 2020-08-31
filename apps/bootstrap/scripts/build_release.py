@@ -87,7 +87,7 @@ if __name__ == "__main__":
         shutil.make_archive(get_app_root() / f'releases/bootstrap-{release_version}', 'zip', release_dir)
 
         # Add tag to git
-        new_tag = repo.create_tag(release_tag, ref=head, message='Bootstrap release {release_version}')
+        new_tag = repo.create_tag(release_tag, ref=head, message=f'Bootstrap release {release_version}')
 
     except Exception as err:
         print(f"Error: {err}")

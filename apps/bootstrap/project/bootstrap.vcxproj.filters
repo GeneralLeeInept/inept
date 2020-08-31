@@ -26,12 +26,27 @@
     <ClInclude Include="..\src\bootstrap.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\tilemap.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\assets.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\gameplaystate.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\bootstrap.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\splash.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\tilemap.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gameplaystate.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
