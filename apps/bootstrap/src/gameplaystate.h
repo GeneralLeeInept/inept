@@ -20,9 +20,28 @@ public:
     bool on_update(float delta) override;
 
 private:
-    void draw_register(uint8_t reg, int x, int y, int color);
-    bool check_collision(float x, float y, float half_size);
+    struct V2f
+    {
+        float x;
+        float y;
+    };
 
+    struct Movable
+    {
+        gli::Sprite* sprite;
+        V2f position;
+        V2f velocity;
+        float radius;
+        int frame;
+    };
+
+    void draw_register(uint8_t reg, int x, int y, int color);
+    void draw_sprite(float x, float y, gli::Sprite& sheet, int frame);
+    void draw_nmi(const V2f& position);
+    bool check_collision(float x, float y, float half_size);
+    void resolve_collisions(std::vector<Movable>& movables);
+
+    std::vector<Movable> _movables;
     App* _app{};
     TileMap _tilemap;
     gli::Sprite _player;
@@ -31,11 +50,8 @@ private:
     gli::Sprite _leds;
     gli::Sprite _nmi_dark;
     gli::Sprite _nmi_shock;
-    float _px;
-    float _py;
-    float _pvx;
-    float _pvy;
-    int _pfacing;
+    int _cx;
+    int _cy;
     uint8_t _dbus;
     uint8_t _abus_hi;
     uint8_t _abus_lo;
