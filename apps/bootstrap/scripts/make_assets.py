@@ -35,7 +35,7 @@ def process(asset_list, target_dir):
     inclusions = set()
     exclusions = set()
 
-    for line in args.assets:
+    for line in asset_list:
         line = line.rstrip('\n')
         if line.startswith('-'):
             add_files(line[1:], exclusions)
