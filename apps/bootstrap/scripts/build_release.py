@@ -7,6 +7,7 @@ import sys
 import tempfile
 from pathlib import Path
 from git import *
+import make_assets
 
 tag_re = re.compile(r'bootstrap-(?P<ver>\d+\.\d+.\d+)')
 
@@ -73,10 +74,8 @@ if __name__ == "__main__":
         release_dir.mkdir(parents=True)
 
         # Build assets
-        with tempfile.TemporaryDirectory() as tempdir:
-            src_dir = get_app_root() / 'art'
-            assets_dir = Path(tempdir) / 'assets'
-            shutil.copytree(src_dir, assets_dir, ignore=shutil.ignore_patterns('*.pdn'))
+        with tempfile.TemporaryDirectory() as tempdir, open(get_app_root() / 'res/assets.txt') as asset_list:
+            make_assets.process(asset_list, Path(tempdir))
             shutil.make_archive(Path(tempdir) / 'assets', 'zip', assets_dir)
             shutil.copy2(Path(tempdir) / 'assets.zip', release_dir / 'assets.glp')
 
