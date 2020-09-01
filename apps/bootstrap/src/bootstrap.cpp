@@ -36,9 +36,6 @@ bool App::on_create()
     _next_state = AppState::InGame;
     _active_state = nullptr;
 
-    TileMap tm;
-    tm.load("maps/main.bin");
-
     return true;
 }
 

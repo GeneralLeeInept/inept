@@ -57,6 +57,6 @@ if __name__ == '__main__':
 
     try:
         target_dir = Path(args.outdir).resolve()
-        process(assets, target_dir)
+        process(args.assets, target_dir)
     except Exception as err:
         print(f'Error: {err}')

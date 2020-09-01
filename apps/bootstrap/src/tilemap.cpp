@@ -11,6 +11,22 @@ constexpr uint32_t map4cc()
 namespace Bootstrap
 {
 
+std::string asset_path(const std::string& path)
+{
+    // This is all because I messed up the filesystem - I don't want to have to special case every file path I use.
+#if GLI_SHIPPING
+    const std::string container = "//assets.glp//";
+#else
+    const std::string container;
+#endif
+
+    size_t size = std::snprintf(nullptr, 0, "%s%s", container.c_str(), path.c_str()) + 1;
+    std::string buf(size, '\0');
+    std::snprintf(&buf[0], size, "%s%s", container.c_str(), path.c_str());
+    return buf;
+}
+
+
 bool TileMap::load(const std::string& path)
 {
     std::vector<uint8_t> map_data;
@@ -37,7 +53,7 @@ bool TileMap::load(const std::string& path)
         return false;
     }
 
-    if (bytes_remaining < 4 * sizeof(uint16_t))
+    if (bytes_remaining < 3 * sizeof(uint16_t))
     {
         return false;
     }
@@ -45,10 +61,10 @@ bool TileMap::load(const std::string& path)
     _tile_size = ((uint16_t*)read_ptr)[0];
     _width = ((uint16_t*)read_ptr)[1];
     _height = ((uint16_t*)read_ptr)[2];
+    read_ptr += 3 * sizeof(uint16_t);
+    bytes_remaining -= 3 * sizeof(uint16_t);
+
     size_t tile_data_size = sizeof(uint16_t) * _width * _height;
-    size_t tilesheet_path_len = ((uint16_t*)read_ptr)[3];
-    read_ptr += 4 * sizeof(uint16_t);
-    bytes_remaining -= 4 * sizeof(uint16_t);
 
     if (bytes_remaining < tile_data_size)
     {
@@ -59,6 +75,15 @@ bool TileMap::load(const std::string& path)
     memcpy(&_tiles[0], read_ptr, tile_data_size);
     read_ptr += tile_data_size;
     bytes_remaining -= tile_data_size;
+
+    if (bytes_remaining < sizeof(uint16_t))
+    {
+        return false;
+    }
+
+    size_t tilesheet_path_len = *(uint16_t*)read_ptr;
+    read_ptr += sizeof(uint16_t);
+    bytes_remaining -= sizeof(uint16_t);
 
     if (bytes_remaining < tilesheet_path_len)
     {
@@ -71,10 +96,29 @@ bool TileMap::load(const std::string& path)
     read_ptr += tilesheet_path_len;
     bytes_remaining -= tilesheet_path_len;
 
-    if (!_tilesheet.load(tilesheet_path))
+    if (!_tilesheet.load(asset_path(tilesheet_path)))
     {
         return false;
     }
+
+    if (bytes_remaining < sizeof(uint16_t))
+    {
+        return false;
+    }
+
+    size_t tile_count = *(uint16_t*)read_ptr;
+    read_ptr += sizeof(uint16_t);
+    bytes_remaining -= sizeof(uint16_t);
+
+    if (bytes_remaining < tile_count * sizeof(TileInfo))
+    {
+        return false;
+    }
+
+    _tile_info.resize(tile_count);
+    memcpy(&_tile_info[0], read_ptr, tile_count * sizeof(TileInfo));
+    read_ptr += tile_count * sizeof(TileInfo);
+    bytes_remaining -= tile_count * sizeof(TileInfo);
 
     return true;
 }
@@ -117,7 +161,21 @@ uint16_t TileMap::operator()(uint16_t x, uint16_t y) const
 }
 
 
-void TileMap::tile_info(uint16_t tile_index, int& ox, int& oy, bool& has_alpha)
+bool TileMap::walkable(uint16_t x, uint16_t y) const
+{
+    uint16_t tile = operator()(x, y);
+    bool result = false;
+
+    if (tile)
+    {
+        result = _tile_info[tile - 1].walkable;
+    }
+
+    return result;
+}
+
+
+void TileMap::draw_info(uint16_t tile_index, int& ox, int& oy, bool& has_alpha) const
 {
     int num_columns = _tilesheet.width() / _tile_size;
     int tx = tile_index % num_columns;
