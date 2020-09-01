@@ -15,13 +15,16 @@ def get_inept_root():
     script_path = Path(os.path.abspath(__file__))
     return script_path.parents[3]
 
+
 def get_app_root():
     script_path = Path(os.path.abspath(__file__))
     return script_path.parents[1]
 
+
 def get_app_tags(repo):
     tags = sorted(list(filter(lambda x: tag_re.match(str(x)), repo.tags)), key=lambda t: t.tag.tagged_date)
     return tags
+
 
 def get_prev_version(repo):
     tags = get_app_tags(repo)
@@ -30,19 +33,27 @@ def get_prev_version(repo):
         return m.group('ver')
     return '0.0.0'
 
+
 def format_version(major, minor, patch):
     return f'{major}.{minor}.{patch}'
+
 
 def get_next_version(repo):
     prev_version = get_prev_version(repo)
     major, minor, patch = prev_version.split('.')
     return format_version(major, minor, int(patch) + 1)
 
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t', dest='testing', action='store_true', help='Build release for testing')
+    args = parser.parse_args()
+
     try:
         inept_root = get_inept_root()
         repo = Repo(inept_root)
-        if repo.is_dirty():
+
+        if not args.testing and repo.is_dirty():
             raise RuntimeError("Repository is not up to date, cannot continue.")
 
         # Build ID
@@ -52,6 +63,7 @@ if __name__ == "__main__":
 
         # Release tag
         release_version = get_next_version(repo)
+        release_version = f'{release_version}-testing' if args.testing else release_version
         release_tag = f'bootstrap-{release_version}'
         print(f"Building version '{release_version} using commit '{build_id}'")
 
@@ -71,7 +83,7 @@ if __name__ == "__main__":
 
         # Create release folder
         release_dir = get_app_root() / 'releases' / release_version
-        release_dir.mkdir(parents=True)
+        release_dir.mkdir(parents=True, exist_ok=args.testing)
 
         # Build assets
         with tempfile.TemporaryDirectory() as tempdir, open(get_app_root() / 'res/assets.txt') as asset_list:
@@ -83,11 +95,12 @@ if __name__ == "__main__":
         # Copy build to release
         shutil.copy2(get_inept_root() / 'project/_builds/bootstrap/Release/bin/bootstrap.exe', release_dir / 'bootstrap.exe')
 
-        # Create zip
-        shutil.make_archive(get_app_root() / f'releases/bootstrap-{release_version}', 'zip', release_dir)
+        if not args.testing:
+            # Create zip
+            shutil.make_archive(get_app_root() / f'releases/bootstrap-{release_version}', 'zip', release_dir)
 
-        # Add tag to git
-        new_tag = repo.create_tag(release_tag, ref=head, message=f'Bootstrap release {release_version}')
+            # Add tag to git
+            new_tag = repo.create_tag(release_tag, ref=head, message=f'Bootstrap release {release_version}')
 
     except Exception as err:
         print(f"Error: {err}")

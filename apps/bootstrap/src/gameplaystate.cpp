@@ -363,10 +363,10 @@ void GamePlayState::draw_register(uint8_t reg, int x, int y, int color)
 
 bool GamePlayState::check_collision(float x, float y, float half_size)
 {
-    int sx = std::floor(x - half_size) / _tilemap.tile_size();
-    int sy = std::floor(y - half_size) / _tilemap.tile_size();
-    int ex = std::floor(x + half_size) / _tilemap.tile_size();
-    int ey = std::floor(y + half_size) / _tilemap.tile_size();
+    int sx = (int)std::floor(x - half_size) / _tilemap.tile_size();
+    int sy = (int)std::floor(y - half_size) / _tilemap.tile_size();
+    int ex = (int)std::floor(x + half_size) / _tilemap.tile_size();
+    int ey = (int)std::floor(y + half_size) / _tilemap.tile_size();
 
     if (sx < 0 || sx < 0 || ex >= _tilemap.width() || ey >= _tilemap.height())
     {
