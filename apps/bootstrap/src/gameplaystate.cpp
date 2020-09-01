@@ -167,33 +167,7 @@ bool GamePlayState::on_update(float delta)
         player.frame = 1;
     }
 
-    // Clip movement
-    float move_x = player.velocity.x * delta;
-    float move_y = player.velocity.y * delta;
-
-    if (check_collision(player.position.x + move_x, player.position.y + move_y, player.radius))
-    {
-        if (!check_collision(player.position.x + move_x, player.position.y, player.radius))
-        {
-            move_y = 0.0f;
-            player.velocity.y = 0.0f;
-        }
-        else if (!check_collision(player.position.x, player.position.y + move_y, player.radius))
-        {
-            move_x = 0.0f;
-            player.velocity.x = 0.0f;
-        }
-        else
-        {
-            move_x = 0.0f;
-            move_y = 0.0f;
-            player.velocity.x = 0.0f;
-            player.velocity.y = 0.0f;
-        }
-    }
-
-    player.position.x += move_x;
-    player.position.y += move_y;
+    move_movables(delta);
 
     _movables[1].frame = player.position.x < _movables[1].position.x ? 0 : 1;
 
@@ -415,4 +389,58 @@ bool GamePlayState::check_collision(float x, float y, float half_size)
 }
 
 
-} // namespace Bootstrap
+void GamePlayState::move_movables(float delta)
+{
+    std::vector<V2f> positions(_movables.size());
+    std::vector<V2f> movements(_movables.size());
+    std::vector<V2f> velocities(_movables.size());
+
+    // Resolve movable collisions
+    for (size_t i = 0; i < _movables.size(); ++i)
+    {
+        Movable& movable = _movables[i];
+        V2f& position = positions[i];
+        V2f& move = movements[i];
+        V2f& velocity = velocities[i];
+
+        position = movable.position;
+        velocity = movable.velocity;
+        move.x = velocity.x * delta;
+        move.y = velocity.y * delta;
+
+        if (check_collision(position.x + move.x, position.y + move.y, movable.radius))
+        {
+            if (!check_collision(position.x + move.x, position.y, movable.radius))
+            {
+                move.y = 0.0f;
+                velocity.y = 0.0f;
+            }
+            else if (!check_collision(position.x, position.y + move.y, movable.radius))
+            {
+                move.x = 0.0f;
+                velocity.x = 0.0f;
+            }
+            else
+            {
+                move.x = 0.0f;
+                move.y = 0.0f;
+                velocity.x = 0.0f;
+                velocity.y = 0.0f;
+            }
+        }
+
+        position.x += move.x;
+        position.y += move.y;
+    }
+
+    // Apply new positions, movements & velocities
+    for (size_t i = 0; i < _movables.size(); ++i)
+    {
+        Movable& movable = _movables[i];
+        movable.position = positions[i];
+        movable.velocity = velocities[i];
+    }
+}
+
+}
+// namespace Bootstrap

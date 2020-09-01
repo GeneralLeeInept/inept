@@ -39,7 +39,7 @@ private:
     void draw_sprite(float x, float y, gli::Sprite& sheet, int frame);
     void draw_nmi(const V2f& position);
     bool check_collision(float x, float y, float half_size);
-    void resolve_collisions(std::vector<Movable>& movables);
+    void move_movables(float delta);
 
     std::vector<Movable> _movables;
     App* _app{};
