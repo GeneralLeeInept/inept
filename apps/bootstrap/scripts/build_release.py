@@ -75,7 +75,8 @@ if __name__ == "__main__":
 
         # Build assets
         with tempfile.TemporaryDirectory() as tempdir, open(get_app_root() / 'res/assets.txt') as asset_list:
-            make_assets.process(asset_list, Path(tempdir))
+            assets_dir = Path(tempdir) / 'assets'
+            make_assets.process(asset_list, assets_dir)
             shutil.make_archive(Path(tempdir) / 'assets', 'zip', assets_dir)
             shutil.copy2(Path(tempdir) / 'assets.zip', release_dir / 'assets.glp')
 
