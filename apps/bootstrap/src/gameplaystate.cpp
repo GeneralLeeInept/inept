@@ -40,10 +40,10 @@ void GamePlayState::on_destroy() {}
 
 bool GamePlayState::on_enter()
 {
-    _cx = 0;
-    _cy = 0;
-    _px = 9 * _tilemap.tile_size() + (_tilemap.tile_size() >> 1);
-    _py = 7 * _tilemap.tile_size() + (_tilemap.tile_size() >> 1);
+    _px = 9.5f * _tilemap.tile_size();
+    _py = 7.5f * _tilemap.tile_size();
+    _pvx = 0.0f;
+    _pvy = 0.0f;
     _dbus = 0xA5;
     _abus_hi = 0xDE;
     _abus_lo = 0xAD;
@@ -67,46 +67,45 @@ bool GamePlayState::on_update(float delta)
 {
     _app->clear_screen(gli::Pixel(0x1F1D2C));
 
+    float dvx = _pvx * 0.95f;
+    float dvy = _pvy * 0.95f;
+    static const float dv = 192.0f;
+
     if (_app->key_state(gli::Key_W).down)
     {
-        if (_py > 0)
-        {
-            _py -= 1;
-        }
+        dvy = -dv;
     }
 
     if (_app->key_state(gli::Key_S).down)
     {
-        if (_py < (_tilemap.height() - 4) * _tilemap.tile_size())
-        {
-            _py += 1;
-        }
+        dvy = dv;
     }
 
     if (_app->key_state(gli::Key_A).down)
     {
-        if (_px > 0)
-        {
-            _px -= 1;
-        }
+        dvx = -dv;
     }
 
     if (_app->key_state(gli::Key_D).down)
     {
-        if (_px < (_tilemap.width() - 4) * _tilemap.tile_size())
-        {
-            _px += 1;
-        }
+        dvx = dv;
     }
 
-    // playfield = 412 x 360
-    _cx = _px - 206;
-    _cy = _py - 180;
+    _pvx = std::abs(dvx * delta) >= 0.125f ? dvx : 0.0f;
+    _pvy = std::abs(dvy * delta) >= 0.125f ? dvy : 0.0f;
 
-    int coarse_scroll_x = _cx / _tilemap.tile_size();
-    int coarse_scroll_y = _cy / _tilemap.tile_size();
-    int fine_scroll_x = _cx % _tilemap.tile_size();
-    int fine_scroll_y = _cy % _tilemap.tile_size();
+
+    _px += _pvx * delta;
+    _py += _pvy * delta;
+
+    // playfield = 412 x 360
+    int cx = (int)(_px + 0.5f) - 206;
+    int cy = (int)(_py + 0.5f) - 180;
+
+    int coarse_scroll_x = cx / _tilemap.tile_size();
+    int coarse_scroll_y = cy / _tilemap.tile_size();
+    int fine_scroll_x = cx % _tilemap.tile_size();
+    int fine_scroll_y = cy % _tilemap.tile_size();
 
     int sy = -fine_scroll_y;
 
@@ -151,12 +150,12 @@ bool GamePlayState::on_update(float delta)
         }
     }
 
-    int player_sx = _px - _cx;
-    int player_sy = _py - _cy;
+    int player_sx = (int)(_px + 0.5f) - cx;
+    int player_sy = (int)(_py + 0.5f) - cy;
     _app->blend_sprite(player_sx, player_sy, _player, 255);
 
-    _a_reg = _cx & 0xFF;
-    _x_reg = _cy & 0xFF;
+    _a_reg = cx & 0xFF;
+    _x_reg = cy & 0xFF;
 
     _app->draw_sprite(412, 4, &_status_panel);
     draw_register(_dbus, 455, 48, 0);

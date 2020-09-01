@@ -106,7 +106,7 @@ uint16_t TileMap::height() const
 
 uint16_t TileMap::operator()(uint16_t x, uint16_t y) const
 {
-    uint16_t t = (uint16_t)-1;
+    uint16_t t = 0;
 
     if (x < _width && y < _height)
     {

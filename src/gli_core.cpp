@@ -401,6 +401,12 @@ const App::MouseState& App::mouse_state()
 }
 
 
+void App::show_mouse(bool show)
+{
+    ShowCursor(show);
+}
+
+
 App::ControllerState App::controller_state(int controller)
 {
     ControllerState state{};

@@ -222,6 +222,7 @@ public:
 
     const KeyState& key_state(Key key);
     const MouseState& mouse_state();
+    void show_mouse(bool show);
     ControllerState controller_state(int controller);
 
     using KeyEventHandler = std::function<void(KeyEvent&)>;

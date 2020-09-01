@@ -1,0 +1,5 @@
+frontend/*.png
+gui/*.png
+maps/main.tmx
+sprites/droid.png
+tilesets/*.png

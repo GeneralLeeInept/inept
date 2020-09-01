@@ -1,12 +1,7 @@
-_builds
-generated
-.suo
+_builds/
 *.VC.db
 *.VC.opendb
 *.vcxproj.user
-*.log
-.vscode
-*.iml
-.DS_Store
-**/.vs
-**/imgui.ini
+.vscode/
+.vs/
+__pycache__/

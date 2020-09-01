@@ -27,10 +27,10 @@ private:
     gli::Sprite _player;
     gli::Sprite _status_panel;
     gli::Sprite _leds;
-    int _cx;
-    int _cy;
-    int _px;
-    int _py;
+    float _px;
+    float _py;
+    float _pvx;
+    float _pvy;
     uint8_t _dbus;
     uint8_t _abus_hi;
     uint8_t _abus_lo;
