@@ -18,6 +18,7 @@ public:
         BlocksMovables = 1,
         BlocksLos = 2,
         BlocksBullets = 4,
+        BlocksAI = 8,
     };
 
     struct TileInfo
@@ -33,6 +34,7 @@ public:
     };
 
     bool load(const std::string& path);
+    bool load_minimap(const std::string& path);
 
     const gli::Sprite& tilesheet() const;
     uint16_t tile_size() const;
@@ -55,10 +57,14 @@ private:
     std::vector<Zone> _zones;
     gli::Sprite _tilesheet;
     gli::Sprite _minimap;
+    V2f _player_spawn;
     uint16_t _tile_size;
     uint16_t _width;
     uint16_t _height;
-    V2f _player_spawn;
+    uint16_t _min_tile_x;
+    uint16_t _min_tile_y;
+    uint16_t _max_tile_x;
+    uint16_t _max_tile_y;
 };
 
 } // namespace Bootstrap

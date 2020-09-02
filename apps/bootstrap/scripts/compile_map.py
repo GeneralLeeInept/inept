@@ -9,8 +9,10 @@ Map file format:
 16-bits map height (in tiles)
 map data (16 bits per tile)
 
-16-bits minimap offset x
-16-bits minimap offset y
+16-bits minimum tile x
+16-bits minimum tile y
+16-bits maximum tile y
+16-bits maximum tile y
 
 32-bits player spawn x
 32-bits player spawn y
@@ -42,10 +44,10 @@ Tile data format:
 16-bit tile id
 8-bits flags:
     7 6 5 4 3 2 1 0
-    | | | | | | | +- Solid v movable
+    | | | | | | | +- Solid v movables
     | | | | | | +--- Blocks LOS
     | | | | | +----- Solid v bullet
-    | | | | +------- ??
+    | | | | +------- Solid v AI
     | | | +--------- ??
     | | +----------- ??
     | +------------- ??
@@ -78,7 +80,7 @@ def process_tileset(tsx_path, asset_root, output):
 
     output.write(struct.pack('H', int(root.attrib['tilecount'])))
 
-    flag_dict = { 'blocks_movables' : 0b00000001, 'blocks_los' : 0b00000010, 'blocks_bullets' : 0b00000100 }
+    flag_dict = { 'blocks_movables' : 1, 'blocks_los' : 2, 'blocks_bullets' : 4, 'blocks_ai' : 8 }
 
     for tile_node in root.findall('tile'):
         tile_id = int(tile_node.attrib['id'])
@@ -126,13 +128,17 @@ def process(input, asset_root, output):
     data_node = root.find('layer/data[@encoding="csv"]')
     tile_data = data_node.text.split(',')
 
-    map_ox = root.find('./properties/property[@name="map_ox"]')
-    map_oy = root.find('./properties/property[@name="map_ox"]')
-    output.write(struct.pack('H', int(map_ox.attrib['value'])))
-    output.write(struct.pack('H', int(map_oy.attrib['value'])))
-
     for t in tile_data:
         output.write(struct.pack('H', int(t)))
+
+    map_min_x = root.find('./properties/property[@name="map_min_x"]')
+    map_min_y = root.find('./properties/property[@name="map_min_y"]')
+    map_max_x = root.find('./properties/property[@name="map_max_x"]')
+    map_max_y = root.find('./properties/property[@name="map_max_y"]')
+    output.write(struct.pack('H', int(map_min_x.attrib['value'])))
+    output.write(struct.pack('H', int(map_min_y.attrib['value'])))
+    output.write(struct.pack('H', int(map_max_x.attrib['value'])))
+    output.write(struct.pack('H', int(map_max_y.attrib['value'])))
 
     spawn_points = root.findall('./objectgroup[@name="Spawns"]/object[@type="spawn"]')
     player_spawn = next(filter(lambda x: x.attrib['name'] == 'player', spawn_points))

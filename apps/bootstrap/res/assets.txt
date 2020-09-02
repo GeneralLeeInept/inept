@@ -1,6 +1,7 @@
 frontend/*.png
-gui/*.png
+gui/map_markers.png
 maps/6502.tmx
+maps/6502.png
 sprites/*.png
 tilesets/*.png
 fx/*.png

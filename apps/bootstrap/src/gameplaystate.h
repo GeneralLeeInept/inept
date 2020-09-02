@@ -26,6 +26,7 @@ private:
         Player,
         IllegalOpcode,
         Bullet_,
+        MapMarkers,
         Count
     };
 
@@ -37,6 +38,7 @@ private:
         V2f velocity;
         float radius;
         int frame;
+        uint8_t collision_flags;
     };
 
     struct AiBrain
@@ -55,7 +57,10 @@ private:
         float radius;
     };
 
-    void draw_register(uint8_t reg, int x, int y, int color);
+    void update_simulation(float delta);
+    void render_game(float delta);
+    void render_minimap(float delta);
+
     void draw_sprite(const V2f& position, Sprite sprite, int frame);
     void draw_nmi(const V2f& position);
     bool check_collision(const V2f& position, uint8_t filter_flags, float half_size);
@@ -71,22 +76,15 @@ private:
     App* _app{};
     TileMap _tilemap;
     gli::Sprite _sprites[Sprite::Count];
-    gli::Sprite _status_panel;
-    gli::Sprite _leds;
     gli::Sprite _nmi_dark;
     gli::Sprite _nmi_shock;
     int _cx;
     int _cy;
-    uint8_t _dbus;
-    uint8_t _abus_hi;
-    uint8_t _abus_lo;
-    uint8_t _a_reg;
-    uint8_t _x_reg;
-    uint8_t _y_reg;
     float _nmitimer;
     float _nmifired;
     float _simulation_delta;
     const TileMap::Zone* _player_zone;
+    bool _map_view;
 };
 
 } // namespace Bootstrap

@@ -132,6 +132,10 @@ bool TileMap::load(const std::string& path)
     success = success && vread(_width, map_data, read_ptr);
     success = success && vread(_height, map_data, read_ptr);
     success = success && vread(_tiles, _width * _height, map_data, read_ptr);
+    success = success && vread(_min_tile_x, map_data, read_ptr);
+    success = success && vread(_min_tile_y, map_data, read_ptr);
+    success = success && vread(_max_tile_x, map_data, read_ptr);
+    success = success && vread(_max_tile_y, map_data, read_ptr);
     success = success && vread(_player_spawn, map_data, read_ptr);
     success = success && vread(_ai_spawns, map_data, read_ptr);
     success = success && vread(_zones, map_data, read_ptr);
@@ -140,6 +144,12 @@ bool TileMap::load(const std::string& path)
     success = success && _tilesheet.load(asset_path(tilesheet_path));
 
     return success;
+}
+
+
+bool TileMap::load_minimap(const std::string& path)
+{
+    return _minimap.load(path);
 }
 
 
@@ -374,5 +384,31 @@ const TileMap::Zone* TileMap::get_zone(const V2f& p, const Zone* hint) const
     return nullptr;
 }
 
+
+const gli::Sprite& TileMap::minimap() const
+{
+    return _minimap;
+}
+
+void TileMap::pos_to_minimap(const V2f& p, int& x, int& y) const
+{
+    V2f mins = V2f{ (float)_min_tile_x, (float)_min_tile_y };
+    V2f maxs = V2f{ (float)_max_tile_x, (float)_max_tile_y };
+
+    if (p.x < mins.x || p.x >= maxs.x || p.y < mins.y || p.y >= maxs.y)
+    {
+        // Not on the minimap(?!)
+        x = -1;
+        y = -1;
+    }
+    else
+    {
+        V2f extent = maxs - mins;
+        V2f minimap_scale = V2f{ (float)_minimap.width(), (float)_minimap.height() } / extent;
+        V2f minimap_pos = V2f{p - mins} * minimap_scale;
+        x = (int)(minimap_pos.x + 0.5f);
+        y = (int)(minimap_pos.y + 0.5f);
+    }
+}
 
 } // namespace Bootstrap

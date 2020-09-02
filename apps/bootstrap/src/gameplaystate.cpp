@@ -4,6 +4,7 @@
 #include "collision.h"
 #include "bootstrap.h"
 #include "random.h"
+#include "vga9.h"
 
 namespace Bootstrap
 {
@@ -12,12 +13,8 @@ bool GamePlayState::on_init(App* app)
 {
     _app = app;
 
-    static const char* sprite_sheet_paths[Sprite::Count] =
-    {
-        GliAssetPath("sprites/droid.png"),
-        GliAssetPath("sprites/illegal_opcode.png"),
-        GliAssetPath("fx/bullet.png")
-    };
+    static const char* sprite_sheet_paths[Sprite::Count] = { GliAssetPath("sprites/droid.png"), GliAssetPath("sprites/illegal_opcode.png"),
+                                                             GliAssetPath("fx/bullet.png"), GliAssetPath("gui/map_markers.png") };
 
     size_t i = 0;
 
@@ -31,22 +28,17 @@ bool GamePlayState::on_init(App* app)
         i++;
     }
 
-    if (!_status_panel.load(GliAssetPath("gui/status_panel.png")))
-    {
-        return false;
-    }
-
-    if (!_leds.load(GliAssetPath("gui/leds.png")))
-    {
-        return false;
-    }
-
     if (!_nmi_dark.load(GliAssetPath("fx/nmi_dark.png")))
     {
         return false;
     }
 
     if (!_nmi_shock.load(GliAssetPath("fx/nmi_shock.png")))
+    {
+        return false;
+    }
+
+    if (!_tilemap.load_minimap(GliAssetPath("maps/6502.png")))
     {
         return false;
     }
@@ -65,12 +57,6 @@ bool GamePlayState::on_enter()
         return false;
     }
 
-    _dbus = 0xA5;
-    _abus_hi = 0xDE;
-    _abus_lo = 0xAD;
-    _a_reg = 0xBE;
-    _x_reg = 0x55;
-    _y_reg = 0xAA;
     _nmitimer = 0.0f;
     _nmifired = 0.0f;
 
@@ -82,6 +68,7 @@ bool GamePlayState::on_enter()
     _movables[0].velocity = { 0.0f, 0.0f };
     _movables[0].radius = 11.0f / _tilemap.tile_size();
     _movables[0].frame = 1;
+    _movables[0].collision_flags = TileMap::TileFlag::BlocksMovables;
     _player_zone = _tilemap.get_zone(_movables[0].position, nullptr);
 
     _brains.resize(_tilemap.ai_spawns().size());
@@ -101,10 +88,12 @@ bool GamePlayState::on_enter()
         movable.velocity = { 0.0f, 0.0f };
         movable.radius = 11.0f / _tilemap.tile_size();
         movable.frame = 1;
+        movable.collision_flags = TileMap::TileFlag::BlocksMovables | TileMap::TileFlag::BlocksAI;
         ai_movable++;
     }
 
     _simulation_delta = 0.0f;
+    _map_view = false;
 
     _app->show_mouse(true);
 
@@ -161,8 +150,37 @@ static float ease_out(float t)
 
 bool GamePlayState::on_update(float delta)
 {
-    _app->clear_screen(gli::Pixel(0x1F1D2C));
+    if (_map_view)
+    {
+        if (_app->key_state(gli::Key_Escape).pressed)
+        {
+            _map_view = false;
+            delta = 0.0f;
+        }
+    }
+    else
+    {
+        if (_app->key_state(gli::Key_M).pressed)
+        {
+            _map_view = true;
+        }
+    }
 
+    if (_map_view)
+    {
+        render_minimap(delta);
+    }
+    else
+    {
+        update_simulation(delta);
+        render_game(delta);
+    }
+
+    return true;
+}
+
+void GamePlayState::update_simulation(float delta)
+{
     _simulation_delta += delta;
 
     // Simulate at 120Hz regardless of frame rate..
@@ -373,84 +391,87 @@ bool GamePlayState::on_update(float delta)
 
         update_bullets(delta);
     }
+}
 
-    // Rendering
+
+void GamePlayState::render_game(float delta)
+{
+    _app->clear_screen(gli::Pixel(0x1F1D2C));
+
+    Movable& player = _movables[0];
+
+    // playfield = 412 x 360
+    _cx = (int)(player.position.x * _tilemap.tile_size() + 0.5f) - 320;
+    _cy = (int)(player.position.y * _tilemap.tile_size() + 0.5f) - 180;
+
+    int coarse_scroll_x = _cx / _tilemap.tile_size();
+    int coarse_scroll_y = _cy / _tilemap.tile_size();
+    int fine_scroll_x = _cx % _tilemap.tile_size();
+    int fine_scroll_y = _cy % _tilemap.tile_size();
+
+    int sy = -fine_scroll_y;
+
+    for (int y = coarse_scroll_y; y < _tilemap.height(); ++y)
     {
-        Movable& player = _movables[0];
+        int sx = -fine_scroll_x;
 
-        // playfield = 412 x 360
-        _cx = (int)(player.position.x * _tilemap.tile_size() + 0.5f) - 320;
-        _cy = (int)(player.position.y * _tilemap.tile_size() + 0.5f) - 180;
-
-        int coarse_scroll_x = _cx / _tilemap.tile_size();
-        int coarse_scroll_y = _cy / _tilemap.tile_size();
-        int fine_scroll_x = _cx % _tilemap.tile_size();
-        int fine_scroll_y = _cy % _tilemap.tile_size();
-
-        int sy = -fine_scroll_y;
-
-        for (int y = coarse_scroll_y; y < _tilemap.height(); ++y)
+        for (int x = coarse_scroll_x; x < _tilemap.width(); ++x)
         {
-            int sx = -fine_scroll_x;
+            int t = _tilemap(x, y);
 
-            for (int x = coarse_scroll_x; x < _tilemap.width(); ++x)
+            if (t)
             {
-                int t = _tilemap(x, y);
+                int ox;
+                int oy;
+                bool has_alpha;
+                _tilemap.draw_info(t - 1, ox, oy, has_alpha);
 
-                if (t)
+                if (has_alpha)
                 {
-                    int ox;
-                    int oy;
-                    bool has_alpha;
-                    _tilemap.draw_info(t - 1, ox, oy, has_alpha);
-
-                    if (has_alpha)
-                    {
-                        _app->blend_partial_sprite(sx, sy, _tilemap.tilesheet(),  ox, oy, _tilemap.tile_size(), _tilemap.tile_size(), 255);
-                    }
-                    else
-                    {
-                        _app->draw_partial_sprite(sx, sy, &_tilemap.tilesheet(), ox, oy, _tilemap.tile_size(), _tilemap.tile_size());
-                    }
+                    _app->blend_partial_sprite(sx, sy, _tilemap.tilesheet(), ox, oy, _tilemap.tile_size(), _tilemap.tile_size(), 255);
                 }
-
-                sx += _tilemap.tile_size();
-
-                if (sx >= _app->screen_width())
+                else
                 {
-                    break;
+                    _app->draw_partial_sprite(sx, sy, &_tilemap.tilesheet(), ox, oy, _tilemap.tile_size(), _tilemap.tile_size());
                 }
             }
 
-            sy += _tilemap.tile_size();
+            sx += _tilemap.tile_size();
 
-            if (sy >= _app->screen_height())
+            if (sx >= _app->screen_width())
             {
                 break;
             }
         }
 
-        // fx - pre-sprites
-        if (_nmitimer)
-        {
-            draw_nmi(player.position);
+        sy += _tilemap.tile_size();
 
-        }
-
-        // sprites
-        for (Movable& movable : _movables)
+        if (sy >= _app->screen_height())
         {
-            if (movable.active)
-            {
-                draw_sprite(movable.position, movable.sprite, movable.frame);
-            }
+            break;
         }
+    }
 
-        // fx - post-sprites
-        for (Bullet& bullet : _bullets)
+    // fx - pre-sprites
+    if (_nmitimer)
+    {
+        draw_nmi(player.position);
+    }
+
+    // sprites
+    for (Movable& movable : _movables)
+    {
+        if (movable.active)
         {
-            draw_sprite(bullet.position, Sprite::Bullet_, 0);
+            draw_sprite(movable.position, movable.sprite, movable.frame);
         }
+    }
+
+    // fx - post-sprites
+    for (Bullet& bullet : _bullets)
+    {
+        draw_sprite(bullet.position, Sprite::Bullet_, 0);
+    }
 
 #if 0
         // GUI
@@ -465,23 +486,29 @@ bool GamePlayState::on_update(float delta)
         draw_register(_x_reg, 455, 214, 1);
         draw_register(_y_reg, 455, 261, 1);
 #endif
-    }
-
-    return true;
 }
 
 
-void GamePlayState::draw_register(uint8_t reg, int x, int y, int color)
+void GamePlayState::render_minimap(float delta)
 {
-    int ox = 0;
-    int oy = color * 17;
+    _app->clear_screen(gli::Pixel(0x1F1D2C));
 
-    for (int i = 8; i--;)
+    int mx, my;
+    mx = (_app->screen_width() - _tilemap.minimap().width()) / 2;
+    my = (_app->screen_height() - _tilemap.minimap().height()) / 2;
+    _app->blend_sprite(mx, my, _tilemap.minimap(), 255);
+
+    int px, py;
+    _tilemap.pos_to_minimap(_movables[0].position, px, py);
+    _app->blend_partial_sprite(mx + px - 4, my + py - 4, _sprites[Sprite::MapMarkers], 0, 0, 8, 8, 255);
+
+    if (_player_zone)
     {
-        uint8_t bit = (reg >> i) & 1;
-        ox = bit * 17;
-        _app->blend_partial_sprite(x, y, _leds, ox, oy, 17, 17, 255);
-        x += 18;
+        int w = (int)_player_zone->name.size() * vga9_glyph_width;
+        int h = vga9_glyph_height;
+        int x = (_app->screen_width() - w) / 2;
+        int y = 300 - (h / 2);
+        _app->draw_string(x, y, _player_zone->name.c_str(), vga9_glyphs, vga9_glyph_width, vga9_glyph_height, gli::Pixel(0xFFC0C0C0), gli::Pixel(0));
     }
 }
 
@@ -598,14 +625,14 @@ void GamePlayState::move_movables(float delta)
         move.x = velocity.x * delta;
         move.y = velocity.y * delta;
 
-        if (check_collision(position + move, TileMap::TileFlag::BlocksMovables, movable.radius))
+        if (check_collision(position + move, movable.collision_flags, movable.radius))
         {
-            if (!check_collision(position + V2f{ move.x, 0.0f }, TileMap::TileFlag::BlocksMovables, movable.radius))
+            if (!check_collision(position + V2f{ move.x, 0.0f }, movable.collision_flags, movable.radius))
             {
                 move.y = 0.0f;
                 velocity.y = 0.0f;
             }
-            else if (!check_collision(position + V2f{ 0.0f, move.y }, TileMap::TileFlag::BlocksMovables, movable.radius))
+            else if (!check_collision(position + V2f{ 0.0f, move.y }, movable.collision_flags, movable.radius))
             {
                 move.x = 0.0f;
                 velocity.x = 0.0f;
@@ -661,7 +688,6 @@ void GamePlayState::update_bullets(float delta)
             if (swept_circle_vs_circle(bullet.position, next_position, bullet.radius, _movables[0].position, _movables[0].radius))
             {
                 // Hit the player
-
             }
             else
             {
@@ -673,6 +699,5 @@ void GamePlayState::update_bullets(float delta)
 
     _bullets = keep_bullets;
 }
-
-}
+} // namespace Bootstrap
 // namespace Bootstrap
