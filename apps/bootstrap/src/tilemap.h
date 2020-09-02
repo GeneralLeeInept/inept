@@ -31,6 +31,8 @@ public:
     const V2f& player_spawn() const;
     const std::vector<V2f>& ai_spawns() const;
 
+    bool raycast(const V2f& from, const V2f& to, V2f* hit) const;
+
 private:
     std::vector<uint16_t> _tiles;
     std::vector<TileInfo> _tile_info;

@@ -68,7 +68,7 @@ bool GamePlayState::on_enter()
     _movables[0].sprite = &_player;
     _movables[0].position = _tilemap.player_spawn();
     _movables[0].velocity = { 0.0f, 0.0f };
-    _movables[0].radius = 11.0f;
+    _movables[0].radius = 11.0f / _tilemap.tile_size();
     _movables[0].frame = 1;
 
     _brains.resize(8);
@@ -85,10 +85,12 @@ bool GamePlayState::on_enter()
         movable.sprite = &_foe;
         movable.position = spawn_position;
         movable.velocity = { 0.0f, 0.0f };
-        movable.radius = 11.0f;
+        movable.radius = 11.0f / _tilemap.tile_size();
         movable.frame = 1;
         ai_movable++;
     }
+
+    _app->show_mouse(true);
 
     return true;
 }
@@ -139,11 +141,11 @@ bool GamePlayState::on_update(float delta)
 {
     _app->clear_screen(gli::Pixel(0x1F1D2C));
 
-    // Pixel units..
-    static const float min_v = 16.0f;
+    static const float min_v = 0.5f;
     static const float drag = 0.95f;
-    static const float dv = 192.0f;
+    static const float dv = 6.0f;
 
+    // apply drag - FIXME - this is frame rate sensitive at the moment
     for (Movable& movable : _movables)
     {
         movable.velocity.x = std::abs(movable.velocity.x) < min_v ? 0.0f : movable.velocity.x * drag;
@@ -181,17 +183,44 @@ bool GamePlayState::on_update(float delta)
         player.frame = 1;
     }
 
-    move_movables(delta);
-
     for (AiBrain& brain : _brains)
     {
         Movable& movable = _movables[brain.movable];
 
         if (movable.active)
         {
-            movable.frame = player.position.x < movable.position.x ? 0 : 1;
+            brain.next_think -= delta;
+
+            if (brain.next_think <= 0.0f)
+            {
+                // Time to consider..
+                V2f player_direction = player.position - movable.position;
+                float player_distance_sq = length_sq(player_direction);
+
+                if (player_distance_sq < (10.0f * 10.0f))
+                {
+                    brain.player_spotted = !_tilemap.raycast(movable.position, player.position, nullptr);
+                }
+                else
+                {
+                    brain.player_spotted = false;
+                }
+
+                brain.next_think += brain.player_spotted ? 0.2f : 0.5f;
+            }
+
+            if (brain.player_spotted)
+            {
+                movable.frame = 2 + (player.position.x < movable.position.x ? 0 : 1);
+            }
+            else
+            {
+                movable.frame = (movable.frame & 1);
+            }
         }
     }
+
+    move_movables(delta);
 
     if (_app->key_state(gli::Key_Space).pressed)
     {
@@ -221,8 +250,8 @@ bool GamePlayState::on_update(float delta)
     }
 
     // playfield = 412 x 360
-    _cx = (int)(player.position.x + 0.5f) - 206;
-    _cy = (int)(player.position.y + 0.5f) - 180;
+    _cx = (int)(player.position.x * _tilemap.tile_size() + 0.5f) - 206;
+    _cy = (int)(player.position.y * _tilemap.tile_size() + 0.5f) - 180;
 
     int coarse_scroll_x = _cx / _tilemap.tile_size();
     int coarse_scroll_y = _cy / _tilemap.tile_size();
@@ -290,6 +319,25 @@ bool GamePlayState::on_update(float delta)
 
     // fx - post-sprites
 
+
+    // Raycast test
+    if (_app->mouse_state().buttons[0].down)
+    {
+        float denom = 1.0f / _tilemap.tile_size();
+        V2f cursor_pos = V2f{ (float)_app->mouse_state().x, (float)_app->mouse_state().y };
+        V2f player_screen_pos = (player.position * _tilemap.tile_size()) - V2f{ (float)_cx, (float)_cy };
+        V2f screen_ray = (cursor_pos - player_screen_pos) * denom;
+        _los_ray_start = player.position;
+        _los_ray_hit = _tilemap.raycast(_los_ray_start, _los_ray_start + screen_ray, &_los_ray_end);
+    }
+
+    int lrx1 = (int)(_los_ray_start.x * _tilemap.tile_size() + 0.5f) - _cx;
+    int lry1 = (int)(_los_ray_start.y * _tilemap.tile_size() + 0.5f) - _cy;
+    int lrx2 = (int)(_los_ray_end.x * _tilemap.tile_size() + 0.5f) - _cx;
+    int lry2 = (int)(_los_ray_end.y * _tilemap.tile_size() + 0.5f) - _cy;
+    uint8_t lrcolor = _los_ray_hit ? 4 : 2;
+    _app->draw_line(lrx1, lry1, lrx2, lry2, lrcolor);
+
     // GUI
     _a_reg = _cx & 0xFF;
     _x_reg = _cy & 0xFF;
@@ -325,8 +373,8 @@ void GamePlayState::draw_sprite(float x, float y, gli::Sprite& sheet, int index)
 {
     int size = sheet.height();
     int half_size = size / 2;
-    int sx = (int)(x + 0.5f) - _cx - half_size;
-    int sy = (int)(y + 0.5f) - _cy - half_size;
+    int sx = (int)(x * _tilemap.tile_size() + 0.5f) - _cx - half_size;
+    int sy = (int)(y * _tilemap.tile_size() + 0.5f) - _cy - half_size;
     _app->blend_partial_sprite(sx, sy, sheet, index * size, 0, size, size, 255);
 }
 
@@ -353,8 +401,8 @@ void GamePlayState::draw_nmi(const V2f& position)
 
     if (nmidarkalpha)
     {
-        int nmi_sx = (int)(position.x + 0.5f) - _cx;
-        int nmi_sy = (int)(position.y + 0.5f) - _cy;
+        int nmi_sx = (int)(position.x * _tilemap.tile_size() + 0.5f) - _cx;
+        int nmi_sy = (int)(position.y * _tilemap.tile_size() + 0.5f) - _cy;
         _app->blend_sprite(nmi_sx - _nmi_dark.width() / 2, nmi_sy - _nmi_dark.height() / 2, _nmi_dark, nmidarkalpha);
     }
 
@@ -379,8 +427,8 @@ void GamePlayState::draw_nmi(const V2f& position)
 
         if (nmizapalpha)
         {
-            int nmi_sx = (int)(position.x + 0.5f) - _cx;
-            int nmi_sy = (int)(position.y + 0.5f) - _cy;
+            int nmi_sx = (int)(position.x * _tilemap.tile_size() + 0.5f) - _cx;
+            int nmi_sy = (int)(position.y * _tilemap.tile_size() + 0.5f) - _cy;
             _app->blend_sprite(nmi_sx - _nmi_shock.width() / 2, nmi_sy - _nmi_shock.height() / 2, _nmi_shock, nmizapalpha);
         }
     }
@@ -389,10 +437,10 @@ void GamePlayState::draw_nmi(const V2f& position)
 
 bool GamePlayState::check_collision(float x, float y, float half_size)
 {
-    int sx = (int)std::floor(x - half_size) / _tilemap.tile_size();
-    int sy = (int)std::floor(y - half_size) / _tilemap.tile_size();
-    int ex = (int)std::floor(x + half_size) / _tilemap.tile_size();
-    int ey = (int)std::floor(y + half_size) / _tilemap.tile_size();
+    int sx = (int)std::floor(x - half_size);
+    int sy = (int)std::floor(y - half_size);
+    int ex = (int)std::floor(x + half_size);
+    int ey = (int)std::floor(y + half_size);
 
     if (sx < 0 || sy < 0 || ex >= _tilemap.width() || ey >= _tilemap.height())
     {

@@ -116,6 +116,19 @@ bool TileMap::load(const std::string& path)
     success = success && vread(_tile_info, map_data, read_ptr);
     success = success && _tilesheet.load(asset_path(tilesheet_path));
 
+    if (success)
+    {
+        // Normalize spawn positions
+        float denom = 1.0f / (float)_tile_size;
+
+        _player_spawn = _player_spawn * denom;
+
+        for (V2f& ai_spawn : _ai_spawns)
+        {
+            ai_spawn = ai_spawn * denom;
+        }
+    }
+
     return success;
 }
 
@@ -192,5 +205,145 @@ const std::vector<V2f>& TileMap::ai_spawns() const
 {
     return _ai_spawns;
 }
+
+
+bool TileMap::raycast(const V2f& from, const V2f& to, V2f* hit_out) const
+{
+    V2f r = to - from;
+    V2f closest_hit = to;
+
+    // Cast ray through the map and find the nearest intersection with a solid tile
+    float distance = FLT_MAX;
+
+    if (r.x > 0.0f)
+    {
+        float dydx = r.y / r.x;
+        int tx = (int)(std::floor(from.x + 1.0f));
+
+        for (; tx < _width; ++tx)
+        {
+            float y = from.y + dydx * (tx - from.x);
+            int ty = (int)std::floor(y);
+
+            if (ty < 0 || ty >= _height)
+            {
+                break;
+            }
+
+            if (!walkable(tx, ty))
+            {
+                V2f hit{ (float)tx, (float)y };
+                float hit_d = length_sq(hit - from);
+
+                if (hit_d < distance)
+                {
+                    distance = hit_d;
+                    closest_hit = hit;
+                }
+
+                break;
+            }
+        }
+    }
+    else if (r.x < 0.0f)
+    {
+        float dydx = r.y / r.x;
+        int tx = (int)std::floor(from.x - 1.0f);
+
+        for (; tx >= 0; tx--)
+        {
+            float y = from.y + dydx * (tx + 1.0f - from.x);
+            int ty = (int)std::floor(y);
+
+            if (ty < 0 || ty >= _height)
+            {
+                break;
+            }
+
+            if (!walkable(tx, ty))
+            {
+                V2f hit{ (float)(tx + 1), (float)y };
+                float hit_d = length_sq(hit - from);
+
+                if (hit_d < distance)
+                {
+                    distance = hit_d;
+                    closest_hit = hit;
+                }
+
+                break;
+            }
+        }
+    }
+
+    if (r.y > 0.0f)
+    {
+        float dxdy = r.x / r.y;
+        int ty = (int)std::floor(from.y + 1.0f);
+
+        for (; ty < _height; ty++)
+        {
+            float x = from.x + dxdy * (ty - from.y);
+            int tx = (int)std::floor(x);
+
+            if (tx < 0 || tx >= _width)
+            {
+                break;
+            }
+
+            if (!walkable(tx, ty))
+            {
+                V2f hit{ (float)x, (float)ty };
+                float hit_d = length_sq(hit - from);
+
+                if (hit_d < distance)
+                {
+                    distance = hit_d;
+                    closest_hit = hit;
+                }
+
+                break;
+            }
+        }
+    }
+    else if (r.y < 0.0f)
+    {
+        float dxdy = r.x / r.y;
+        int ty = (int)std::floor(from.y - 1.0f);
+
+        for (; ty >= 0; ty--)
+        {
+            float x = from.x + dxdy * (ty + 1.0f - from.y);
+            int tx = (int)std::floor(x);
+
+            if (tx < 0 || tx >= _width)
+            {
+                break;
+            }
+
+            if (!walkable(tx, ty))
+            {
+                V2f hit{ (float)x, (float)(ty + 1) };
+                float hit_d = length_sq(hit - from);
+
+                if (hit_d < distance)
+                {
+                    distance = hit_d;
+                    closest_hit = hit;
+                }
+
+                break;
+            }
+        }
+    }
+
+    if (hit_out)
+    {
+        *hit_out = closest_hit;
+    }
+
+    return distance <= length_sq(r);
+}
+
 
 } // namespace Bootstrap
