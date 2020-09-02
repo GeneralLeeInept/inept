@@ -35,6 +35,9 @@
     <ClInclude Include="..\src\gameplaystate.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\types.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\bootstrap.cpp">

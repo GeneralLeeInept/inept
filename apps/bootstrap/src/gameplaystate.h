@@ -2,6 +2,7 @@
 
 #include "iappstate.h"
 #include "tilemap.h"
+#include "types.h"
 
 #include <gli.h>
 
@@ -20,19 +21,21 @@ public:
     bool on_update(float delta) override;
 
 private:
-    struct V2f
-    {
-        float x;
-        float y;
-    };
-
     struct Movable
     {
+        bool active;
         gli::Sprite* sprite;
         V2f position;
         V2f velocity;
         float radius;
         int frame;
+    };
+
+    struct AiBrain
+    {
+        size_t movable;
+        float next_think;
+        V2f target_position;
     };
 
     void draw_register(uint8_t reg, int x, int y, int color);
@@ -42,6 +45,7 @@ private:
     void move_movables(float delta);
 
     std::vector<Movable> _movables;
+    std::vector<AiBrain> _brains;
     App* _app{};
     TileMap _tilemap;
     gli::Sprite _player;

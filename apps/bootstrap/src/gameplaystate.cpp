@@ -63,18 +63,32 @@ bool GamePlayState::on_enter()
     _nmitimer = 0.0f;
     _nmifired = 0.0f;
 
-    _movables.resize(2);
+    _movables.resize(9); // player + 8 AIS
+    _movables[0].active = true;
     _movables[0].sprite = &_player;
-    _movables[0].position = { 9.5f * _tilemap.tile_size(), 8.5f * _tilemap.tile_size() };
+    _movables[0].position = _tilemap.player_spawn();
     _movables[0].velocity = { 0.0f, 0.0f };
     _movables[0].radius = 11.0f;
     _movables[0].frame = 1;
 
-    _movables[1].sprite = &_foe;
-    _movables[1].position = { 9.5f * _tilemap.tile_size(), 28.5f * _tilemap.tile_size() };
-    _movables[1].velocity = { 0.0f, 0.0f };
-    _movables[1].radius = 11.0f;
-    _movables[1].frame = 1;
+    _brains.resize(8);
+    size_t ai_movable = 1;
+    const std::vector<V2f>& ai_spawns = _tilemap.ai_spawns();
+
+    for (AiBrain& brain : _brains)
+    {
+        Movable& movable = _movables[ai_movable];
+        V2f spawn_position = ai_spawns[ai_movable - 1];
+        brain.movable = ai_movable;
+        brain.target_position = spawn_position;
+        movable.active = true;
+        movable.sprite = &_foe;
+        movable.position = spawn_position;
+        movable.velocity = { 0.0f, 0.0f };
+        movable.radius = 11.0f;
+        movable.frame = 1;
+        ai_movable++;
+    }
 
     return true;
 }
@@ -169,7 +183,15 @@ bool GamePlayState::on_update(float delta)
 
     move_movables(delta);
 
-    _movables[1].frame = player.position.x < _movables[1].position.x ? 0 : 1;
+    for (AiBrain& brain : _brains)
+    {
+        Movable& movable = _movables[brain.movable];
+
+        if (movable.active)
+        {
+            movable.frame = player.position.x < movable.position.x ? 0 : 1;
+        }
+    }
 
     if (_app->key_state(gli::Key_Space).pressed)
     {
@@ -260,7 +282,10 @@ bool GamePlayState::on_update(float delta)
     // sprites
     for (Movable& movable : _movables)
     {
-        draw_sprite(movable.position.x, movable.position.y, *movable.sprite, movable.frame);
+        if (movable.active)
+        {
+            draw_sprite(movable.position.x, movable.position.y, *movable.sprite, movable.frame);
+        }
     }
 
     // fx - post-sprites
@@ -369,7 +394,7 @@ bool GamePlayState::check_collision(float x, float y, float half_size)
     int ex = (int)std::floor(x + half_size) / _tilemap.tile_size();
     int ey = (int)std::floor(y + half_size) / _tilemap.tile_size();
 
-    if (sx < 0 || sx < 0 || ex >= _tilemap.width() || ey >= _tilemap.height())
+    if (sx < 0 || sy < 0 || ex >= _tilemap.width() || ey >= _tilemap.height())
     {
         return true;
     }
@@ -394,9 +419,9 @@ void GamePlayState::move_movables(float delta)
     std::vector<V2f> positions(_movables.size());
     std::vector<V2f> movements(_movables.size());
     std::vector<V2f> velocities(_movables.size());
+    size_t i = 0;
 
-    // Resolve movable collisions
-    for (size_t i = 0; i < _movables.size(); ++i)
+    for (Movable& movable : _movables)
     {
         Movable& movable = _movables[i];
         V2f& position = positions[i];
@@ -431,14 +456,18 @@ void GamePlayState::move_movables(float delta)
 
         position.x += move.x;
         position.y += move.y;
+
+        i++;
     }
 
     // Apply new positions, movements & velocities
-    for (size_t i = 0; i < _movables.size(); ++i)
+    i = 0;
+
+    for (Movable& movable : _movables)
     {
-        Movable& movable = _movables[i];
         movable.position = positions[i];
         movable.velocity = velocities[i];
+        i++;
     }
 }
 

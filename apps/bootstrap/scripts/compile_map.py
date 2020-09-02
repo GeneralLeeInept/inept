@@ -9,6 +9,12 @@ Map file format:
 16-bits map height (in tiles)
 map data (16 bits per tile)
 
+32-bits player spawn x
+32-bits player spawn y
+
+16-bits ai spawn point count
+ai spawn points (2 x 32-bits each)
+
 16-bits tilesheet path length
 tilesheet path (utf-8)
 16-bits number of tiles
@@ -70,11 +76,23 @@ def process(input, asset_root, output):
     output.write(struct.pack('H', width))
     output.write(struct.pack('H', height))
 
-    data_node = root.find('layer/data')
+    data_node = root.find('layer/data[@encoding="csv"]')
     tile_data = data_node.text.split(',')
 
     for t in tile_data:
         output.write(struct.pack('H', int(t)))
+
+    objects_layer = root.find('objectgroup')
+    spawn_points = objects_layer.findall('object[@type="spawn"]')
+    player_spawn = next(filter(lambda x: x.attrib['name'] == 'player', spawn_points))
+    output.write(struct.pack('f', float(player_spawn.attrib['x'])))
+    output.write(struct.pack('f', float(player_spawn.attrib['y'])))
+
+    ai_spawns = list(filter(lambda x: x.attrib['name'] == 'ai', spawn_points))
+    output.write(struct.pack('H', int(len(ai_spawns))))
+    for spawn in ai_spawns:
+        output.write(struct.pack('f', float(spawn.attrib['x'])))
+        output.write(struct.pack('f', float(spawn.attrib['y'])))
 
     tsx_node = root.find('tileset')
     tsx_path = Path.resolve(Path(input.name).parents[0] / tsx_node.attrib['source'])

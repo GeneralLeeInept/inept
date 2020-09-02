@@ -79,6 +79,7 @@
     <ClInclude Include="..\src\assets.h" />
     <ClInclude Include="..\src\bootstrap.h" />
     <ClInclude Include="..\src\gameplaystate.h" />
+    <ClInclude Include="..\src\types.h" />
     <ClInclude Include="..\src\iappstate.h" />
     <ClInclude Include="..\src\splash.h" />
     <ClInclude Include="..\src\tilemap.h" />

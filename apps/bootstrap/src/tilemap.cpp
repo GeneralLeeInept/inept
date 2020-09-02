@@ -27,6 +27,65 @@ std::string asset_path(const std::string& path)
 }
 
 
+template <typename T>
+bool vread(T* output, size_t count, std::vector<uint8_t>& data, size_t& read_ptr)
+{
+    size_t readsize = sizeof(T) * count;
+
+    if (readsize > data.size() - read_ptr)
+    {
+        return false;
+    }
+
+    memcpy(output, &data[read_ptr], readsize);
+    read_ptr += readsize;
+    return true;
+}
+
+
+template <typename T>
+bool vread(T& output, std::vector<uint8_t>& data, size_t& read_ptr)
+{
+    return vread(&output, 1, data, read_ptr);
+}
+
+
+bool vread(std::string& s, std::vector<uint8_t>& data, size_t& read_ptr)
+{
+    uint16_t len;
+
+    if (!vread(len, data, read_ptr))
+    {
+        return false;
+    }
+
+    s.resize(len);
+    return vread(&s[0], len, data, read_ptr);
+}
+
+
+template <typename T>
+bool vread(std::vector<T>& v, size_t count, std::vector<uint8_t>& data, size_t& read_ptr)
+{
+    v.resize(count);
+    return vread(&v[0], count, data, read_ptr);
+}
+
+
+template <typename T>
+bool vread(std::vector<T>& v, std::vector<uint8_t>& data, size_t& read_ptr)
+{
+    uint16_t count;
+
+    if (!vread(count, data, read_ptr))
+    {
+        return false;
+    }
+
+    return vread(v, count, data, read_ptr);
+}
+
+
 bool TileMap::load(const std::string& path)
 {
     std::vector<uint8_t> map_data;
@@ -36,91 +95,28 @@ bool TileMap::load(const std::string& path)
         return false;
     }
 
-    uint8_t* read_ptr = &map_data[0];
-    size_t bytes_remaining = map_data.size();
+    size_t read_ptr = 0;
+    uint32_t magic;
 
-    if (bytes_remaining < sizeof(uint32_t))
-    {
-        return false;
-    }
-
-    uint32_t magic = *(uint32_t*)read_ptr;
-    read_ptr += sizeof(uint32_t);
-    bytes_remaining -= sizeof(uint32_t);
-
-    if (magic != map4cc())
-    {
-        return false;
-    }
-
-    if (bytes_remaining < 3 * sizeof(uint16_t))
-    {
-        return false;
-    }
-
-    _tile_size = ((uint16_t*)read_ptr)[0];
-    _width = ((uint16_t*)read_ptr)[1];
-    _height = ((uint16_t*)read_ptr)[2];
-    read_ptr += 3 * sizeof(uint16_t);
-    bytes_remaining -= 3 * sizeof(uint16_t);
-
-    size_t tile_data_size = sizeof(uint16_t) * _width * _height;
-
-    if (bytes_remaining < tile_data_size)
-    {
-        return false;
-    }
-
-    _tiles.resize(_width * _height);
-    memcpy(&_tiles[0], read_ptr, tile_data_size);
-    read_ptr += tile_data_size;
-    bytes_remaining -= tile_data_size;
-
-    if (bytes_remaining < sizeof(uint16_t))
-    {
-        return false;
-    }
-
-    size_t tilesheet_path_len = *(uint16_t*)read_ptr;
-    read_ptr += sizeof(uint16_t);
-    bytes_remaining -= sizeof(uint16_t);
-
-    if (bytes_remaining < tilesheet_path_len)
+    if (!vread(magic, map_data, read_ptr) || magic != map4cc())
     {
         return false;
     }
 
     std::string tilesheet_path;
-    tilesheet_path.resize(tilesheet_path_len);
-    memcpy(&tilesheet_path[0], read_ptr, tilesheet_path_len);
-    read_ptr += tilesheet_path_len;
-    bytes_remaining -= tilesheet_path_len;
+    bool success = true;
 
-    if (!_tilesheet.load(asset_path(tilesheet_path)))
-    {
-        return false;
-    }
+    success = success && vread(_tile_size, map_data, read_ptr);
+    success = success && vread(_width, map_data, read_ptr);
+    success = success && vread(_height, map_data, read_ptr);
+    success = success && vread(_tiles, _width * _height, map_data, read_ptr);
+    success = success && vread(_player_spawn, map_data, read_ptr);
+    success = success && vread(_ai_spawns, map_data, read_ptr);
+    success = success && vread(tilesheet_path, map_data, read_ptr);
+    success = success && vread(_tile_info, map_data, read_ptr);
+    success = success && _tilesheet.load(asset_path(tilesheet_path));
 
-    if (bytes_remaining < sizeof(uint16_t))
-    {
-        return false;
-    }
-
-    size_t tile_count = *(uint16_t*)read_ptr;
-    read_ptr += sizeof(uint16_t);
-    bytes_remaining -= sizeof(uint16_t);
-
-    if (bytes_remaining < tile_count * sizeof(TileInfo))
-    {
-        return false;
-    }
-
-    _tile_info.resize(tile_count);
-    memcpy(&_tile_info[0], read_ptr, tile_count * sizeof(TileInfo));
-    read_ptr += tile_count * sizeof(TileInfo);
-    bytes_remaining -= tile_count * sizeof(TileInfo);
-
-    return true;
+    return success;
 }
 
 
@@ -185,5 +181,16 @@ void TileMap::draw_info(uint16_t tile_index, int& ox, int& oy, bool& has_alpha) 
     has_alpha = false;
 }
 
+
+const V2f& TileMap::player_spawn() const
+{
+    return _player_spawn;
+}
+
+
+const std::vector<V2f>& TileMap::ai_spawns() const
+{
+    return _ai_spawns;
+}
 
 } // namespace Bootstrap

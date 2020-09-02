@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.2" tiledversion="1.2.5" orientation="orthogonal" renderorder="right-down" width="128" height="128" tilewidth="32" tileheight="32" infinite="0" nextlayerid="2" nextobjectid="1">
+<map version="1.2" tiledversion="1.2.5" orientation="orthogonal" renderorder="right-down" width="128" height="128" tilewidth="32" tileheight="32" infinite="0" nextlayerid="3" nextobjectid="38">
  <tileset firstgid="1" source="../tilesets/scifitiles.tsx"/>
  <layer id="1" name="Tile Layer 1" width="128" height="128">
   <data encoding="csv">
@@ -133,4 +133,117 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
+ <objectgroup id="2" name="Object Layer 1">
+  <object id="1" name="player" type="spawn" x="303" y="207.667">
+   <point/>
+  </object>
+  <object id="2" name="ai" type="spawn" x="304" y="880.333">
+   <point/>
+  </object>
+  <object id="3" name="ai" type="spawn" x="1071" y="434.5">
+   <point/>
+  </object>
+  <object id="4" name="ai" type="spawn" x="432" y="1464">
+   <point/>
+  </object>
+  <object id="5" name="ai" type="spawn" x="908" y="1138.67">
+   <point/>
+  </object>
+  <object id="6" name="ai" type="spawn" x="904" y="1482.67">
+   <point/>
+  </object>
+  <object id="7" name="ai" type="spawn" x="909.333" y="1872">
+   <point/>
+  </object>
+  <object id="8" name="ai" type="spawn" x="526.667" y="1998.67">
+   <point/>
+  </object>
+  <object id="9" name="ai" type="spawn" x="1069.33" y="685.333">
+   <point/>
+  </object>
+  <object id="10" name="ai" type="spawn" x="685.333" y="233.333">
+   <point/>
+  </object>
+  <object id="11" name="ai" type="spawn" x="1453.33" y="236">
+   <point/>
+  </object>
+  <object id="12" name="ai" type="spawn" x="1825.33" y="238.667">
+   <point/>
+  </object>
+  <object id="13" name="ai" type="spawn" x="2316" y="242.667">
+   <point/>
+  </object>
+  <object id="14" name="ai" type="spawn" x="1610.67" y="494.667">
+   <point/>
+  </object>
+  <object id="15" name="ai" type="spawn" x="1613.33" y="756">
+   <point/>
+  </object>
+  <object id="16" name="ai" type="spawn" x="1613.33" y="1045.33">
+   <point/>
+  </object>
+  <object id="17" name="ai" type="spawn" x="2097.33" y="490.667">
+   <point/>
+  </object>
+  <object id="18" name="ai" type="spawn" x="2096" y="808">
+   <point/>
+  </object>
+  <object id="19" name="ai" type="spawn" x="2090.67" y="1197.33">
+   <point/>
+  </object>
+  <object id="20" name="ai" type="spawn" x="2513.33" y="432">
+   <point/>
+  </object>
+  <object id="21" name="ai" type="spawn" x="2548" y="653.333">
+   <point/>
+  </object>
+  <object id="22" name="ai" type="spawn" x="2512" y="942.667">
+   <point/>
+  </object>
+  <object id="23" name="ai" type="spawn" x="1653.33" y="1397.33">
+   <point/>
+  </object>
+  <object id="24" name="ai" type="spawn" x="2316" y="1449.33">
+   <point/>
+  </object>
+  <object id="25" name="ai" type="spawn" x="1649.33" y="1776">
+   <point/>
+  </object>
+  <object id="26" name="ai" type="spawn" x="2032" y="1648">
+   <point/>
+  </object>
+  <object id="27" name="ai" type="spawn" x="2090.67" y="1873.33">
+   <point/>
+  </object>
+  <object id="28" name="ai" type="spawn" x="1548" y="2068">
+   <point/>
+  </object>
+  <object id="29" name="ai" type="spawn" x="1620" y="2448">
+   <point/>
+  </object>
+  <object id="30" name="ai" type="spawn" x="2097.33" y="2453.33">
+   <point/>
+  </object>
+  <object id="31" name="ai" type="spawn" x="2506.67" y="2194.67">
+   <point/>
+  </object>
+  <object id="32" name="ai" type="spawn" x="2509.33" y="2738.67">
+   <point/>
+  </object>
+  <object id="33" name="ai" type="spawn" x="2513.33" y="3122.67">
+   <point/>
+  </object>
+  <object id="34" name="ai" type="spawn" x="1806.67" y="3190.67">
+   <point/>
+  </object>
+  <object id="35" name="ai" type="spawn" x="1130.67" y="3092">
+   <point/>
+  </object>
+  <object id="36" name="ai" type="spawn" x="626" y="1044">
+   <point/>
+  </object>
+  <object id="37" name="ai" type="spawn" x="1134" y="908">
+   <point/>
+  </object>
+ </objectgroup>
 </map>
