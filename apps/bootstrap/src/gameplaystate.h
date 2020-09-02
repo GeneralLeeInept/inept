@@ -21,10 +21,18 @@ public:
     bool on_update(float delta) override;
 
 private:
+    enum Sprite
+    {
+        Player,
+        IllegalOpcode,
+        Bullet_,
+        Count
+    };
+
     struct Movable
     {
         bool active;
-        gli::Sprite* sprite;
+        Sprite sprite;
         V2f position;
         V2f velocity;
         float radius;
@@ -37,20 +45,32 @@ private:
         float next_think;
         V2f target_position;
         float player_spotted;
+        float shot_timer;
+    };
+
+    struct Bullet
+    {
+        V2f position;
+        V2f velocity;
+        float radius;
     };
 
     void draw_register(uint8_t reg, int x, int y, int color);
-    void draw_sprite(float x, float y, gli::Sprite& sheet, int frame);
+    void draw_sprite(const V2f& position, Sprite sprite, int frame);
     void draw_nmi(const V2f& position);
-    bool check_collision(float x, float y, float half_size);
+    bool check_collision(const V2f& position, float half_size);
     void move_movables(float delta);
+
+    void fire_bullet(const Movable& attacker, const V2f& target);
+    void update_bullets(float delta);
 
     std::vector<Movable> _movables;
     std::vector<AiBrain> _brains;
+    std::vector<Bullet> _bullets;
+
     App* _app{};
     TileMap _tilemap;
-    gli::Sprite _player;
-    gli::Sprite _foe;
+    gli::Sprite _sprites[Sprite::Count];
     gli::Sprite _status_panel;
     gli::Sprite _leds;
     gli::Sprite _nmi_dark;

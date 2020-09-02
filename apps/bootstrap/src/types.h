@@ -49,4 +49,9 @@ inline V2f normalize(const V2f& v)
 }
 
 
+inline float dot(const V2f& a, const V2f& b)
+{
+    return (a.x * b.x) + (a.y * b.y);
 }
+
+} // namespace Bootstrap

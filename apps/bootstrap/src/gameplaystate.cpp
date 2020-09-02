@@ -1,6 +1,7 @@
 #include "gameplaystate.h"
 
 #include "assets.h"
+#include "collision.h"
 #include "bootstrap.h"
 #include "random.h"
 
@@ -11,19 +12,28 @@ bool GamePlayState::on_init(App* app)
 {
     _app = app;
 
+    static const char* sprite_sheet_paths[Sprite::Count] =
+    {
+        GliAssetPath("sprites/droid.png"),
+        GliAssetPath("sprites/illegal_opcode.png"),
+        GliAssetPath("fx/bullet.png")
+    };
+
     if (!_tilemap.load(GliAssetPath("maps/main.bin")))
     {
         return false;
     }
 
-    if (!_player.load(GliAssetPath("sprites/droid.png")))
-    {
-        return false;
-    }
+    size_t i = 0;
 
-    if (!_foe.load(GliAssetPath("sprites/illegal_opcode.png")))
+    for (gli::Sprite& sprite : _sprites)
     {
-        return false;
+        if (!sprite.load(sprite_sheet_paths[i]))
+        {
+            return false;
+        }
+
+        i++;
     }
 
     if (!_status_panel.load(GliAssetPath("gui/status_panel.png")))
@@ -66,7 +76,7 @@ bool GamePlayState::on_enter()
 
     _movables.resize(9); // player + 8 AIS
     _movables[0].active = true;
-    _movables[0].sprite = &_player;
+    _movables[0].sprite = Sprite::Player;
     _movables[0].position = _tilemap.player_spawn();
     _movables[0].velocity = { 0.0f, 0.0f };
     _movables[0].radius = 11.0f / _tilemap.tile_size();
@@ -82,8 +92,9 @@ bool GamePlayState::on_enter()
         V2f spawn_position = ai_spawns[ai_movable - 1];
         brain.movable = ai_movable;
         brain.target_position = spawn_position;
+        brain.shot_timer = 0.0f;
         movable.active = true;
-        movable.sprite = &_foe;
+        movable.sprite = Sprite::IllegalOpcode;
         movable.position = spawn_position;
         movable.velocity = { 0.0f, 0.0f };
         movable.radius = 11.0f / _tilemap.tile_size();
@@ -117,6 +128,12 @@ static const float NmiDarkOutEnd = 1.0f;
 static const float NmiCooldown = 1.2f;
 static const float NmiDuration = NmiCooldown;
 
+// Physics constants
+static const float min_v = 0.5f;
+static const float drag = 0.95f;
+static const float dv = 6.0f;
+
+static const float bullet_speed = 10.0f; // not sure what max speed is..
 
 static float clamp(float t, float min, float max)
 {
@@ -141,10 +158,6 @@ static float ease_out(float t)
 bool GamePlayState::on_update(float delta)
 {
     _app->clear_screen(gli::Pixel(0x1F1D2C));
-
-    static const float min_v = 0.5f;
-    static const float drag = 0.95f;
-    static const float dv = 6.0f;
 
     // apply drag - FIXME - this is frame rate sensitive at the moment
     for (Movable& movable : _movables)
@@ -204,13 +217,17 @@ bool GamePlayState::on_update(float delta)
                 }
             }
 
+            if (brain.shot_timer > 0.0f)
+            {
+                brain.shot_timer -= delta;
+            }
+
             if (brain.next_think <= 0.0f)
             {
                 // Time to consider..
-                V2f player_direction = player.position - movable.position;
-                float player_distance_sq = length_sq(player_direction);
+                float player_distance_sq = length_sq(player.position - movable.position);
 
-                if (player_distance_sq < (10.0f * 10.0f))
+                if (player_distance_sq < (20.0f * 20.0f))
                 {
                     player_visible = !_tilemap.raycast(movable.position, player.position, nullptr);
                 }
@@ -218,16 +235,39 @@ bool GamePlayState::on_update(float delta)
                 if (player_visible)
                 {
                     brain.player_spotted = 1.0f;
-                    brain.target_position = player.position;
+
+                    if (player_distance_sq < (2.0f * 2.0f))
+                    {
+                        V2f dir = normalize(movable.position - player.position);
+                        brain.target_position = player.position + dir * 4.0f;
+                    }
+                    else if (player_distance_sq > (5.0f * 5.0f))
+                    {
+                        V2f dir = normalize(movable.position - player.position);
+                        brain.target_position = player.position + dir * 3.0f;
+                        //brain.target_position = player.position;
+                    }
+                    else
+                    {
+                        if (length_sq(player.velocity) > 1.0f)
+                        {
+                            brain.target_position = movable.position + V2f{ player.velocity.y, player.velocity.x };
+                        }
+                        else
+                        {
+                            brain.target_position = movable.position + V2f{ gRandom.get(), gRandom.get() };
+                        }
+                    }
                 }
                 else if (brain.player_spotted > delta)
                 {
                     brain.player_spotted -= delta;
                 }
 
-                brain.next_think += brain.player_spotted ? 0.1f : 0.5f;
+                brain.next_think += 0.5f;
             }
 
+            // update velocity
             float distance_to_target_sq = length_sq(brain.target_position - movable.position);
             static const float MoveThreshold = 1.0f;
 
@@ -236,19 +276,56 @@ bool GamePlayState::on_update(float delta)
                 movable.velocity = normalize(brain.target_position - movable.position) * dv;
             }
 
+            // update facing
             int facing = movable.frame & 1;
 
-            if (std::abs(movable.velocity.x) > 0)
+            if (player_visible)
+            {
+                // Always face the player when in sight
+                facing = player.position.x > movable.position.x;
+            }
+            else if (std::abs(movable.velocity.x) > 0)
             {
                 // Face direction we're heading
                 facing = movable.velocity.x > 0;
             }
-            else if (player_visible)
-            {
-                facing = player.position.x > movable.position.x;
-            }
 
             movable.frame = brain.player_spotted ? 2 + facing : facing;
+
+            // fire muh laser
+            if (player_visible && brain.shot_timer <= 0.0f)
+            {
+                float fire = gRandom.get();
+                bool fired = false;
+
+                if (fire > 0.8f)
+                {
+                    V2f dir = normalize(player.position - movable.position);
+                    V2f perp = V2f{ dir.y, dir.x };
+
+                    // Fire a spread
+                    int num = (fire > 0.9f) ? 5 : 3;
+
+                    for (int i = -num / 2; i <= num / 2; ++i)
+                    {
+                        V2f shot_dir = dir + perp * (float)i;
+                        fire_bullet(movable, movable.position + shot_dir);
+                    }
+
+                    fired = true;
+                }
+                else if (fire > 0.5f)
+                {
+                    // Fire one
+                    fire_bullet(movable, player.position);
+                    fired = true;
+                }
+
+                if (fired)
+                {
+                    brain.shot_timer = gRandom.get(0.3f, 0.8f);
+                }
+            }
         }
     }
 
@@ -280,6 +357,8 @@ bool GamePlayState::on_update(float delta)
             _nmitimer = NmiDuration;
         }
     }
+
+    update_bullets(delta);
 
     // playfield = 412 x 360
     _cx = (int)(player.position.x * _tilemap.tile_size() + 0.5f) - 206;
@@ -345,31 +424,15 @@ bool GamePlayState::on_update(float delta)
     {
         if (movable.active)
         {
-            draw_sprite(movable.position.x, movable.position.y, *movable.sprite, movable.frame);
+            draw_sprite(movable.position, movable.sprite, movable.frame);
         }
     }
 
     // fx - post-sprites
-
-#if 0
-    // Raycast test
-    if (_app->mouse_state().buttons[0].down)
+    for (Bullet& bullet : _bullets)
     {
-        float denom = 1.0f / _tilemap.tile_size();
-        V2f cursor_pos = V2f{ (float)_app->mouse_state().x, (float)_app->mouse_state().y };
-        V2f player_screen_pos = (player.position * _tilemap.tile_size()) - V2f{ (float)_cx, (float)_cy };
-        V2f screen_ray = (cursor_pos - player_screen_pos) * denom;
-        _los_ray_start = player.position;
-        _los_ray_hit = _tilemap.raycast(_los_ray_start, _los_ray_start + screen_ray, &_los_ray_end);
+        draw_sprite(bullet.position, Sprite::Bullet_, 0);
     }
-
-    int lrx1 = (int)(_los_ray_start.x * _tilemap.tile_size() + 0.5f) - _cx;
-    int lry1 = (int)(_los_ray_start.y * _tilemap.tile_size() + 0.5f) - _cy;
-    int lrx2 = (int)(_los_ray_end.x * _tilemap.tile_size() + 0.5f) - _cx;
-    int lry2 = (int)(_los_ray_end.y * _tilemap.tile_size() + 0.5f) - _cy;
-    uint8_t lrcolor = _los_ray_hit ? 4 : 2;
-    _app->draw_line(lrx1, lry1, lrx2, lry2, lrcolor);
-#endif
 
     // GUI
     _a_reg = _cx & 0xFF;
@@ -402,13 +465,13 @@ void GamePlayState::draw_register(uint8_t reg, int x, int y, int color)
 }
 
 
-void GamePlayState::draw_sprite(float x, float y, gli::Sprite& sheet, int index)
+void GamePlayState::draw_sprite(const V2f& position, Sprite sprite, int frame)
 {
-    int size = sheet.height();
+    int size = _sprites[sprite].height();
     int half_size = size / 2;
-    int sx = (int)(x * _tilemap.tile_size() + 0.5f) - _cx - half_size;
-    int sy = (int)(y * _tilemap.tile_size() + 0.5f) - _cy - half_size;
-    _app->blend_partial_sprite(sx, sy, sheet, index * size, 0, size, size, 255);
+    int sx = (int)(position.x * _tilemap.tile_size() + 0.5f) - _cx - half_size;
+    int sy = (int)(position.y * _tilemap.tile_size() + 0.5f) - _cy - half_size;
+    _app->blend_partial_sprite(sx, sy, _sprites[sprite], frame * size, 0, size, size, 255);
 }
 
 
@@ -468,12 +531,12 @@ void GamePlayState::draw_nmi(const V2f& position)
 }
 
 
-bool GamePlayState::check_collision(float x, float y, float half_size)
+bool GamePlayState::check_collision(const V2f& position, float half_size)
 {
-    int sx = (int)std::floor(x - half_size);
-    int sy = (int)std::floor(y - half_size);
-    int ex = (int)std::floor(x + half_size);
-    int ey = (int)std::floor(y + half_size);
+    int sx = (int)std::floor(position.x - half_size);
+    int sy = (int)std::floor(position.y - half_size);
+    int ex = (int)std::floor(position.x + half_size);
+    int ey = (int)std::floor(position.y + half_size);
 
     if (sx < 0 || sy < 0 || ex >= _tilemap.width() || ey >= _tilemap.height())
     {
@@ -514,14 +577,14 @@ void GamePlayState::move_movables(float delta)
         move.x = velocity.x * delta;
         move.y = velocity.y * delta;
 
-        if (check_collision(position.x + move.x, position.y + move.y, movable.radius))
+        if (check_collision(position + move, movable.radius))
         {
-            if (!check_collision(position.x + move.x, position.y, movable.radius))
+            if (!check_collision(position + V2f{ move.x, 0.0f }, movable.radius))
             {
                 move.y = 0.0f;
                 velocity.y = 0.0f;
             }
-            else if (!check_collision(position.x, position.y + move.y, movable.radius))
+            else if (!check_collision(position + V2f{ 0.0f, move.y }, movable.radius))
             {
                 move.x = 0.0f;
                 velocity.x = 0.0f;
@@ -550,6 +613,44 @@ void GamePlayState::move_movables(float delta)
         movable.velocity = velocities[i];
         i++;
     }
+}
+
+void GamePlayState::fire_bullet(const Movable& attacker, const V2f& target)
+{
+    V2f direction = normalize(target - attacker.position);
+    Bullet bullet;
+    bullet.position = attacker.position + direction * attacker.radius * 1.1f;
+    bullet.velocity = direction * bullet_speed;
+    bullet.radius = 0.05f;
+    _bullets.push_back(bullet);
+}
+
+void GamePlayState::update_bullets(float delta)
+{
+    std::vector<Bullet> keep_bullets;
+    keep_bullets.reserve(_bullets.size());
+
+    for (Bullet& bullet : _bullets)
+    {
+        V2f next_position = bullet.position + bullet.velocity * delta;
+
+        if (!check_collision(next_position, bullet.radius))
+        {
+            // Check if hit player
+            if (swept_circle_vs_circle(bullet.position, next_position, bullet.radius, _movables[0].position, _movables[0].radius))
+            {
+                // Hit the player
+
+            }
+            else
+            {
+                bullet.position = next_position;
+                keep_bullets.push_back(bullet);
+            }
+        }
+    }
+
+    _bullets = keep_bullets;
 }
 
 }
