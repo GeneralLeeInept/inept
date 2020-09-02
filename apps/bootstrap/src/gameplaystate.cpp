@@ -19,11 +19,6 @@ bool GamePlayState::on_init(App* app)
         GliAssetPath("fx/bullet.png")
     };
 
-    if (!_tilemap.load(GliAssetPath("maps/main.bin")))
-    {
-        return false;
-    }
-
     size_t i = 0;
 
     for (gli::Sprite& sprite : _sprites)
@@ -65,6 +60,11 @@ void GamePlayState::on_destroy() {}
 
 bool GamePlayState::on_enter()
 {
+    if (!_tilemap.load(GliAssetPath("maps/6502.bin")))
+    {
+        return false;
+    }
+
     _dbus = 0xA5;
     _abus_hi = 0xDE;
     _abus_lo = 0xAD;
@@ -74,15 +74,17 @@ bool GamePlayState::on_enter()
     _nmitimer = 0.0f;
     _nmifired = 0.0f;
 
-    _movables.resize(9); // player + 8 AIS
+    _movables.resize(1 + _tilemap.ai_spawns().size()); // Movable 0 is the player
+
     _movables[0].active = true;
     _movables[0].sprite = Sprite::Player;
     _movables[0].position = _tilemap.player_spawn();
     _movables[0].velocity = { 0.0f, 0.0f };
     _movables[0].radius = 11.0f / _tilemap.tile_size();
     _movables[0].frame = 1;
+    _player_zone = _tilemap.get_zone(_movables[0].position, nullptr);
 
-    _brains.resize(8);
+    _brains.resize(_tilemap.ai_spawns().size());
     size_t ai_movable = 1;
     const std::vector<V2f>& ai_spawns = _tilemap.ai_spawns();
 
@@ -239,7 +241,7 @@ bool GamePlayState::on_update(float delta)
 
                     if (player_distance_sq < (20.0f * 20.0f))
                     {
-                        player_visible = !_tilemap.raycast(movable.position, player.position, nullptr);
+                        player_visible = !_tilemap.raycast(movable.position, player.position, TileMap::TileFlag::BlocksLos, nullptr);
                     }
 
                     if (player_visible)
@@ -340,6 +342,8 @@ bool GamePlayState::on_update(float delta)
 
         move_movables(delta);
 
+        _player_zone = _tilemap.get_zone(_movables[0].position, _player_zone);
+
         if (_app->key_state(gli::Key_Space).pressed)
         {
             _nmifired = 0.5f;
@@ -375,7 +379,7 @@ bool GamePlayState::on_update(float delta)
         Movable& player = _movables[0];
 
         // playfield = 412 x 360
-        _cx = (int)(player.position.x * _tilemap.tile_size() + 0.5f) - 206;
+        _cx = (int)(player.position.x * _tilemap.tile_size() + 0.5f) - 320;
         _cy = (int)(player.position.y * _tilemap.tile_size() + 0.5f) - 180;
 
         int coarse_scroll_x = _cx / _tilemap.tile_size();
@@ -448,6 +452,7 @@ bool GamePlayState::on_update(float delta)
             draw_sprite(bullet.position, Sprite::Bullet_, 0);
         }
 
+#if 0
         // GUI
         _a_reg = _cx & 0xFF;
         _x_reg = _cy & 0xFF;
@@ -459,6 +464,7 @@ bool GamePlayState::on_update(float delta)
         draw_register(_a_reg, 455, 167, 1);
         draw_register(_x_reg, 455, 214, 1);
         draw_register(_y_reg, 455, 261, 1);
+#endif
     }
 
     return true;
@@ -546,7 +552,7 @@ void GamePlayState::draw_nmi(const V2f& position)
 }
 
 
-bool GamePlayState::check_collision(const V2f& position, float half_size)
+bool GamePlayState::check_collision(const V2f& position, uint8_t filter_flags, float half_size)
 {
     int sx = (int)std::floor(position.x - half_size);
     int sy = (int)std::floor(position.y - half_size);
@@ -562,7 +568,7 @@ bool GamePlayState::check_collision(const V2f& position, float half_size)
     {
         for (int ty = sy; ty <= ey; ++ty)
         {
-            if (!_tilemap.walkable((uint16_t)tx, (uint16_t)ty))
+            if ((_tilemap.tile_flags((uint16_t)tx, (uint16_t)ty) & filter_flags) != 0)
             {
                 return true;
             }
@@ -592,14 +598,14 @@ void GamePlayState::move_movables(float delta)
         move.x = velocity.x * delta;
         move.y = velocity.y * delta;
 
-        if (check_collision(position + move, movable.radius))
+        if (check_collision(position + move, TileMap::TileFlag::BlocksMovables, movable.radius))
         {
-            if (!check_collision(position + V2f{ move.x, 0.0f }, movable.radius))
+            if (!check_collision(position + V2f{ move.x, 0.0f }, TileMap::TileFlag::BlocksMovables, movable.radius))
             {
                 move.y = 0.0f;
                 velocity.y = 0.0f;
             }
-            else if (!check_collision(position + V2f{ 0.0f, move.y }, movable.radius))
+            else if (!check_collision(position + V2f{ 0.0f, move.y }, TileMap::TileFlag::BlocksMovables, movable.radius))
             {
                 move.x = 0.0f;
                 velocity.x = 0.0f;
@@ -649,7 +655,7 @@ void GamePlayState::update_bullets(float delta)
     {
         V2f next_position = bullet.position + bullet.velocity * delta;
 
-        if (!check_collision(next_position, bullet.radius))
+        if (!check_collision(next_position, TileMap::TileFlag::BlocksBullets, bullet.radius))
         {
             // Check if hit player
             if (swept_circle_vs_circle(bullet.position, next_position, bullet.radius, _movables[0].position, _movables[0].radius))

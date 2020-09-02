@@ -1,6 +1,6 @@
 frontend/*.png
 gui/*.png
-maps/main.tmx
+maps/6502.tmx
 sprites/*.png
 tilesets/*.png
 fx/*.png

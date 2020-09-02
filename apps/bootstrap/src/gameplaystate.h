@@ -58,7 +58,7 @@ private:
     void draw_register(uint8_t reg, int x, int y, int color);
     void draw_sprite(const V2f& position, Sprite sprite, int frame);
     void draw_nmi(const V2f& position);
-    bool check_collision(const V2f& position, float half_size);
+    bool check_collision(const V2f& position, uint8_t filter_flags, float half_size);
     void move_movables(float delta);
 
     void fire_bullet(const Movable& attacker, const V2f& target);
@@ -86,6 +86,7 @@ private:
     float _nmitimer;
     float _nmifired;
     float _simulation_delta;
+    const TileMap::Zone* _player_zone;
 };
 
 } // namespace Bootstrap

@@ -17,6 +17,7 @@ def add_files(pattern, file_set):
 
 def process_files(file_set, target_dir):
     for f in file_set:
+        print(f"Processing asset '{f}'")
         file_type = f.suffix.lower()
         target_path = target_dir / f.relative_to(get_asset_root())
         target_path.parents[0].mkdir(parents=True, exist_ok=True)

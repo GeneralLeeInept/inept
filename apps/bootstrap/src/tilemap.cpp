@@ -1,5 +1,7 @@
 #include "tilemap.h"
 
+#include "collision.h"
+
 #include <gli.h>
 
 constexpr uint32_t map4cc()
@@ -28,25 +30,16 @@ std::string asset_path(const std::string& path)
 
 
 template <typename T>
-bool vread(T* output, size_t count, std::vector<uint8_t>& data, size_t& read_ptr)
+bool vread(T& output, std::vector<uint8_t>& data, size_t& read_ptr)
 {
-    size_t readsize = sizeof(T) * count;
-
-    if (readsize > data.size() - read_ptr)
+    if (sizeof(T) > data.size() - read_ptr)
     {
         return false;
     }
 
-    memcpy(output, &data[read_ptr], readsize);
-    read_ptr += readsize;
+    memcpy(&output, &data[read_ptr], sizeof(T));
+    read_ptr += sizeof(T);
     return true;
-}
-
-
-template <typename T>
-bool vread(T& output, std::vector<uint8_t>& data, size_t& read_ptr)
-{
-    return vread(&output, 1, data, read_ptr);
 }
 
 
@@ -59,8 +52,15 @@ bool vread(std::string& s, std::vector<uint8_t>& data, size_t& read_ptr)
         return false;
     }
 
+    if (len > data.size() - read_ptr)
+    {
+        return false;
+    }
+
     s.resize(len);
-    return vread(&s[0], len, data, read_ptr);
+    memcpy(&s[0], &data[read_ptr], len);
+    read_ptr += len;
+    return true;
 }
 
 
@@ -68,7 +68,20 @@ template <typename T>
 bool vread(std::vector<T>& v, size_t count, std::vector<uint8_t>& data, size_t& read_ptr)
 {
     v.resize(count);
-    return vread(&v[0], count, data, read_ptr);
+
+    bool result = true;
+
+    for (auto& t : v)
+    {
+        result = vread(t, data, read_ptr);
+
+        if (!result)
+        {
+            break;
+        }
+    }
+
+    return result;
 }
 
 
@@ -83,6 +96,16 @@ bool vread(std::vector<T>& v, std::vector<uint8_t>& data, size_t& read_ptr)
     }
 
     return vread(v, count, data, read_ptr);
+}
+
+
+template <>
+bool vread(TileMap::Zone& z, std::vector<uint8_t>& data, size_t& read_ptr)
+{
+    bool result = true;
+    result = result && vread(z.rect, data, read_ptr);
+    result = result && vread(z.name, data, read_ptr);
+    return result;
 }
 
 
@@ -105,29 +128,16 @@ bool TileMap::load(const std::string& path)
 
     std::string tilesheet_path;
     bool success = true;
-
     success = success && vread(_tile_size, map_data, read_ptr);
     success = success && vread(_width, map_data, read_ptr);
     success = success && vread(_height, map_data, read_ptr);
     success = success && vread(_tiles, _width * _height, map_data, read_ptr);
     success = success && vread(_player_spawn, map_data, read_ptr);
     success = success && vread(_ai_spawns, map_data, read_ptr);
+    success = success && vread(_zones, map_data, read_ptr);
     success = success && vread(tilesheet_path, map_data, read_ptr);
     success = success && vread(_tile_info, map_data, read_ptr);
     success = success && _tilesheet.load(asset_path(tilesheet_path));
-
-    if (success)
-    {
-        // Normalize spawn positions
-        float denom = 1.0f / (float)_tile_size;
-
-        _player_spawn = _player_spawn * denom;
-
-        for (V2f& ai_spawn : _ai_spawns)
-        {
-            ai_spawn = ai_spawn * denom;
-        }
-    }
 
     return success;
 }
@@ -170,17 +180,17 @@ uint16_t TileMap::operator()(uint16_t x, uint16_t y) const
 }
 
 
-bool TileMap::walkable(uint16_t x, uint16_t y) const
+uint8_t TileMap::tile_flags(uint16_t x, uint16_t y) const
 {
     uint16_t tile = operator()(x, y);
-    bool result = false;
+    uint8_t flags = TileFlag::BlocksLos;
 
     if (tile)
     {
-        result = _tile_info[tile - 1].walkable;
+        flags = _tile_info[tile - 1].flags;
     }
 
-    return result;
+    return flags;
 }
 
 
@@ -207,12 +217,12 @@ const std::vector<V2f>& TileMap::ai_spawns() const
 }
 
 
-bool TileMap::raycast(const V2f& from, const V2f& to, V2f* hit_out) const
+bool TileMap::raycast(const V2f& from, const V2f& to, uint8_t filter_flags, V2f* hit_out) const
 {
+    // Cast ray through the map and find the nearest intersection with a tile matching the filter
     V2f r = to - from;
     V2f closest_hit = to;
 
-    // Cast ray through the map and find the nearest intersection with a solid tile
     float distance = FLT_MAX;
 
     if (r.x > 0.0f)
@@ -230,7 +240,7 @@ bool TileMap::raycast(const V2f& from, const V2f& to, V2f* hit_out) const
                 break;
             }
 
-            if (!walkable(tx, ty))
+            if ((tile_flags(tx, ty) & filter_flags) != 0)
             {
                 V2f hit{ (float)tx, (float)y };
                 float hit_d = length_sq(hit - from);
@@ -260,7 +270,7 @@ bool TileMap::raycast(const V2f& from, const V2f& to, V2f* hit_out) const
                 break;
             }
 
-            if (!walkable(tx, ty))
+            if ((tile_flags(tx, ty) & filter_flags) != 0)
             {
                 V2f hit{ (float)(tx + 1), (float)y };
                 float hit_d = length_sq(hit - from);
@@ -291,7 +301,7 @@ bool TileMap::raycast(const V2f& from, const V2f& to, V2f* hit_out) const
                 break;
             }
 
-            if (!walkable(tx, ty))
+            if ((tile_flags(tx, ty) & filter_flags) != 0)
             {
                 V2f hit{ (float)x, (float)ty };
                 float hit_d = length_sq(hit - from);
@@ -321,7 +331,7 @@ bool TileMap::raycast(const V2f& from, const V2f& to, V2f* hit_out) const
                 break;
             }
 
-            if (!walkable(tx, ty))
+            if ((tile_flags(tx, ty) & filter_flags) != 0)
             {
                 V2f hit{ (float)x, (float)(ty + 1) };
                 float hit_d = length_sq(hit - from);
@@ -343,6 +353,25 @@ bool TileMap::raycast(const V2f& from, const V2f& to, V2f* hit_out) const
     }
 
     return distance <= length_sq(r);
+}
+
+
+const TileMap::Zone* TileMap::get_zone(const V2f& p, const Zone* hint) const
+{
+    if (hint && contains(hint->rect, p))
+    {
+        return hint;
+    }
+
+    for (const Zone& zone : _zones)
+    {
+        if (contains(zone.rect, p))
+        {
+            return &zone;
+        }
+    }
+
+    return nullptr;
 }
 
 

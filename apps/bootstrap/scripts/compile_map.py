@@ -9,21 +9,47 @@ Map file format:
 16-bits map height (in tiles)
 map data (16 bits per tile)
 
+16-bits minimap offset x
+16-bits minimap offset y
+
 32-bits player spawn x
 32-bits player spawn y
 
 16-bits ai spawn point count
 ai spawn points (2 x 32-bits each)
 
+16-bits number of zones
+zone data (see below)
+
 16-bits tilesheet path length
 tilesheet path (utf-8)
 16-bits number of tiles
 tile data (see below)
 
+
+Zone data format:
+-------------------
+32-bits top left x
+32-bits top left y
+32-bits width
+32-bits height
+16-bit zone name length
+zone name (utf-8)
+
+
 Tile data format:
 -----------------
 16-bit tile id
-8-bits walkable flag
+8-bits flags:
+    7 6 5 4 3 2 1 0
+    | | | | | | | +- Solid v movable
+    | | | | | | +--- Blocks LOS
+    | | | | | +----- Solid v bullet
+    | | | | +------- ??
+    | | | +--------- ??
+    | | +----------- ??
+    | +------------- ??
+    +--------------- ??
 8-bits padding
 '''
 import argparse
@@ -37,32 +63,53 @@ def get_asset_root():
     return script_path.parents[1] / 'art'
 
 
+def write_string(s, output):
+    chars = s.encode('utf-8')
+    output.write(struct.pack('H', len(chars)))
+    output.write(chars)
+
+
 def process_tileset(tsx_path, asset_root, output):
     tsx = Xml.parse(tsx_path)
     root = tsx.getroot()
     image = root.find('image')
-    tilesheet_path = Path.resolve(tsx_path.parents[0]) / image.attrib['source']
-    tilesheet_path = tilesheet_path.relative_to(asset_root)
-    tilesheet_path = tilesheet_path.as_posix().encode('utf-8')
-    output.write(struct.pack('H', len(tilesheet_path)))
+    tilesheet_path = (Path.resolve(tsx_path.parents[0]) / image.attrib['source']).relative_to(asset_root)
+    write_string(tilesheet_path.as_posix(), output)
 
-    output.write(tilesheet_path)
     output.write(struct.pack('H', int(root.attrib['tilecount'])))
+
+    flag_dict = { 'blocks_movables' : 0b00000001, 'blocks_los' : 0b00000010, 'blocks_bullets' : 0b00000100 }
 
     for tile_node in root.findall('tile'):
         tile_id = int(tile_node.attrib['id'])
-        walkable_flag = 2
+        flags = 0
+        properties = tile_node.findall('properties/property[@value="true"]')
 
-        properties = tile_node.find('properties')
-
-        if properties:
-            for p in properties:
-                if p.attrib['name'] == 'walkable':
-                    walkable_flag = 1 if p.attrib['value'] == 'true' else 0
+        for p in properties:
+            flags |= flag_dict[p.attrib['name']]
 
         output.write(struct.pack('H', tile_id))
-        output.write(struct.pack('=B', walkable_flag))
+        output.write(struct.pack('=B', flags))
         output.write(struct.pack('x'))
+
+
+def write_spawn(spawn_point, tile_size, output):
+    x = float(spawn_point.attrib['x']) / float(tile_size)
+    y = float(spawn_point.attrib['y']) / float(tile_size)
+    output.write(struct.pack('f', x))
+    output.write(struct.pack('f', y))
+
+
+def write_zone(zone, tile_size, output):
+    x = float(zone.attrib['x']) / float(tile_size)
+    y = float(zone.attrib['y']) / float(tile_size)
+    w = float(zone.attrib['width']) / float(tile_size)
+    h = float(zone.attrib['height']) / float(tile_size)
+    output.write(struct.pack('f', x))
+    output.write(struct.pack('f', y))
+    output.write(struct.pack('f', w))
+    output.write(struct.pack('f', h))
+    write_string(zone.attrib['name'], output)
 
 
 def process(input, asset_root, output):
@@ -79,20 +126,28 @@ def process(input, asset_root, output):
     data_node = root.find('layer/data[@encoding="csv"]')
     tile_data = data_node.text.split(',')
 
+    map_ox = root.find('./properties/property[@name="map_ox"]')
+    map_oy = root.find('./properties/property[@name="map_ox"]')
+    output.write(struct.pack('H', int(map_ox.attrib['value'])))
+    output.write(struct.pack('H', int(map_oy.attrib['value'])))
+
     for t in tile_data:
         output.write(struct.pack('H', int(t)))
 
-    objects_layer = root.find('objectgroup')
-    spawn_points = objects_layer.findall('object[@type="spawn"]')
+    spawn_points = root.findall('./objectgroup[@name="Spawns"]/object[@type="spawn"]')
     player_spawn = next(filter(lambda x: x.attrib['name'] == 'player', spawn_points))
-    output.write(struct.pack('f', float(player_spawn.attrib['x'])))
-    output.write(struct.pack('f', float(player_spawn.attrib['y'])))
-
+    write_spawn(player_spawn, tile_size, output)
     ai_spawns = list(filter(lambda x: x.attrib['name'] == 'ai', spawn_points))
     output.write(struct.pack('H', int(len(ai_spawns))))
+
     for spawn in ai_spawns:
-        output.write(struct.pack('f', float(spawn.attrib['x'])))
-        output.write(struct.pack('f', float(spawn.attrib['y'])))
+        write_spawn(spawn, tile_size, output)
+
+    zones = root.findall('./objectgroup[@name="Zones"]/object')
+    output.write(struct.pack('H', int(len(zones))))
+
+    for zone in zones:
+        write_zone(zone, tile_size, output)
 
     tsx_node = root.find('tileset')
     tsx_path = Path.resolve(Path(input.name).parents[0] / tsx_node.attrib['source'])

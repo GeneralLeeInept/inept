@@ -3,6 +3,24 @@
 namespace Bootstrap
 {
 
+bool contains(const Rect& rect, const V2f& p)
+{
+    if (p.x < rect.origin.x || p.y < rect.origin.y)
+    {
+        return false;
+    }
+
+    V2f max = rect.origin + rect.extents;
+
+    if (p.x > max.x || p.y > max.y)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+
 bool swept_circle_vs_circle(const V2f& a, const V2f& b, float r1, const V2f& p, float r2)
 {
     // Normalized distance from a along the line through a->b of the closest point to p
@@ -34,6 +52,5 @@ bool swept_circle_vs_circle(const V2f& a, const V2f& b, float r1, const V2f& p, 
     // Collision if d < r1 + r2
     return d <= (r1 + r2) * (r1 + r2);
 }
-
 
 }
