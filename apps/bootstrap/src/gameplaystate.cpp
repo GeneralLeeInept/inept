@@ -2,6 +2,7 @@
 
 #include "assets.h"
 #include "bootstrap.h"
+#include "random.h"
 
 namespace Bootstrap
 {
@@ -189,7 +190,19 @@ bool GamePlayState::on_update(float delta)
 
         if (movable.active)
         {
+            bool player_visible = false;
             brain.next_think -= delta;
+
+            if (brain.player_spotted > 0.0f)
+            {
+                brain.player_spotted -= delta;
+
+                if (brain.player_spotted <= 0.0f)
+                {
+                    brain.player_spotted = 0.0f;
+                    brain.target_position = movable.position;
+                }
+            }
 
             if (brain.next_think <= 0.0f)
             {
@@ -199,24 +212,43 @@ bool GamePlayState::on_update(float delta)
 
                 if (player_distance_sq < (10.0f * 10.0f))
                 {
-                    brain.player_spotted = !_tilemap.raycast(movable.position, player.position, nullptr);
+                    player_visible = !_tilemap.raycast(movable.position, player.position, nullptr);
                 }
-                else
+
+                if (player_visible)
                 {
-                    brain.player_spotted = false;
+                    brain.player_spotted = 1.0f;
+                    brain.target_position = player.position;
+                }
+                else if (brain.player_spotted > delta)
+                {
+                    brain.player_spotted -= delta;
                 }
 
-                brain.next_think += brain.player_spotted ? 0.2f : 0.5f;
+                brain.next_think += brain.player_spotted ? 0.1f : 0.5f;
             }
 
-            if (brain.player_spotted)
+            float distance_to_target_sq = length_sq(brain.target_position - movable.position);
+            static const float MoveThreshold = 1.0f;
+
+            if (distance_to_target_sq > (MoveThreshold * MoveThreshold))
             {
-                movable.frame = 2 + (player.position.x < movable.position.x ? 0 : 1);
+                movable.velocity = normalize(brain.target_position - movable.position) * dv;
             }
-            else
+
+            int facing = movable.frame & 1;
+
+            if (std::abs(movable.velocity.x) > 0)
             {
-                movable.frame = (movable.frame & 1);
+                // Face direction we're heading
+                facing = movable.velocity.x > 0;
             }
+            else if (player_visible)
+            {
+                facing = player.position.x > movable.position.x;
+            }
+
+            movable.frame = brain.player_spotted ? 2 + facing : facing;
         }
     }
 
@@ -319,7 +351,7 @@ bool GamePlayState::on_update(float delta)
 
     // fx - post-sprites
 
-
+#if 0
     // Raycast test
     if (_app->mouse_state().buttons[0].down)
     {
@@ -337,6 +369,7 @@ bool GamePlayState::on_update(float delta)
     int lry2 = (int)(_los_ray_end.y * _tilemap.tile_size() + 0.5f) - _cy;
     uint8_t lrcolor = _los_ray_hit ? 4 : 2;
     _app->draw_line(lrx1, lry1, lrx2, lry2, lrcolor);
+#endif
 
     // GUI
     _a_reg = _cx & 0xFF;

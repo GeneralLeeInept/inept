@@ -79,6 +79,7 @@
     <ClInclude Include="..\src\assets.h" />
     <ClInclude Include="..\src\bootstrap.h" />
     <ClInclude Include="..\src\gameplaystate.h" />
+    <ClInclude Include="..\src\random.h" />
     <ClInclude Include="..\src\types.h" />
     <ClInclude Include="..\src\iappstate.h" />
     <ClInclude Include="..\src\splash.h" />
@@ -88,6 +89,7 @@
   <ItemGroup>
     <ClCompile Include="..\src\bootstrap.cpp" />
     <ClCompile Include="..\src\gameplaystate.cpp" />
+    <ClCompile Include="..\src\random.cpp" />
     <ClCompile Include="..\src\splash.cpp" />
     <ClCompile Include="..\src\tilemap.cpp" />
   </ItemGroup>

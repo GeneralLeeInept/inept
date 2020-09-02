@@ -517,7 +517,7 @@ void App::set_palette(uint32_t rgbx[256])
 {
     for (int p = 0; p < 256; ++p)
     {
-        m_palette[p] = 0xFF000000 | (rgbx[p] >> 8);
+        m_palette[p] = 0xFF000000 | (rgbx[p] & 0x00FFFFFF);
     }
 }
 

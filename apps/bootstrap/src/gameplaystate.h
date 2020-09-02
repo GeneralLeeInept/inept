@@ -36,7 +36,7 @@ private:
         size_t movable;
         float next_think;
         V2f target_position;
-        bool player_spotted;
+        float player_spotted;
     };
 
     void draw_register(uint8_t reg, int x, int y, int color);
@@ -65,9 +65,6 @@ private:
     uint8_t _y_reg;
     float _nmitimer;
     float _nmifired;
-    V2f _los_ray_start;
-    V2f _los_ray_end;
-    bool _los_ray_hit;
 };
 
 } // namespace Bootstrap

@@ -38,6 +38,9 @@
     <ClInclude Include="..\src\types.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\random.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\bootstrap.cpp">
@@ -50,6 +53,9 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\gameplaystate.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\random.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
