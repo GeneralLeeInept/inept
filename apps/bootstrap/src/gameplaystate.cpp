@@ -102,6 +102,8 @@ bool GamePlayState::on_enter()
         ai_movable++;
     }
 
+    _simulation_delta = 0.0f;
+
     _app->show_mouse(true);
 
     return true;
@@ -133,7 +135,7 @@ static const float min_v = 0.5f;
 static const float drag = 0.95f;
 static const float dv = 6.0f;
 
-static const float bullet_speed = 10.0f; // not sure what max speed is..
+static const float bullet_speed = 10.0f; // experimentally derived
 
 static float clamp(float t, float min, float max)
 {
@@ -159,292 +161,305 @@ bool GamePlayState::on_update(float delta)
 {
     _app->clear_screen(gli::Pixel(0x1F1D2C));
 
-    // apply drag - FIXME - this is frame rate sensitive at the moment
-    for (Movable& movable : _movables)
-    {
-        movable.velocity.x = std::abs(movable.velocity.x) < min_v ? 0.0f : movable.velocity.x * drag;
-        movable.velocity.y = std::abs(movable.velocity.y) < min_v ? 0.0f : movable.velocity.y * drag;
-    }
+    _simulation_delta += delta;
 
-    Movable& player = _movables[0];
-
-    if (_app->key_state(gli::Key_W).down)
+    // Simulate at 120Hz regardless of frame rate..
+    while (_simulation_delta > 1.0f / 120.0f)
     {
-        player.velocity.y = -dv;
-    }
+        delta = 1.0f / 120.0f;
+        _simulation_delta -= delta;
 
-    if (_app->key_state(gli::Key_S).down)
-    {
-        player.velocity.y = dv;
-    }
-
-    if (_app->key_state(gli::Key_A).down)
-    {
-        player.velocity.x = -dv;
-    }
-
-    if (_app->key_state(gli::Key_D).down)
-    {
-        player.velocity.x = dv;
-    }
-
-    if (player.velocity.x < 0.0f)
-    {
-        player.frame = 0;
-    }
-    else if (player.velocity.x > 0.0f)
-    {
-        player.frame = 1;
-    }
-
-    for (AiBrain& brain : _brains)
-    {
-        Movable& movable = _movables[brain.movable];
-
-        if (movable.active)
+        // apply drag
+        for (Movable& movable : _movables)
         {
-            bool player_visible = false;
-            brain.next_think -= delta;
+            movable.velocity.x = std::abs(movable.velocity.x) < min_v ? 0.0f : movable.velocity.x * drag;
+            movable.velocity.y = std::abs(movable.velocity.y) < min_v ? 0.0f : movable.velocity.y * drag;
+        }
 
-            if (brain.player_spotted > 0.0f)
+        Movable& player = _movables[0];
+
+        if (_app->key_state(gli::Key_W).down)
+        {
+            player.velocity.y = -dv;
+        }
+
+        if (_app->key_state(gli::Key_S).down)
+        {
+            player.velocity.y = dv;
+        }
+
+        if (_app->key_state(gli::Key_A).down)
+        {
+            player.velocity.x = -dv;
+        }
+
+        if (_app->key_state(gli::Key_D).down)
+        {
+            player.velocity.x = dv;
+        }
+
+        if (player.velocity.x < 0.0f)
+        {
+            player.frame = 0;
+        }
+        else if (player.velocity.x > 0.0f)
+        {
+            player.frame = 1;
+        }
+
+        for (AiBrain& brain : _brains)
+        {
+            Movable& movable = _movables[brain.movable];
+
+            if (movable.active)
             {
-                brain.player_spotted -= delta;
+                bool player_visible = false;
+                brain.next_think -= delta;
 
-                if (brain.player_spotted <= 0.0f)
+                if (brain.player_spotted > 0.0f)
                 {
-                    brain.player_spotted = 0.0f;
-                    brain.target_position = movable.position;
-                }
-            }
+                    brain.player_spotted -= delta;
 
-            if (brain.shot_timer > 0.0f)
-            {
-                brain.shot_timer -= delta;
-            }
-
-            if (brain.next_think <= 0.0f)
-            {
-                // Time to consider..
-                float player_distance_sq = length_sq(player.position - movable.position);
-
-                if (player_distance_sq < (20.0f * 20.0f))
-                {
-                    player_visible = !_tilemap.raycast(movable.position, player.position, nullptr);
-                }
-
-                if (player_visible)
-                {
-                    brain.player_spotted = 1.0f;
-
-                    if (player_distance_sq < (2.0f * 2.0f))
+                    if (brain.player_spotted <= 0.0f)
                     {
-                        V2f dir = normalize(movable.position - player.position);
-                        brain.target_position = player.position + dir * 4.0f;
+                        brain.player_spotted = 0.0f;
+                        brain.target_position = movable.position;
                     }
-                    else if (player_distance_sq > (5.0f * 5.0f))
+                }
+
+                if (brain.shot_timer > 0.0f)
+                {
+                    brain.shot_timer -= delta;
+                }
+
+                if (brain.next_think <= 0.0f)
+                {
+                    // Time to consider..
+                    float player_distance_sq = length_sq(player.position - movable.position);
+
+                    if (player_distance_sq < (20.0f * 20.0f))
                     {
-                        V2f dir = normalize(movable.position - player.position);
-                        brain.target_position = player.position + dir * 3.0f;
-                        //brain.target_position = player.position;
+                        player_visible = !_tilemap.raycast(movable.position, player.position, nullptr);
                     }
-                    else
+
+                    if (player_visible)
                     {
-                        if (length_sq(player.velocity) > 1.0f)
+                        brain.player_spotted = 1.0f;
+
+                        if (player_distance_sq < (2.0f * 2.0f))
                         {
-                            brain.target_position = movable.position + V2f{ player.velocity.y, player.velocity.x };
+                            V2f dir = normalize(movable.position - player.position);
+                            brain.target_position = player.position + dir * 4.0f;
+                        }
+                        else if (player_distance_sq > (5.0f * 5.0f))
+                        {
+                            V2f dir = normalize(movable.position - player.position);
+                            brain.target_position = player.position + dir * 3.0f;
                         }
                         else
                         {
-                            brain.target_position = movable.position + V2f{ gRandom.get(), gRandom.get() };
+                            if (length_sq(player.velocity) > 1.0f)
+                            {
+                                brain.target_position = movable.position + V2f{ player.velocity.y, player.velocity.x };
+                            }
+                            else
+                            {
+                                brain.target_position = movable.position + V2f{ gRandom.get(), gRandom.get() };
+                            }
                         }
                     }
-                }
-                else if (brain.player_spotted > delta)
-                {
-                    brain.player_spotted -= delta;
-                }
-
-                brain.next_think += 0.5f;
-            }
-
-            // update velocity
-            float distance_to_target_sq = length_sq(brain.target_position - movable.position);
-            static const float MoveThreshold = 1.0f;
-
-            if (distance_to_target_sq > (MoveThreshold * MoveThreshold))
-            {
-                movable.velocity = normalize(brain.target_position - movable.position) * dv;
-            }
-
-            // update facing
-            int facing = movable.frame & 1;
-
-            if (player_visible)
-            {
-                // Always face the player when in sight
-                facing = player.position.x > movable.position.x;
-            }
-            else if (std::abs(movable.velocity.x) > 0)
-            {
-                // Face direction we're heading
-                facing = movable.velocity.x > 0;
-            }
-
-            movable.frame = brain.player_spotted ? 2 + facing : facing;
-
-            // fire muh laser
-            if (player_visible && brain.shot_timer <= 0.0f)
-            {
-                float fire = gRandom.get();
-                bool fired = false;
-
-                if (fire > 0.8f)
-                {
-                    V2f dir = normalize(player.position - movable.position);
-                    V2f perp = V2f{ dir.y, dir.x };
-
-                    // Fire a spread
-                    int num = (fire > 0.9f) ? 5 : 3;
-
-                    for (int i = -num / 2; i <= num / 2; ++i)
+                    else if (brain.player_spotted > delta)
                     {
-                        V2f shot_dir = dir + perp * (float)i;
-                        fire_bullet(movable, movable.position + shot_dir);
+                        brain.player_spotted -= delta;
                     }
 
-                    fired = true;
-                }
-                else if (fire > 0.5f)
-                {
-                    // Fire one
-                    fire_bullet(movable, player.position);
-                    fired = true;
+                    brain.next_think += 0.5f;
                 }
 
-                if (fired)
+                // update velocity
+                float distance_to_target_sq = length_sq(brain.target_position - movable.position);
+                static const float MoveThreshold = 1.0f;
+
+                if (distance_to_target_sq > (MoveThreshold * MoveThreshold))
                 {
-                    brain.shot_timer = gRandom.get(0.3f, 0.8f);
+                    movable.velocity = normalize(brain.target_position - movable.position) * dv;
+                }
+
+                // update facing
+                int facing = movable.frame & 1;
+
+                if (player_visible)
+                {
+                    // Always face the player when in sight
+                    facing = player.position.x > movable.position.x;
+                }
+                else if (std::abs(movable.velocity.x) > 0)
+                {
+                    // Face direction we're heading
+                    facing = movable.velocity.x > 0;
+                }
+
+                movable.frame = brain.player_spotted ? 2 + facing : facing;
+
+                // fire muh laser
+                if (player_visible && brain.shot_timer <= 0.0f)
+                {
+                    float fire = gRandom.get();
+                    bool fired = false;
+
+                    if (fire > 0.8f)
+                    {
+                        V2f dir = normalize(player.position - movable.position);
+                        V2f perp = V2f{ dir.y, dir.x };
+
+                        // Fire a spread
+                        int num = (fire > 0.9f) ? 5 : 3;
+
+                        for (int i = -num / 2; i <= num / 2; ++i)
+                        {
+                            V2f shot_dir = dir + perp * (float)i;
+                            fire_bullet(movable, movable.position + shot_dir);
+                        }
+
+                        fired = true;
+                    }
+                    else if (fire > 0.5f)
+                    {
+                        // Fire one
+                        fire_bullet(movable, player.position);
+                        fired = true;
+                    }
+
+                    if (fired)
+                    {
+                        brain.shot_timer = gRandom.get(0.3f, 0.8f);
+                    }
                 }
             }
         }
-    }
 
-    move_movables(delta);
+        move_movables(delta);
 
-    if (_app->key_state(gli::Key_Space).pressed)
-    {
-        _nmifired = 0.5f;
-    }
-    else if (_nmifired >= delta)
-    {
-        _nmifired -= delta;
-    }
-    else
-    {
-        _nmifired = 0.0f;
-    }
-
-    if (_nmitimer >= delta)
-    {
-        _nmitimer -= delta;
-    }
-    else
-    {
-        _nmitimer = 0.0f;
-
-        if (_nmifired > 0.0f)
+        if (_app->key_state(gli::Key_Space).pressed)
         {
-            _nmitimer = NmiDuration;
+            _nmifired = 0.5f;
         }
-    }
-
-    update_bullets(delta);
-
-    // playfield = 412 x 360
-    _cx = (int)(player.position.x * _tilemap.tile_size() + 0.5f) - 206;
-    _cy = (int)(player.position.y * _tilemap.tile_size() + 0.5f) - 180;
-
-    int coarse_scroll_x = _cx / _tilemap.tile_size();
-    int coarse_scroll_y = _cy / _tilemap.tile_size();
-    int fine_scroll_x = _cx % _tilemap.tile_size();
-    int fine_scroll_y = _cy % _tilemap.tile_size();
-
-    int sy = -fine_scroll_y;
-
-    for (int y = coarse_scroll_y; y < _tilemap.height(); ++y)
-    {
-        int sx = -fine_scroll_x;
-
-        for (int x = coarse_scroll_x; x < _tilemap.width(); ++x)
+        else if (_nmifired >= delta)
         {
-            int t = _tilemap(x, y);
+            _nmifired -= delta;
+        }
+        else
+        {
+            _nmifired = 0.0f;
+        }
 
-            if (t)
+        if (_nmitimer >= delta)
+        {
+            _nmitimer -= delta;
+        }
+        else
+        {
+            _nmitimer = 0.0f;
+
+            if (_nmifired > 0.0f)
             {
-                int ox;
-                int oy;
-                bool has_alpha;
-                _tilemap.draw_info(t - 1, ox, oy, has_alpha);
+                _nmitimer = NmiDuration;
+            }
+        }
 
-                if (has_alpha)
+        update_bullets(delta);
+    }
+
+    // Rendering
+    {
+        Movable& player = _movables[0];
+
+        // playfield = 412 x 360
+        _cx = (int)(player.position.x * _tilemap.tile_size() + 0.5f) - 206;
+        _cy = (int)(player.position.y * _tilemap.tile_size() + 0.5f) - 180;
+
+        int coarse_scroll_x = _cx / _tilemap.tile_size();
+        int coarse_scroll_y = _cy / _tilemap.tile_size();
+        int fine_scroll_x = _cx % _tilemap.tile_size();
+        int fine_scroll_y = _cy % _tilemap.tile_size();
+
+        int sy = -fine_scroll_y;
+
+        for (int y = coarse_scroll_y; y < _tilemap.height(); ++y)
+        {
+            int sx = -fine_scroll_x;
+
+            for (int x = coarse_scroll_x; x < _tilemap.width(); ++x)
+            {
+                int t = _tilemap(x, y);
+
+                if (t)
                 {
-                    _app->blend_partial_sprite(sx, sy, _tilemap.tilesheet(),  ox, oy, _tilemap.tile_size(), _tilemap.tile_size(), 255);
+                    int ox;
+                    int oy;
+                    bool has_alpha;
+                    _tilemap.draw_info(t - 1, ox, oy, has_alpha);
+
+                    if (has_alpha)
+                    {
+                        _app->blend_partial_sprite(sx, sy, _tilemap.tilesheet(),  ox, oy, _tilemap.tile_size(), _tilemap.tile_size(), 255);
+                    }
+                    else
+                    {
+                        _app->draw_partial_sprite(sx, sy, &_tilemap.tilesheet(), ox, oy, _tilemap.tile_size(), _tilemap.tile_size());
+                    }
                 }
-                else
+
+                sx += _tilemap.tile_size();
+
+                if (sx >= _app->screen_width())
                 {
-                    _app->draw_partial_sprite(sx, sy, &_tilemap.tilesheet(), ox, oy, _tilemap.tile_size(), _tilemap.tile_size());
+                    break;
                 }
             }
 
-            sx += _tilemap.tile_size();
+            sy += _tilemap.tile_size();
 
-            if (sx >= _app->screen_width())
+            if (sy >= _app->screen_height())
             {
                 break;
             }
         }
 
-        sy += _tilemap.tile_size();
-
-        if (sy >= _app->screen_height())
+        // fx - pre-sprites
+        if (_nmitimer)
         {
-            break;
+            draw_nmi(player.position);
+
         }
-    }
 
-    // fx - pre-sprites
-    if (_nmitimer)
-    {
-        draw_nmi(player.position);
-
-    }
-
-    // sprites
-    for (Movable& movable : _movables)
-    {
-        if (movable.active)
+        // sprites
+        for (Movable& movable : _movables)
         {
-            draw_sprite(movable.position, movable.sprite, movable.frame);
+            if (movable.active)
+            {
+                draw_sprite(movable.position, movable.sprite, movable.frame);
+            }
         }
+
+        // fx - post-sprites
+        for (Bullet& bullet : _bullets)
+        {
+            draw_sprite(bullet.position, Sprite::Bullet_, 0);
+        }
+
+        // GUI
+        _a_reg = _cx & 0xFF;
+        _x_reg = _cy & 0xFF;
+
+        _app->draw_sprite(412, 4, &_status_panel);
+        draw_register(_dbus, 455, 48, 0);
+        draw_register(_abus_lo, 455, 101, 2);
+        draw_register(_abus_hi, 455, 120, 2);
+        draw_register(_a_reg, 455, 167, 1);
+        draw_register(_x_reg, 455, 214, 1);
+        draw_register(_y_reg, 455, 261, 1);
     }
-
-    // fx - post-sprites
-    for (Bullet& bullet : _bullets)
-    {
-        draw_sprite(bullet.position, Sprite::Bullet_, 0);
-    }
-
-    // GUI
-    _a_reg = _cx & 0xFF;
-    _x_reg = _cy & 0xFF;
-
-    _app->draw_sprite(412, 4, &_status_panel);
-    draw_register(_dbus, 455, 48, 0);
-    draw_register(_abus_lo, 455, 101, 2);
-    draw_register(_abus_hi, 455, 120, 2);
-    draw_register(_a_reg, 455, 167, 1);
-    draw_register(_x_reg, 455, 214, 1);
-    draw_register(_y_reg, 455, 261, 1);
 
     return true;
 }

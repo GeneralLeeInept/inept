@@ -85,6 +85,7 @@ private:
     uint8_t _y_reg;
     float _nmitimer;
     float _nmifired;
+    float _simulation_delta;
 };
 
 } // namespace Bootstrap
