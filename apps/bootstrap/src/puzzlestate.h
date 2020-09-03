@@ -26,6 +26,7 @@ private:
         GoButtonPressed,
         VerifyingDialog,
         ValidationFailed,
+        ValidationSuccess,
         Count
     };
 
@@ -48,7 +49,8 @@ private:
     size_t _dragging;
     bool _go_pressed;
     float _verifying;
-    float _failed;
+    float _complete;
+    bool _success;
 };
 
 } // namespace Bootstrap

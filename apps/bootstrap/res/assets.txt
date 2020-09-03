@@ -5,6 +5,7 @@ gui/puzzle_pieces_sheet.png
 gui/go_btn_down.png
 gui/verifying.png
 gui/validation_fail.png
+gui/validation_success.png
 maps/6502.tmx
 maps/6502.png
 sprites/*.png

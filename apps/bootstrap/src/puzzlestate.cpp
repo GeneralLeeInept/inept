@@ -3,6 +3,7 @@
 #include "assets.h"
 #include "bootstrap.h"
 #include "collision.h"
+#include "random.h"
 #include "types.h"
 
 namespace Bootstrap
@@ -175,11 +176,11 @@ bool PuzzleState::on_update(float delta)
     Recti go_button_rect{ { PuzzleBoardLayout::GoButtonX, PuzzleBoardLayout::GoButtonY }, { GoButtonW, GoButtonH } };
 
     // Update state
-    if (_failed > 0.0f)
+    if (_complete > 0.0f)
     {
-        _failed -= delta;
+        _complete -= delta;
 
-        if (_failed <= 0.0f)
+        if (_complete <= 0.0f)
         {
             return false;
         }
@@ -190,7 +191,8 @@ bool PuzzleState::on_update(float delta)
 
         if (_verifying <= 0.0f)
         {
-            _failed = 2.0f;
+            _complete = 2.0f;
+            _success = (gRandom.get() > 0.5f);
         }
     }
     else
@@ -280,11 +282,12 @@ bool PuzzleState::on_update(float delta)
         idx++;
     }
 
-    if (_failed > 0.0f)
+    if (_complete > 0.0f)
     {
-        int x = (_app->screen_width() - _sprites[Sprite::ValidationFailed].width()) / 2;
-        int y = (_app->screen_height() - _sprites[Sprite::ValidationFailed].height()) / 2;
-        _app->blend_sprite(x, y, _sprites[Sprite::ValidationFailed], 255);
+        int sprite = _success ? Sprite::ValidationSuccess : Sprite::ValidationFailed;
+        int x = (_app->screen_width() - _sprites[sprite].width()) / 2;
+        int y = (_app->screen_height() - _sprites[sprite].height()) / 2;
+        _app->blend_sprite(x, y, _sprites[sprite], 255);
     }
     else if (_verifying > 0.0f)
     {
@@ -320,7 +323,8 @@ bool PuzzleState::on_init(App* app)
         GliAssetPath("gui/puzzle_pieces_sheet.png"),
         GliAssetPath("gui/go_btn_down.png"),
         GliAssetPath("gui/verifying.png"),
-        GliAssetPath("gui/validation_fail.png")
+        GliAssetPath("gui/validation_fail.png"),
+        GliAssetPath("gui/validation_success.png")
     };
 
     size_t idx = 0;
@@ -395,7 +399,8 @@ bool PuzzleState::on_enter()
     _solution.clear();
     _solution.resize(PuzzleBoardLayout::SolutionRows * PuzzleBoardLayout::SolutionColumns);
     _verifying = 0.0f;
-    _failed = 0.0f;
+    _complete = 0.0f;
+    _success = false;
     return true;
 }
 
