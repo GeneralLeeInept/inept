@@ -12,7 +12,8 @@ Should you fail in your task then your entire department's funding will be pulle
 
 
 ## Controls
-
+```
 W, A, S, D  - Movement
 Space Bar   - NMI
 M           - Open map screen (ESC to exit)
+```

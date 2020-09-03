@@ -29,7 +29,7 @@ public:
 
     struct Zone
     {
-        Rect rect;
+        Rectf rect;
         std::string name;
     };
 

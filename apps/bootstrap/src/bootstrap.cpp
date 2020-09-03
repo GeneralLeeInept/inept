@@ -112,7 +112,6 @@ int gli_main(int argc, char** argv)
 
     if (app.initialize(title.c_str(), 640, 360, 2))
     {
-        app.show_mouse(false);
         app.run();
     }
 

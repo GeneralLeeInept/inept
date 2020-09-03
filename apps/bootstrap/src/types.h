@@ -13,10 +13,24 @@ struct V2f
 };
 
 
-struct Rect
+struct Rectf
 {
     V2f origin;
     V2f extents;
+};
+
+
+struct V2i
+{
+    int x;
+    int y;
+};
+
+
+struct Recti
+{
+    V2i origin;
+    V2i extents;
 };
 
 
@@ -79,5 +93,16 @@ inline float dot(const V2f& a, const V2f& b)
     return (a.x * b.x) + (a.y * b.y);
 }
 
+
+inline V2i operator+(const V2i& a, const V2i& b)
+{
+    return { a.x + b.x, a.y + b.y };
+}
+
+
+inline V2i operator-(const V2i& a, const V2i& b)
+{
+    return { a.x - b.x, a.y - b.y };
+}
 
 } // namespace Bootstrap

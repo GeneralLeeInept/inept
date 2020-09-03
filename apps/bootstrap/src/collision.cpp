@@ -3,7 +3,7 @@
 namespace Bootstrap
 {
 
-bool contains(const Rect& rect, const V2f& p)
+bool contains(const Rectf& rect, const V2f& p)
 {
     if (p.x < rect.origin.x || p.y < rect.origin.y)
     {
@@ -11,6 +11,24 @@ bool contains(const Rect& rect, const V2f& p)
     }
 
     V2f max = rect.origin + rect.extents;
+
+    if (p.x > max.x || p.y > max.y)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+
+bool contains(const Recti& rect, const V2i& p)
+{
+    if (p.x < rect.origin.x || p.y < rect.origin.y)
+    {
+        return false;
+    }
+
+    V2i max = rect.origin + rect.extents;
 
     if (p.x > max.x || p.y > max.y)
     {

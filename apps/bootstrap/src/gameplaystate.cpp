@@ -43,11 +43,19 @@ bool GamePlayState::on_init(App* app)
         return false;
     }
 
+    if (!_puzzle_state.on_init(app))
+    {
+        return false;
+    }
+
     return true;
 }
 
 
-void GamePlayState::on_destroy() {}
+void GamePlayState::on_destroy()
+{
+    _puzzle_state.on_destroy();
+}
 
 
 bool GamePlayState::on_enter()
@@ -95,8 +103,6 @@ bool GamePlayState::on_enter()
     _simulation_delta = 0.0f;
     _map_view = false;
 
-    _app->show_mouse(true);
-
     return true;
 }
 
@@ -104,6 +110,11 @@ bool GamePlayState::on_enter()
 void GamePlayState::on_exit()
 {
     _movables.clear();
+
+    if (_puzzle_mode)
+    {
+        _puzzle_state.on_exit();
+    }
 }
 
 
@@ -150,30 +161,47 @@ static float ease_out(float t)
 
 bool GamePlayState::on_update(float delta)
 {
-    if (_map_view)
+    if (_puzzle_mode)
     {
-        if (_app->key_state(gli::Key_Escape).pressed)
+        if (!_puzzle_state.on_update(delta))
         {
-            _map_view = false;
-            delta = 0.0f;
-        }
-    }
-    else
-    {
-        if (_app->key_state(gli::Key_M).pressed)
-        {
-            _map_view = true;
+            // Check result and react accordingly.
+            _puzzle_state.on_exit();
+            _puzzle_mode = false;
         }
     }
 
-    if (_map_view)
+    if (!_puzzle_mode)
     {
-        render_minimap(delta);
-    }
-    else
-    {
-        update_simulation(delta);
-        render_game(delta);
+        if (_map_view)
+        {
+            if (_app->key_state(gli::Key_Escape).pressed)
+            {
+                _map_view = false;
+                delta = 0.0f;
+            }
+        }
+        else if (!_map_view)
+        {
+            if (_app->key_state(gli::Key_M).pressed)
+            {
+                _map_view = true;
+            }
+            else if (_app->key_state(gli::Key_P).pressed)
+            {
+                _puzzle_mode = _puzzle_state.on_enter();
+            }
+        }
+
+        if (_map_view)
+        {
+            render_minimap(delta);
+        }
+        else 
+        {
+            update_simulation(delta);
+            render_game(delta);
+        }
     }
 
     return true;

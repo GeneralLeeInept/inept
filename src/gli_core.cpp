@@ -82,6 +82,8 @@ std::atomic<bool> _poll_controllers;
 HMODULE _xinput_dll = NULL;
 XInputGetStateFuncPtr XInputGetState = XInputGetStateStub;
 ControllerState _controller_states[4]{};
+int _hide_cursor = 1;
+bool _cursor_hidden = true;
 
 bool App::initialize(const char* name, int screen_width, int screen_height, int window_scale)
 {
@@ -129,6 +131,7 @@ bool App::initialize(const char* name, int screen_width, int screen_height, int 
     int x = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
     int y = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
     SetWindowPos(m_hwnd, 0, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    ShowCursor(FALSE);
 
     // Initialise key states
     for (int i = 0; i < 2; ++i)
@@ -403,7 +406,14 @@ const App::MouseState& App::mouse_state()
 
 void App::show_mouse(bool show)
 {
-    ShowCursor(show);
+    if (show && _hide_cursor)
+    {
+        --_hide_cursor;
+    }
+    else
+    {
+        ++_hide_cursor;
+    }
 }
 
 
@@ -956,11 +966,27 @@ void App::shutdown()
 
 void App::pump_messages()
 {
+    bool quit = false;
     MSG msg;
-    while (GetMessageW(&msg, 0, 0, 0) > 0)
+
+    while (!quit)
     {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+        while (PeekMessageW(&msg, 0, 0, 0, PM_REMOVE))
+        {
+            if (msg.message == WM_QUIT)
+            {
+                quit = true;
+            }
+
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+
+        if (!!_hide_cursor != _cursor_hidden)
+        {
+            _cursor_hidden = !!_hide_cursor;
+            ShowCursor(!_cursor_hidden);
+        }
     }
 }
 

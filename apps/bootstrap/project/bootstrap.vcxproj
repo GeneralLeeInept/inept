@@ -80,6 +80,7 @@
     <ClInclude Include="..\src\bootstrap.h" />
     <ClInclude Include="..\src\collision.h" />
     <ClInclude Include="..\src\gameplaystate.h" />
+    <ClInclude Include="..\src\puzzlestate.h" />
     <ClInclude Include="..\src\random.h" />
     <ClInclude Include="..\src\types.h" />
     <ClInclude Include="..\src\iappstate.h" />
@@ -91,6 +92,7 @@
     <ClCompile Include="..\src\bootstrap.cpp" />
     <ClCompile Include="..\src\collision.cpp" />
     <ClCompile Include="..\src\gameplaystate.cpp" />
+    <ClCompile Include="..\src\puzzlestate.cpp" />
     <ClCompile Include="..\src\random.cpp" />
     <ClCompile Include="..\src\splash.cpp" />
     <ClCompile Include="..\src\tilemap.cpp" />

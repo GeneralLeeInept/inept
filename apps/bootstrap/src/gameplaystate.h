@@ -1,6 +1,7 @@
 #pragma once
 
 #include "iappstate.h"
+#include "puzzlestate.h"
 #include "tilemap.h"
 #include "types.h"
 
@@ -85,6 +86,8 @@ private:
     float _simulation_delta;
     const TileMap::Zone* _player_zone;
     bool _map_view;
+    bool _puzzle_mode;
+    PuzzleState _puzzle_state;
 };
 
 } // namespace Bootstrap

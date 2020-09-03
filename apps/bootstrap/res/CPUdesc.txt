@@ -1,0 +1,199 @@
+Puzzle mode means setting the correct control lines in each cycle to get an instruction to perform correctly.
+
+This fictional processor is modeled on the 6502, then dramatically simplified. It's still powerful enough to simulate our universe though. So what?
+
+
+# The Great Machine CPU
+
+The Great Machine CPU is a state of the art 8-bit CPU. It is definitely not a totally ripped off from the MOS6502 design and then stripped down by bean counters. At all.
+
+# Addressing modes
+
+CPU instructions (opcodes) may take an operand one byte in size. Opcodes may use one of two addressing modes:
+    * Immediate - the byte following the opcode in memory is the one byte operand.
+    * Indirect - the two bytes following the opcode in memory are the low and high bytes of the address containing the one byte operand.
+
+The original design called for two indexed addressing modes but the accountants convinced management that they were not required.
+
+# External connections
+Externally the CPU is connected to an 8-bit system bus, a 16-bit address bus, and a number of control and signal lines. The only interesting signal line here is the RW line. When the RW line is pulled low the CPU asserts a value onto the system bus, when the RW line is high (the default) the CPU reads from the system bus.
+
+# Internal architecture
+The CPU is composed of a number of circuits, an internal bus, a data bus, several signal lines, and a hefty number of control lines.
+
+## Circuits
+
+### Instruction Decoding and Control Logic
+A number of circuits working together to fetch instructions from the system bus and execute them by sequentially activating various CPU control lines. The guy who built this left and nobody really knows how it works. Thankfully it's never failed. If it did we'd probably have to find some flunky to do all that by hand, and some genius savant to recreate the control logic for all the opcodes. But that's hardly likely to happen.
+
+### Accumulator
+An 8-bit register. It can remembers the state of 8-bits (all at the same time!), update the bit states from a connected bus, or assert the bit states onto a connected bus.
+
+### Index Register
+An 8-bit register. There were originally two of these intended for use with the indexed addressing modes. This one was kept in case it was useful for anything. For historical reasons it's often referred to as the 'X' register.
+
+### Stack Pointer
+An 8-bit register pointing into the stack.
+
+NOTE: The stack pointer was cut from the final design. We don't really need a stack to simulate the universe, it's not like anyone is ever going to try to run a universe simulation from within the universe simulation!
+
+### Program Counter
+A 16-bit register holding the address of the next byte to fetch when the CPU needs an opcode or operand. This circuit has some logic to increment the address and a control line to make it do its incrementing trick.
+
+### Address Bus Register
+Another 16-bit register which is really two 8-bit registers. Holds the low and high bytes of the value aserted onto the address bus.
+
+### Data Output Register
+An 8-bit register. Holds the value which the CPU asserts onto the system bus when RW is pulled low.
+
+### Input Data Latch
+An 8-bit latch which allows the CPU to snapshot the value on the system bus. This is useful as the value on the bus might change while the CPU is part way through processing an opcode, with undesirable (but probalby hilarious) consequences.
+
+### Arithmetic and Logic Unit
+The ALU. This circuit is the CPU's calculator. It has two input registers, A and B, and an output register. It performs basic arithmetic with the two input registers and can remember the result in the output register on request. A carry flag allows numbers larger than 8-bits to be added/subtracted by carrying (adding) a binary digit from a partial addition/subtraction to the least significant bit position of a more significant word.
+
+The ALU supports 5 operations:
+    * SUM - add the two input registers together.
+    * SHR - shift the bits in the second input register (input register B) one place to the right.
+    * OR - bitwise OR of the two input registers.
+    * XOR - bitwise XOR of the two input registers.
+    * AND - bitwise AND of the two input registers.
+
+The ALU can negate the value in the second input register allowing the SUM operation to behave as a subtraction.
+
+## Internal Bus
+The CPU has an 8-bit internal bus which connects to several of the circuits:
+    * Accumulator
+    * Index Register
+    * Program Counter
+    * Address Bus Register
+    * ALU Input register A
+    * ALU Input register B
+    * ALU Output register
+
+## Data Bus
+An 8-bit data bus connects a smaller number of circuits with the system bus (via the Input Data Latch and Data Output Register):
+    * Accumulator
+    * ALU Input register B
+    * Data input latch
+    * Data output register
+    * Program Counter
+    * Processor status register
+
+
+## Control lines
+Control lines are named like x::MMM[::b].
+
+The 'x' indicates the behavior the control line enables:
+    * 'l'   latch - the circuit will latch a value from a connected bus or signal line.
+    * 'a'   assert - the circuit will assert a value to a connected bus or signal line.
+    * 's'   signal - pulling down the signal line.
+
+The 'MMM' part is the  mnemonic for the circuit or signal line the control line controls.
+
+The mnemonics for the circuits are:
+    * AC    Accumulator.
+    * X     X Index Register.
+    * PCL   Program Counter low byte.
+    * PCH   Program Counter high byte.
+    * ABL   Address Bus Register low byte.
+    * ABH   Address Bus Register high byte.
+    * AI    ALU Input register A.
+    * BI    ALU Input register B.
+    * ADD   ALU Output register.
+    * DL    Data input latch.
+    * DOR   Data output register.
+    * P     Processor status register.
+
+And the mnemonics for the signal lines are:
+    * PI    Program counter increment logic signal.
+    * W     CPU RW signal.
+    * SUM   ALU - enable addition circuit.
+    * SHR   ALU - enable shift right circuit.
+    * OR    ALU - enable bitwise OR circuit.
+    * XOR   ALU - enable bitwise XOR circuit.
+    * AND   ALU - enable bitwise AND circuit.
+    * CI    ALU - input carry bit.
+    * NEG   ALU - negate BI.
+    * AZ    ALU - set AI to zero.
+    * BZ    ALU - set BI to zero.
+
+The 'b' part, if present, specifies which bus or line the circuit will latch or assert:
+    * 'i' means the internal bus
+    * 'd' means the data bus.
+    * 'C' means the ALU output carry line.
+
+## Control lines:
+    * l::AC::(d|i)  - latch the accumulator from the data bus (d) or internal bus (i).
+    * l::X          - latch the X index register from the internal bus.
+    * l::PCL::(d|i) - latch the program counter low byte from the data bus (d) or internal bus (i).
+    * l::PCH::(d|i) - latch the program counter high byte from the data bus (d) or internal bus (i).
+    * l::ABL        - latch the address bus register low byte from the internal bus.
+    * l::ABH        - latch the address bus register high byte from the internal bus.
+    * l::AI         - latch the ALU input A register from the internal bus.
+    * l::BI::(d|i)  - latch the ALU input B register from the data bus (d) or internal bus (i).
+    * l::ADD        - latch the ALU output register with the current output from the ALU.
+    * l::DL         - latch the data input latch from the system bus.
+    * l::DOR        - latch the data output register from the internal bus.
+    * l::P          - latch the processor status register from the data bus.
+    * l::P::C       - latch the processor status register carry bit from the ALU carry output signal.
+    * a::AC::(d|i)  - assert the accumulator onto the data bus (d) or internal bus (i).
+    * a::X          - assert the X index register onto the internal bus.
+    * a::PCL::(d|i) - assert the X index register onto the data bus (d) or internal bus (i).
+    * a::PCH::(d|i) - assert the X index register onto the data bus (d) or internal bus (i).
+    * a::ADD        - assert the ALU output register onto the internal bus.
+    * a::DL         - assert the input data latch onto the internal bus.
+    * a::P          - assert the processor status register onto the data bus.
+    * s::PI         - trigger the program counter circuit (increments the program counter).
+    * s::W          - pull down the CPU RW line (asserts DOR onto the system bus).
+    * s::SUM        - ALU - enable addition circuit.
+    * s::SHR        - ALU - enable shift right circuit.
+    * s::OR         - ALU - enable bitwise OR circuit.
+    * s::XOR        - ALU - enable bitwise XOR circuit.
+    * s::AND        - ALU - enable bitwise AND circuit.
+    * s::CI         - ALU - set the input carry bit.
+    * s::NEG        - ALU - negate BI.
+    * s::AZ         - ALU - zero AI.
+    * s::BZ         - ALU - zero BI.
+
+
+# CPU Behavior (putting it all together)
+From its initial state the CPU performs the following steps:
+1. Set the address bus low and high registers to the program counter low and high register.
+1. Latch the value from the system bus into the instruction decoding and control logic.
+2. Signal the program counter circuit to increment the program counter.
+4. Set the address bus low and high registers to the program counter low and high register.
+
+Setting the address bus registers in step 4 means the operand for an immediate mode instruction, or first byte of the address for an indirect mode instruction, is ready on the system bus when the opcode starts executing. Setting the address bus registers again in step 1 means the opcodes are relieved of the requirement to leave the correct address for the next instruction on the address bus when they complete. It is however the responsibility of the opcodes to ensure the program counter value is correct when they are complete. Immediate mode
+
+The decoding and control logic then executes the operation across multiple clock cycles. On each clock one or more control lines are pulled down, determined by the opcode. When the opcode has completed (no control lines are pulled down), the CPU reverts to the initial state.
+
+# Microcode example
+
+An example of the microcode for the NOP (No OPeration) opcode is given to aid understanding. 
+
+Rows in the following table are labeled T1..Tn where 1..n is the number of clock cycles after the instruction fetch. Each row contains a list of the control lines which are pulled down in that cycle. '*' is used to indicate an empty row (the end of the operation):
+
+T1: *
+
+# Opcode reference
+
+NB: The original opcode set was reduced to those required by to simulate the universe.
+
+Opcode  Mnemonic    Description                     Effect                      Flags
+00      NOP         No operation.
+11      LDA         Load accumulator immediate.     A = operand
+12      LDA         Load accumulator indirect.      A = load(address)
+39      ADC         Add immediate.                  A = A + operand             C
+3A      ADC         Add indirect.                   A = A + load(address)       C
+3F      TAX         Transfer accumulator to X.      X = A
+40      TXA         Transfer X to accumulator.      A = X
+52      INC         Increment indirect.             (address) = (address) + 1   C
+6A      JMP         Jump to address.                PC = (address)
+6B      JMP         Jump to address indirect.       PC = ((address))
+70      INX         Increment X register.           X = X + 1                   C
+7B      SUB         Subtract immediate.             A = A - operand             C
+88      OR          OR immediate.                   A = A | operand
+8A      XOR         XOR indirect.                   A = A ^ (address)
+A9      STA         Store accumulator.              (address) = A
+B0      CLC         Clear the carry flag.                                       C

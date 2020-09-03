@@ -28,9 +28,9 @@
  <tile id="3">
   <properties>
    <property name="blocks_ai" type="bool" value="false"/>
-   <property name="blocks_bullets" type="bool" value="true"/>
+   <property name="blocks_bullets" type="bool" value="false"/>
    <property name="blocks_los" type="bool" value="false"/>
-   <property name="blocks_movables" type="bool" value="true"/>
+   <property name="blocks_movables" type="bool" value="false"/>
   </properties>
  </tile>
  <tile id="4">
@@ -118,7 +118,7 @@
    <property name="blocks_ai" type="bool" value="false"/>
    <property name="blocks_bullets" type="bool" value="false"/>
    <property name="blocks_los" type="bool" value="false"/>
-   <property name="blocks_movables" type="bool" value="false"/>
+   <property name="blocks_movables" type="bool" value="true"/>
   </properties>
  </tile>
  <tile id="15">
@@ -126,7 +126,7 @@
    <property name="blocks_ai" type="bool" value="false"/>
    <property name="blocks_bullets" type="bool" value="false"/>
    <property name="blocks_los" type="bool" value="false"/>
-   <property name="blocks_movables" type="bool" value="false"/>
+   <property name="blocks_movables" type="bool" value="true"/>
   </properties>
  </tile>
  <tile id="16">
@@ -454,7 +454,7 @@
    <property name="blocks_ai" type="bool" value="false"/>
    <property name="blocks_bullets" type="bool" value="false"/>
    <property name="blocks_los" type="bool" value="false"/>
-   <property name="blocks_movables" type="bool" value="false"/>
+   <property name="blocks_movables" type="bool" value="true"/>
   </properties>
  </tile>
  <tile id="57">
@@ -462,7 +462,7 @@
    <property name="blocks_ai" type="bool" value="false"/>
    <property name="blocks_bullets" type="bool" value="false"/>
    <property name="blocks_los" type="bool" value="false"/>
-   <property name="blocks_movables" type="bool" value="false"/>
+   <property name="blocks_movables" type="bool" value="true"/>
   </properties>
  </tile>
  <tile id="58">
@@ -566,7 +566,7 @@
    <property name="blocks_ai" type="bool" value="false"/>
    <property name="blocks_bullets" type="bool" value="false"/>
    <property name="blocks_los" type="bool" value="false"/>
-   <property name="blocks_movables" type="bool" value="false"/>
+   <property name="blocks_movables" type="bool" value="true"/>
   </properties>
  </tile>
  <tile id="71">
@@ -574,7 +574,7 @@
    <property name="blocks_ai" type="bool" value="false"/>
    <property name="blocks_bullets" type="bool" value="false"/>
    <property name="blocks_los" type="bool" value="false"/>
-   <property name="blocks_movables" type="bool" value="false"/>
+   <property name="blocks_movables" type="bool" value="true"/>
   </properties>
  </tile>
  <tile id="72">

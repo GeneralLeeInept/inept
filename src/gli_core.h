@@ -144,6 +144,13 @@ enum KeyEventType
     Repeat
 };
 
+enum MouseButton
+{
+    Left,
+    Middle,
+    Right
+};
+
 struct KeyEvent
 {
     KeyEventType event;
