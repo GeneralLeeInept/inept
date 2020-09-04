@@ -131,6 +131,7 @@ static const float NmiZapOutEnd = 0.6f;
 static const float NmiDarkOutEnd = 1.0f;
 static const float NmiCooldown = 1.2f;
 static const float NmiDuration = NmiCooldown;
+static const float NmiRadius = 1.5f;
 
 // Physics constants
 static const float min_v = 0.5f;
@@ -161,13 +162,28 @@ static float ease_out(float t)
 
 bool GamePlayState::on_update(float delta)
 {
+    if (_puzzle_target && !_puzzle_mode)
+    {
+        _puzzle_mode = _puzzle_state.on_enter();
+    }
+
     if (_puzzle_mode)
     {
         if (!_puzzle_state.on_update(delta))
         {
             // Check result and react accordingly.
+            bool success = _puzzle_state.result();
             _puzzle_state.on_exit();
             _puzzle_mode = false;
+            _nmitimer = 0.0f;
+            _bullets.clear();
+
+            if (success)
+            {
+                _movables[_puzzle_target].active = false;
+            }
+
+            _puzzle_target = 0;
         }
     }
 
@@ -186,10 +202,6 @@ bool GamePlayState::on_update(float delta)
             if (_app->key_state(gli::Key_M).pressed)
             {
                 _map_view = true;
-            }
-            else if (_app->key_state(gli::Key_P).pressed)
-            {
-                _puzzle_mode = _puzzle_state.on_enter();
             }
         }
 
@@ -406,6 +418,14 @@ void GamePlayState::update_simulation(float delta)
         if (_nmitimer >= delta)
         {
             _nmitimer -= delta;
+
+            float invnmitimer = NmiDuration - _nmitimer;
+
+            if (invnmitimer >= NmiZapInEnd && invnmitimer < NmiZapOutEnd)
+            {
+                // See if we caught an illegal opcode.
+                _puzzle_target = find_enemy_in_range(player.position, NmiRadius);
+            }
         }
         else
         {
@@ -414,6 +434,7 @@ void GamePlayState::update_simulation(float delta)
             if (_nmifired > 0.0f)
             {
                 _nmitimer = NmiDuration;
+                _nmifired = 0.0f;
             }
         }
 
@@ -481,7 +502,7 @@ void GamePlayState::render_game(float delta)
     }
 
     // fx - pre-sprites
-    if (_nmitimer)
+    if (_nmitimer > 0.0f)
     {
         draw_nmi(player.position);
     }
@@ -727,5 +748,33 @@ void GamePlayState::update_bullets(float delta)
 
     _bullets = keep_bullets;
 }
+
+
+size_t GamePlayState::find_enemy_in_range(const V2f& pos, float radius)
+{
+    float closest_d = radius * radius;
+    size_t closest = 0;
+
+    for (AiBrain& brain : _brains)
+    {
+        Movable& movable = _movables[brain.movable];
+
+        if (movable.active)
+        {
+            V2f v = movable.position - pos;
+            float d = length_sq(v);
+
+            if (d < closest_d)
+            {
+                closest_d = d;
+                closest = brain.movable;
+            }
+        }
+    }
+
+    return closest;
+}
+
+
 } // namespace Bootstrap
 // namespace Bootstrap

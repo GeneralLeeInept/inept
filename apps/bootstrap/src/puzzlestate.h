@@ -18,6 +18,8 @@ public:
     void on_resume() override;
     bool on_update(float delta) override;
 
+    bool result() { return _success; }
+
 private:
     enum Sprite
     {

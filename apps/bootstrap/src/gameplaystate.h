@@ -70,6 +70,8 @@ private:
     void fire_bullet(const Movable& attacker, const V2f& target);
     void update_bullets(float delta);
 
+    size_t find_enemy_in_range(const V2f& pos, float radius);
+
     std::vector<Movable> _movables;
     std::vector<AiBrain> _brains;
     std::vector<Bullet> _bullets;
@@ -87,6 +89,7 @@ private:
     const TileMap::Zone* _player_zone;
     bool _map_view;
     bool _puzzle_mode;
+    size_t _puzzle_target;
     PuzzleState _puzzle_state;
 };
 
