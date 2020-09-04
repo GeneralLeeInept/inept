@@ -9,12 +9,52 @@
 namespace Bootstrap
 {
 
+
+enum HudGfx
+{
+    HealthBarX = 2,
+    HealthBarY = 2,
+    HealthBarW = 186,
+    HealthBarH = 20,
+    HealthFillX = 28,
+    HealthFillY = 22,
+    HealthFillW = 160,
+    HealthFillH = 16,
+    ScoreX = 193,
+    ScoreY = 3,
+    ScoreW = 144,
+    ScoreH = 20,
+    ScoreNumbersX = 337,
+    ScoreNumbersY = 3,
+    ScoreNumbersW = 24,
+    ScoreNumbersH = 20
+};
+
+
+static const float NmiDarkInEnd = 0.15f;
+static const float NmiZapInEnd = 0.2f;
+static const float NmiZapOutStart = 0.4f;
+static const float NmiZapOutEnd = 0.6f;
+static const float NmiDarkOutEnd = 1.0f;
+static const float NmiCooldown = 1.2f;
+static const float NmiDuration = NmiCooldown;
+static const float NmiRadius = 1.5f;
+
+// Physics constants
+static const float min_v = 0.5f;
+static const float drag = 0.95f;
+static const float dv = 6.0f;
+
+static const float bullet_speed = 10.0f; // experimentally derived
+
+
 bool GamePlayState::on_init(App* app)
 {
     _app = app;
 
     static const char* sprite_sheet_paths[Sprite::Count] = { GliAssetPath("sprites/droid.png"), GliAssetPath("sprites/illegal_opcode.png"),
-                                                             GliAssetPath("fx/bullet.png"), GliAssetPath("gui/map_markers.png") };
+                                                             GliAssetPath("fx/bullet.png"), GliAssetPath("gui/map_markers.png"),
+                                                             GliAssetPath("gui/hud.png") };
 
     size_t i = 0;
 
@@ -102,6 +142,8 @@ bool GamePlayState::on_enter()
 
     _simulation_delta = 0.0f;
     _map_view = false;
+    _health = 100;
+    _score = 0;
 
     return true;
 }
@@ -123,22 +165,6 @@ void GamePlayState::on_suspend() {}
 
 void GamePlayState::on_resume() {}
 
-
-static const float NmiDarkInEnd = 0.15f;
-static const float NmiZapInEnd = 0.2f;
-static const float NmiZapOutStart = 0.4f;
-static const float NmiZapOutEnd = 0.6f;
-static const float NmiDarkOutEnd = 1.0f;
-static const float NmiCooldown = 1.2f;
-static const float NmiDuration = NmiCooldown;
-static const float NmiRadius = 1.5f;
-
-// Physics constants
-static const float min_v = 0.5f;
-static const float drag = 0.95f;
-static const float dv = 6.0f;
-
-static const float bullet_speed = 10.0f; // experimentally derived
 
 static float clamp(float t, float min, float max)
 {
@@ -176,11 +202,19 @@ bool GamePlayState::on_update(float delta)
             _puzzle_state.on_exit();
             _puzzle_mode = false;
             _nmitimer = 0.0f;
+            _nmifired = 0.0f;
             _bullets.clear();
+            _post_puzzle_cooloff = 0.5f;
 
             if (success)
             {
                 _movables[_puzzle_target].active = false;
+                _score += 123;
+                _health += 10;
+            }
+            else
+            {
+                _health -= 20;
             }
 
             _puzzle_target = 0;
@@ -189,6 +223,11 @@ bool GamePlayState::on_update(float delta)
 
     if (!_puzzle_mode)
     {
+        if (_health <= 0)
+        {
+            _movables[0].active = false;
+        }
+
         if (_map_view)
         {
             if (_app->key_state(gli::Key_Escape).pressed)
@@ -238,33 +277,36 @@ void GamePlayState::update_simulation(float delta)
 
         Movable& player = _movables[0];
 
-        if (_app->key_state(gli::Key_W).down)
+        if (player.active)
         {
-            player.velocity.y = -dv;
-        }
+            if (_app->key_state(gli::Key_W).down)
+            {
+                player.velocity.y = -dv;
+            }
 
-        if (_app->key_state(gli::Key_S).down)
-        {
-            player.velocity.y = dv;
-        }
+            if (_app->key_state(gli::Key_S).down)
+            {
+                player.velocity.y = dv;
+            }
 
-        if (_app->key_state(gli::Key_A).down)
-        {
-            player.velocity.x = -dv;
-        }
+            if (_app->key_state(gli::Key_A).down)
+            {
+                player.velocity.x = -dv;
+            }
 
-        if (_app->key_state(gli::Key_D).down)
-        {
-            player.velocity.x = dv;
-        }
+            if (_app->key_state(gli::Key_D).down)
+            {
+                player.velocity.x = dv;
+            }
 
-        if (player.velocity.x < 0.0f)
-        {
-            player.frame = 0;
-        }
-        else if (player.velocity.x > 0.0f)
-        {
-            player.frame = 1;
+            if (player.velocity.x < 0.0f)
+            {
+                player.frame = 0;
+            }
+            else if (player.velocity.x > 0.0f)
+            {
+                player.frame = 1;
+            }
         }
 
         for (AiBrain& brain : _brains)
@@ -297,7 +339,7 @@ void GamePlayState::update_simulation(float delta)
                     // Time to consider..
                     float player_distance_sq = length_sq(player.position - movable.position);
 
-                    if (player_distance_sq < (20.0f * 20.0f))
+                    if (player.active && player_distance_sq < (20.0f * 20.0f))
                     {
                         player_visible = !_tilemap.raycast(movable.position, player.position, TileMap::TileFlag::BlocksLos, nullptr);
                     }
@@ -361,38 +403,41 @@ void GamePlayState::update_simulation(float delta)
 
                 movable.frame = brain.player_spotted ? 2 + facing : facing;
 
-                // fire muh laser
-                if (player_visible && brain.shot_timer <= 0.0f)
+                if (_post_puzzle_cooloff <= 0.0f)
                 {
-                    float fire = gRandom.get();
-                    bool fired = false;
-
-                    if (fire > 0.8f)
+                    // fire muh laser
+                    if (player_visible && brain.shot_timer <= 0.0f)
                     {
-                        V2f dir = normalize(player.position - movable.position);
-                        V2f perp = V2f{ dir.y, dir.x };
+                        float fire = gRandom.get();
+                        bool fired = false;
 
-                        // Fire a spread
-                        int num = (fire > 0.9f) ? 5 : 3;
-
-                        for (int i = -num / 2; i <= num / 2; ++i)
+                        if (fire > 0.8f)
                         {
-                            V2f shot_dir = dir + perp * (float)i;
-                            fire_bullet(movable, movable.position + shot_dir);
+                            V2f dir = normalize(player.position - movable.position);
+                            V2f perp = V2f{ dir.y, dir.x };
+
+                            // Fire a spread
+                            int num = (fire > 0.9f) ? 5 : 3;
+
+                            for (int i = -num / 2; i <= num / 2; ++i)
+                            {
+                                V2f shot_dir = dir + perp * (float)i;
+                                fire_bullet(movable, movable.position + shot_dir);
+                            }
+
+                            fired = true;
+                        }
+                        else if (fire > 0.5f)
+                        {
+                            // Fire one
+                            fire_bullet(movable, player.position);
+                            fired = true;
                         }
 
-                        fired = true;
-                    }
-                    else if (fire > 0.5f)
-                    {
-                        // Fire one
-                        fire_bullet(movable, player.position);
-                        fired = true;
-                    }
-
-                    if (fired)
-                    {
-                        brain.shot_timer = gRandom.get(0.3f, 0.8f);
+                        if (fired)
+                        {
+                            brain.shot_timer = gRandom.get(0.3f, 0.8f);
+                        }
                     }
                 }
             }
@@ -402,7 +447,7 @@ void GamePlayState::update_simulation(float delta)
 
         _player_zone = _tilemap.get_zone(_movables[0].position, _player_zone);
 
-        if (_app->key_state(gli::Key_Space).pressed)
+        if (player.active && _app->key_state(gli::Key_Space).pressed)
         {
             _nmifired = 0.5f;
         }
@@ -421,7 +466,7 @@ void GamePlayState::update_simulation(float delta)
 
             float invnmitimer = NmiDuration - _nmitimer;
 
-            if (invnmitimer >= NmiZapInEnd && invnmitimer < NmiZapOutEnd)
+            if (player.active && invnmitimer >= NmiZapInEnd && invnmitimer < NmiZapOutEnd)
             {
                 // See if we caught an illegal opcode.
                 _puzzle_target = find_enemy_in_range(player.position, NmiRadius);
@@ -431,7 +476,7 @@ void GamePlayState::update_simulation(float delta)
         {
             _nmitimer = 0.0f;
 
-            if (_nmifired > 0.0f)
+            if (player.active && _nmifired > 0.0f)
             {
                 _nmitimer = NmiDuration;
                 _nmifired = 0.0f;
@@ -439,6 +484,15 @@ void GamePlayState::update_simulation(float delta)
         }
 
         update_bullets(delta);
+
+        if (_post_puzzle_cooloff > delta)
+        {
+            _post_puzzle_cooloff -= delta;
+        }
+        else
+        {
+            _post_puzzle_cooloff = 0.0f;
+        }
     }
 }
 
@@ -522,19 +576,43 @@ void GamePlayState::render_game(float delta)
         draw_sprite(bullet.position, Sprite::Bullet_, 0);
     }
 
-#if 0
-        // GUI
-        _a_reg = _cx & 0xFF;
-        _x_reg = _cy & 0xFF;
+    // HUD
+    int health_fill = (_health * HudGfx::HealthFillW) / 100;
+    _app->blend_partial_sprite(16 + HudGfx::HealthBarW - HudGfx::HealthFillW, 16 + 3, _sprites[Sprite::Hud], HudGfx::HealthFillX, HudGfx::HealthFillY,
+                               health_fill, HudGfx::HealthFillH, 255);
+    _app->blend_partial_sprite(16, 16, _sprites[Sprite::Hud], HudGfx::HealthBarX, HudGfx::HealthBarY, HudGfx::HealthBarW, HudGfx::HealthBarH, 255);
 
-        _app->draw_sprite(412, 4, &_status_panel);
-        draw_register(_dbus, 455, 48, 0);
-        draw_register(_abus_lo, 455, 101, 2);
-        draw_register(_abus_hi, 455, 120, 2);
-        draw_register(_a_reg, 455, 167, 1);
-        draw_register(_x_reg, 455, 214, 1);
-        draw_register(_y_reg, 455, 261, 1);
-#endif
+    int score_digits[4];
+    if (_score >= 9999)
+    {
+        score_digits[0] = 9;
+        score_digits[1] = 9;
+        score_digits[2] = 9;
+        score_digits[3] = 9;
+    }
+    else
+    {
+        int score_temp = _score;
+        score_digits[0] = score_temp / 1000;
+        score_temp -= score_digits[0] * 1000;
+        score_digits[1] = score_temp / 100;
+        score_temp -= score_digits[1] * 100;
+        score_digits[2] = score_temp / 10;
+        score_temp -= score_digits[2] * 10;
+        score_digits[3] = score_temp;
+    }
+
+    int score_x = _app->screen_width() - (16 + HudGfx::ScoreW + HudGfx::ScoreNumbersW * 4);
+    int score_y = 16 + (HudGfx::HealthBarH - HudGfx::ScoreH) / 2;
+    _app->blend_partial_sprite(score_x, score_y, _sprites[Sprite::Hud], HudGfx::ScoreX, HudGfx::ScoreY, HudGfx::ScoreW, HudGfx::ScoreH, 255);
+    score_x += HudGfx::ScoreW;
+
+    for (int i = 0; i < 4; ++i)
+    {
+        _app->blend_partial_sprite(score_x, score_y, _sprites[Sprite::Hud], HudGfx::ScoreNumbersX + score_digits[i] * HudGfx::ScoreNumbersW,
+                                   HudGfx::ScoreNumbersY, HudGfx::ScoreNumbersW, HudGfx::ScoreNumbersH, 255);
+        score_x += HudGfx::ScoreNumbersW;
+    }
 }
 
 
@@ -734,9 +812,10 @@ void GamePlayState::update_bullets(float delta)
         if (!check_collision(next_position, TileMap::TileFlag::BlocksBullets, bullet.radius))
         {
             // Check if hit player
-            if (swept_circle_vs_circle(bullet.position, next_position, bullet.radius, _movables[0].position, _movables[0].radius))
+            if (_movables[0].active && swept_circle_vs_circle(bullet.position, next_position, bullet.radius, _movables[0].position, _movables[0].radius))
             {
                 // Hit the player
+                _health -= 5;
             }
             else
             {

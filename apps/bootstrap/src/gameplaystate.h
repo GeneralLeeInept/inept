@@ -28,6 +28,7 @@ private:
         IllegalOpcode,
         Bullet_,
         MapMarkers,
+        Hud,
         Count
     };
 
@@ -76,11 +77,12 @@ private:
     std::vector<AiBrain> _brains;
     std::vector<Bullet> _bullets;
 
-    App* _app{};
+    PuzzleState _puzzle_state;
     TileMap _tilemap;
     gli::Sprite _sprites[Sprite::Count];
     gli::Sprite _nmi_dark;
     gli::Sprite _nmi_shock;
+    App* _app{};
     int _cx;
     int _cy;
     float _nmitimer;
@@ -90,7 +92,9 @@ private:
     bool _map_view;
     bool _puzzle_mode;
     size_t _puzzle_target;
-    PuzzleState _puzzle_state;
+    float _post_puzzle_cooloff;
+    int _score;
+    int _health;
 };
 
 } // namespace Bootstrap

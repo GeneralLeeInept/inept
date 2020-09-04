@@ -63,6 +63,11 @@ void TgmCpu::execute(const Instruction& instruction)
     address_bus_register.value = program_counter.value;
     for (int c = 0; c < 4; ++c)
     {
+        if (instruction.Tn[c].size() == 0)
+        {
+            break;
+        }
+
         clock(instruction.Tn[c]);
     }
 }
