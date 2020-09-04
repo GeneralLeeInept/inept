@@ -32,9 +32,9 @@ private:
 
     struct ControlLineDef
     {
-        int line;
-        int behavior;
-        int target;
+        uint8_t line;
+        int label;
+        int bgtile;
     };
 
     void draw_tile(const ControlLineDef& linedef, int x, int y, bool center);

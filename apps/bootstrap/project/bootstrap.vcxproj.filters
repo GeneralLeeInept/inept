@@ -47,6 +47,12 @@
     <ClInclude Include="..\src\puzzlestate.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\tgmcpu.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\puzzle.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\bootstrap.cpp">
@@ -69,6 +75,12 @@
     </ClCompile>
     <ClCompile Include="..\src\puzzlestate.cpp">
       <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\tgmcpu.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\puzzle.cpp">
+      <Filter>inc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

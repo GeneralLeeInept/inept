@@ -3,57 +3,12 @@
 #include "assets.h"
 #include "bootstrap.h"
 #include "collision.h"
+#include "puzzle.h"
 #include "random.h"
 #include "types.h"
 
 namespace Bootstrap
 {
-
-enum ControlLineMnemonic
-{
-    ABH,
-    ABL,
-    AC,
-    AND,
-    ADD,
-    AI,
-    AZ,
-    BI,
-    BZ,
-    C,
-    CI,
-    DL,
-    DOR,
-    NEG,
-    OR,
-    P,
-    PCH,
-    PCL,
-    PI,
-    SHR,
-    SUM,
-    W,
-    X,
-    XOR,
-};
-
-enum ControlLineBehavior
-{
-    Assert,
-    Latch,
-    Set
-};
-
-enum ControlLineTarget
-{
-    DataBus,
-    InternalBus,
-    ALU,
-    WSignal,
-    PCISignal,
-    StatusRegister,
-    SystemBus,
-};
 
 enum PuzzleTileSheet
 {
@@ -86,13 +41,6 @@ enum PuzzleTileSheet
     lblAZ,
     lblBZ,
     lblC
-};
-
-struct ControlLineDef
-{
-    int line;
-    int bgtile;
-    int fgtile;
 };
 
 enum TileSheetLayout
@@ -130,7 +78,7 @@ enum PuzzleBoardLayout
 
 static const std::string ControlLineDescriptions[] = {
     "Latch the accumulator from the internal bus.",
-    "Latch the index  register from the internal bus.",
+    "Latch the index register from the internal bus.",
     "Latch the program counter low byte from the internal bus.",
     "Latch the program counter high byte from the internal bus.",
     "Latch the address bus register low byte from the internal bus.",
@@ -145,6 +93,7 @@ static const std::string ControlLineDescriptions[] = {
     "Latch the accumulator from the data bus.",
     "Latch the program counter low byte from the data bus.",
     "Latch the program counter high byte from the data bus.",
+    "Latch the address bus register high byte from the data bus.",
     "Latch the ALU input B register from the data bus.",
     "Assert the accumulator onto the internal bus.",
     "Assert the index register onto the internal bus.",
@@ -155,7 +104,7 @@ static const std::string ControlLineDescriptions[] = {
     "Assert the accumulator onto the data bus.",
     "Assert the program counter low byte onto the data bus.",
     "Assert the program counter high byte onto the data bus.",
-    "Assert the input data latch onto the internal bus.",
+    "Assert the input data latch onto the data bus.",
     "Assert the processor status register onto the data bus.",
     "Set the program counter increment signal. Increments the program counter.",
     "Set the CPU write signal. Asserts the data output register onto the system bus.",
@@ -191,8 +140,23 @@ bool PuzzleState::on_update(float delta)
 
         if (_verifying <= 0.0f)
         {
+            TgmCpu::Instruction instruction{};
+
+            for (int clock = 0; clock < 4; ++clock)
+            {
+                for (int wire = 0; wire < 18; ++wire)
+                {
+                    uint8_t w = _solution[clock * 18 + wire];
+
+                    if (w)
+                    {
+                        instruction.Tn[clock].push_back(_linedefs[w - 1].line);
+                    }
+                }
+            }
+
+            _success = Puzzle::verify(Puzzle::TestPuzzle, instruction);
             _complete = 2.0f;
-            _success = (gRandom.get() > 0.5f);
         }
     }
     else
@@ -208,7 +172,7 @@ bool PuzzleState::on_update(float delta)
 
                 if (contains(go_button_rect, mouse_pos))
                 {
-                    _verifying = 2.0f;
+                    _verifying = 0.5f;
                 }
             }
         }
@@ -339,46 +303,48 @@ bool PuzzleState::on_init(App* app)
     }
 
     // clang-format off
-    std::vector<ControlLineDef> defs{
-        { ControlLineMnemonic::AC,    ControlLineBehavior::Latch,     ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::X,     ControlLineBehavior::Latch,     ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::PCL,   ControlLineBehavior::Latch,     ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::PCH,   ControlLineBehavior::Latch,     ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::ABL,   ControlLineBehavior::Latch,     ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::ABH,   ControlLineBehavior::Latch,     ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::AI,    ControlLineBehavior::Latch,     ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::BI,    ControlLineBehavior::Latch,     ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::ADD,   ControlLineBehavior::Latch,     ControlLineTarget::ALU              },
-        { ControlLineMnemonic::DL,    ControlLineBehavior::Latch,     ControlLineTarget::SystemBus        },
-        { ControlLineMnemonic::C,     ControlLineBehavior::Latch,     ControlLineTarget::StatusRegister   },
-        { ControlLineMnemonic::DOR,   ControlLineBehavior::Latch,     ControlLineTarget::DataBus          },
-        { ControlLineMnemonic::P,     ControlLineBehavior::Latch,     ControlLineTarget::DataBus          },
-        { ControlLineMnemonic::AC,    ControlLineBehavior::Latch,     ControlLineTarget::DataBus          },
-        { ControlLineMnemonic::PCL,   ControlLineBehavior::Latch,     ControlLineTarget::DataBus          },
-        { ControlLineMnemonic::PCH,   ControlLineBehavior::Latch,     ControlLineTarget::DataBus          },
-        { ControlLineMnemonic::BI,    ControlLineBehavior::Latch,     ControlLineTarget::DataBus          },
-        { ControlLineMnemonic::AC,    ControlLineBehavior::Assert,    ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::X,     ControlLineBehavior::Assert,    ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::PCL,   ControlLineBehavior::Assert,    ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::PCH,   ControlLineBehavior::Assert,    ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::ADD,   ControlLineBehavior::Assert,    ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::DL,    ControlLineBehavior::Assert,    ControlLineTarget::InternalBus      },
-        { ControlLineMnemonic::AC,    ControlLineBehavior::Assert,    ControlLineTarget::DataBus          },
-        { ControlLineMnemonic::PCL,   ControlLineBehavior::Assert,    ControlLineTarget::DataBus          },
-        { ControlLineMnemonic::PCH,   ControlLineBehavior::Assert,    ControlLineTarget::DataBus          },
-        { ControlLineMnemonic::DL,    ControlLineBehavior::Assert,    ControlLineTarget::DataBus          },
-        { ControlLineMnemonic::P,     ControlLineBehavior::Assert,    ControlLineTarget::DataBus          },
-        { ControlLineMnemonic::PI,    ControlLineBehavior::Set,       ControlLineTarget::PCISignal        },
-        { ControlLineMnemonic::W,     ControlLineBehavior::Set,       ControlLineTarget::WSignal          },
-        { ControlLineMnemonic::SUM,   ControlLineBehavior::Set,       ControlLineTarget::ALU              },
-        { ControlLineMnemonic::SHR,   ControlLineBehavior::Set,       ControlLineTarget::ALU              },
-        { ControlLineMnemonic::OR,    ControlLineBehavior::Set,       ControlLineTarget::ALU              },
-        { ControlLineMnemonic::XOR,   ControlLineBehavior::Set,       ControlLineTarget::ALU              },
-        { ControlLineMnemonic::AND,   ControlLineBehavior::Set,       ControlLineTarget::ALU              },
-        { ControlLineMnemonic::CI,    ControlLineBehavior::Set,       ControlLineTarget::ALU              },
-        { ControlLineMnemonic::NEG,   ControlLineBehavior::Set,       ControlLineTarget::ALU              },
-        { ControlLineMnemonic::AZ,    ControlLineBehavior::Set,       ControlLineTarget::ALU              },
-        { ControlLineMnemonic::BZ,    ControlLineBehavior::Set,       ControlLineTarget::ALU              },
+    std::vector<ControlLineDef> defs
+    {
+        { TgmCpu::Wire::liAC,   PuzzleTileSheet::lblAC,    PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::liX,    PuzzleTileSheet::lblX,     PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::liPCL,  PuzzleTileSheet::lblPCL,   PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::liPCH,  PuzzleTileSheet::lblPCH,   PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::liABL,  PuzzleTileSheet::lblABL,   PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::liABH,  PuzzleTileSheet::lblABH,   PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::liAI,   PuzzleTileSheet::lblAI,    PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::liBI,   PuzzleTileSheet::lblBI,    PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::laADD,  PuzzleTileSheet::lblADD,   PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::lxDL,   PuzzleTileSheet::lblDL,    PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::laC,    PuzzleTileSheet::lblC,     PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::ldDOR,  PuzzleTileSheet::lblDOR,   PuzzleTileSheet::bLatch_d      },
+        { TgmCpu::Wire::ldP,    PuzzleTileSheet::lblP,     PuzzleTileSheet::bLatch_d      },
+        { TgmCpu::Wire::ldAC,   PuzzleTileSheet::lblAC,    PuzzleTileSheet::bLatch_d      },
+        { TgmCpu::Wire::ldPCL,  PuzzleTileSheet::lblPCL,   PuzzleTileSheet::bLatch_d      },
+        { TgmCpu::Wire::ldPCH,  PuzzleTileSheet::lblPCH,   PuzzleTileSheet::bLatch_d      },
+        { TgmCpu::Wire::ldABH,  PuzzleTileSheet::lblABH,   PuzzleTileSheet::bLatch_d      },
+        { TgmCpu::Wire::ldBI,   PuzzleTileSheet::lblBI,    PuzzleTileSheet::bLatch_d      },
+        { TgmCpu::Wire::aiAC,   PuzzleTileSheet::lblAC,    PuzzleTileSheet::bAssert_i     },
+        { TgmCpu::Wire::aiX,    PuzzleTileSheet::lblX,     PuzzleTileSheet::bAssert_i     },
+        { TgmCpu::Wire::aiPCL,  PuzzleTileSheet::lblPCL,   PuzzleTileSheet::bAssert_i     },
+        { TgmCpu::Wire::aiPCH,  PuzzleTileSheet::lblPCH,   PuzzleTileSheet::bAssert_i     },
+        { TgmCpu::Wire::aiADD,  PuzzleTileSheet::lblADD,   PuzzleTileSheet::bAssert_i     },
+        { TgmCpu::Wire::aiDL,   PuzzleTileSheet::lblDL,    PuzzleTileSheet::bAssert_i     },
+        { TgmCpu::Wire::adAC,   PuzzleTileSheet::lblAC,    PuzzleTileSheet::bAssert_d     },
+        { TgmCpu::Wire::adPCL,  PuzzleTileSheet::lblPCL,   PuzzleTileSheet::bAssert_d     },
+        { TgmCpu::Wire::adPCH,  PuzzleTileSheet::lblPCH,   PuzzleTileSheet::bAssert_d     },
+        { TgmCpu::Wire::adDL,   PuzzleTileSheet::lblDL,    PuzzleTileSheet::bAssert_d     },
+        { TgmCpu::Wire::adP,    PuzzleTileSheet::lblP,     PuzzleTileSheet::bAssert_d     },
+        { TgmCpu::Wire::sPI,    PuzzleTileSheet::lblPI,    PuzzleTileSheet::bSet          },
+        { TgmCpu::Wire::sW,     PuzzleTileSheet::lblW,     PuzzleTileSheet::bSet          },
+        { TgmCpu::Wire::sSUM,   PuzzleTileSheet::lblSUM,   PuzzleTileSheet::bSet          },
+        { TgmCpu::Wire::sSHR,   PuzzleTileSheet::lblSHR,   PuzzleTileSheet::bSet          },
+        { TgmCpu::Wire::sOR,    PuzzleTileSheet::lblOR,    PuzzleTileSheet::bSet          },
+        { TgmCpu::Wire::sXOR,   PuzzleTileSheet::lblXOR,   PuzzleTileSheet::bSet          },
+        { TgmCpu::Wire::sAND,   PuzzleTileSheet::lblAND,   PuzzleTileSheet::bSet          },
+        { TgmCpu::Wire::sCI,    PuzzleTileSheet::lblCI,    PuzzleTileSheet::bSet          },
+        { TgmCpu::Wire::sNEG,   PuzzleTileSheet::lblNEG,   PuzzleTileSheet::bSet          },
+        { TgmCpu::Wire::sAZ,    PuzzleTileSheet::lblAZ,    PuzzleTileSheet::bSet          },
+        { TgmCpu::Wire::sBZ,    PuzzleTileSheet::lblBZ,    PuzzleTileSheet::bSet          },
     };
     // clang-format on
 
@@ -418,73 +384,8 @@ void PuzzleState::on_resume() {}
 
 void PuzzleState::draw_tile(const ControlLineDef& linedef, int x, int y, bool center)
 {
-    int bgtile = PuzzleTileSheet::bAssert_i;
-    int fgtile = PuzzleTileSheet::bAssert_i;
-
-    if (linedef.behavior == ControlLineBehavior::Assert)
-    {
-        // clang-format off
-        switch (linedef.target)
-        {
-            case ControlLineTarget::InternalBus:    bgtile = PuzzleTileSheet::bAssert_i; break;
-            case ControlLineTarget::DataBus:        bgtile = PuzzleTileSheet::bAssert_d; break;
-            default:                                gliAssert(!"Unhandled behavior/target combo"); break;
-        }
-        // clang-format on
-    }
-    else if (linedef.behavior == ControlLineBehavior::Latch)
-    {
-        // clang-format off
-        switch (linedef.target)
-        {
-            case ControlLineTarget::DataBus:        bgtile = PuzzleTileSheet::bLatch_d; break;
-            case ControlLineTarget::InternalBus:    bgtile = PuzzleTileSheet::bLatch_i; break;
-            case ControlLineTarget::ALU:            bgtile = PuzzleTileSheet::bLatch_i; break;
-            case ControlLineTarget::StatusRegister: bgtile = PuzzleTileSheet::bLatch_i; break;
-            case ControlLineTarget::SystemBus:      bgtile = PuzzleTileSheet::bLatch_d; break;
-            default:                                gliAssert(!"Unhandled behavior/target combo"); break;
-        }
-        // clang-format on
-    }
-    else if (linedef.behavior == ControlLineBehavior::Set)
-    {
-        bgtile = PuzzleTileSheet::bSet;
-    }
-    else
-    {
-        gliAssert(!"Unrecognized behavior");
-    }
-
-    // clang-format off
-    switch (linedef.line)
-    {
-        case ControlLineMnemonic::ABH:  fgtile = PuzzleTileSheet::lblABH;   break;
-        case ControlLineMnemonic::ABL:  fgtile = PuzzleTileSheet::lblABL;   break;
-        case ControlLineMnemonic::AC:   fgtile = PuzzleTileSheet::lblAC;    break;
-        case ControlLineMnemonic::AND:  fgtile = PuzzleTileSheet::lblAND;   break;
-        case ControlLineMnemonic::ADD:  fgtile = PuzzleTileSheet::lblADD;   break;
-        case ControlLineMnemonic::AI:   fgtile = PuzzleTileSheet::lblAI;    break;
-        case ControlLineMnemonic::AZ:   fgtile = PuzzleTileSheet::lblAZ;    break;
-        case ControlLineMnemonic::BI:   fgtile = PuzzleTileSheet::lblBI;    break;
-        case ControlLineMnemonic::BZ:   fgtile = PuzzleTileSheet::lblBZ;    break;
-        case ControlLineMnemonic::C:    fgtile = PuzzleTileSheet::lblC;     break;
-        case ControlLineMnemonic::CI:   fgtile = PuzzleTileSheet::lblCI;    break;
-        case ControlLineMnemonic::DL:   fgtile = PuzzleTileSheet::lblDL;    break;
-        case ControlLineMnemonic::DOR:  fgtile = PuzzleTileSheet::lblDOR;   break;
-        case ControlLineMnemonic::NEG:  fgtile = PuzzleTileSheet::lblNEG;   break;
-        case ControlLineMnemonic::OR:   fgtile = PuzzleTileSheet::lblOR;    break;
-        case ControlLineMnemonic::P:    fgtile = PuzzleTileSheet::lblP;     break;
-        case ControlLineMnemonic::PCH:  fgtile = PuzzleTileSheet::lblPCH;   break;
-        case ControlLineMnemonic::PCL:  fgtile = PuzzleTileSheet::lblPCL;   break;
-        case ControlLineMnemonic::PI:   fgtile = PuzzleTileSheet::lblPI;    break;
-        case ControlLineMnemonic::SHR:  fgtile = PuzzleTileSheet::lblSHR;   break;
-        case ControlLineMnemonic::SUM:  fgtile = PuzzleTileSheet::lblSUM;   break;
-        case ControlLineMnemonic::W:    fgtile = PuzzleTileSheet::lblW;     break;
-        case ControlLineMnemonic::X:    fgtile = PuzzleTileSheet::lblX;     break;
-        case ControlLineMnemonic::XOR:  fgtile = PuzzleTileSheet::lblXOR;   break;
-        default:                        gliAssert(!"Unrecognized line");    break;
-    }
-    // clang-format on
+    int bgtile = linedef.bgtile;
+    int fgtile = linedef.label;
 
     if (center)
     {

@@ -53,8 +53,8 @@ An 8-bit latch which allows the CPU to snapshot the value on the system bus. Thi
 The ALU. This circuit is the CPU's calculator. It has two input registers, A and B, and an output register. It performs basic arithmetic with the two input registers and can remember the result in the output register on request. A carry flag allows numbers larger than 8-bits to be added/subtracted by carrying (adding) a binary digit from a partial addition/subtraction to the least significant bit position of a more significant word.
 
 The ALU supports 5 operations:
-    * SUM - add the two input registers together.
-    * SHR - shift the bits in the second input register (input register B) one place to the right.
+    * SUM - add the two input registers together. The 9th bit of the intermediate result goes to carry out.
+    * SHR - shift the bits in the second input register (input register B) one place to the right. (The low bit goes to carry out).
     * OR - bitwise OR of the two input registers.
     * XOR - bitwise XOR of the two input registers.
     * AND - bitwise AND of the two input registers.
@@ -79,7 +79,7 @@ An 8-bit data bus connects a smaller number of circuits with the system bus (via
     * Data output register
     * Program Counter
     * Processor status register
-
+    * Address bus register low
 
 ## Control lines
 Control lines are named like x::MMM[::b].
@@ -128,7 +128,7 @@ The 'b' part, if present, specifies which bus or line the circuit will latch or 
     * l::X          - latch the X index register from the internal bus.
     * l::PCL::(d|i) - latch the program counter low byte from the data bus (d) or internal bus (i).
     * l::PCH::(d|i) - latch the program counter high byte from the data bus (d) or internal bus (i).
-    * l::ABL        - latch the address bus register low byte from the internal bus.
+    * l::ABL::(d|i) - latch the address bus register low byte from the data bus (d) or internal bus (i).
     * l::ABH        - latch the address bus register high byte from the internal bus.
     * l::AI         - latch the ALU input A register from the internal bus.
     * l::BI::(d|i)  - latch the ALU input B register from the data bus (d) or internal bus (i).
@@ -160,13 +160,73 @@ The 'b' part, if present, specifies which bus or line the circuit will latch or 
 # CPU Behavior (putting it all together)
 From its initial state the CPU performs the following steps:
 1. Set the address bus low and high registers to the program counter low and high register.
-1. Latch the value from the system bus into the instruction decoding and control logic.
-2. Signal the program counter circuit to increment the program counter.
+2. Latch the value from the system bus into the instruction decoding and control logic.
+3. Signal the program counter circuit to increment the program counter.
 4. Set the address bus low and high registers to the program counter low and high register.
 
 Setting the address bus registers in step 4 means the operand for an immediate mode instruction, or first byte of the address for an indirect mode instruction, is ready on the system bus when the opcode starts executing. Setting the address bus registers again in step 1 means the opcodes are relieved of the requirement to leave the correct address for the next instruction on the address bus when they complete. It is however the responsibility of the opcodes to ensure the program counter value is correct when they are complete. Immediate mode
 
 The decoding and control logic then executes the operation across multiple clock cycles. On each clock one or more control lines are pulled down, determined by the opcode. When the opcode has completed (no control lines are pulled down), the CPU reverts to the initial state.
+
+## Sub-cycle behavior
+Clock cycles are divided internally so there are two rising edges and two falling edges for each system clock:
+1. On the first rising edge the input data latch latches the system bus (if lDL pulled down) and signals are set. The program counter increments if the PI signal is set.
+2. On the first falling edge asserts are pulled down (buses are written).
+3. On the second rising edge circuits latch their inputs from the buses.
+4. On the second falling edge latch control lines other than lDL are pulled low (buses are read).
+
+1. On the first rising edge the input data latch latches the system bus (if lDL pulled down) and signals are set.
+2. On the first falling edge asserts are pulled down (buses are written).
+3. On the second rising edge circuits update their buffers and latches.
+4. On the second falling edge latch control lines other than lDL are pulled low (buses are read).
+
+System memory operates at a full clock though, if Tn asserts a new address to the address bus with the CPU in read mode then the value from memory will not appear on the bus until the start of Tn+1.
+
+
+### Example TAX
+T1: ai::AC li::X
+T2: *
+
+T1.1. *
+T1.2. internal_bus = AC
+T1.3. *
+T1.4. X = internal_bus
+
+
+### Example ADC (carry is broken though, can't set ALU carry in from the processor status register)
+T1: l::DL ai::AC li::AI
+T2: ad::DL ld::BI
+T3: s::SUM la::ADD ls::C
+T4: ai::ADD li::AC
+
+T1.1. DL = system bus
+T1.2. internal_bus = AC
+T1.3. *
+T1.4. AI = internal_bus
+
+T2.1. *
+T2.2. data_bus = DL
+T2.3. *
+T2.4. BI = data_bus
+
+T3.1. alu SUM signal set
+T3.2. *
+T3.3  alu_ouput_bus = AI + BI
+      alu_carry_out = carry_bit(AI + BI)
+T3.4. alu_output = alu_output_bus
+      P.carry = alu_carry_out
+
+T4.1. *
+T4.2. internal_bus = alu_output
+T4.3. *
+T4.4. AC = internal_bus
+
+
+### Example LDA indirect
+T1: l::DL ad::DL ld::BI s::PI ai::PCL li::ABL   // lo(address) -> BI, PC++, PCL -> ABL
+T2: ai::PCH li::ABH s::SUM s::AZ la::ADD s::PI  // PCH -> ABH, ADD = lo(address), PC++
+T3: l::DL ad::DL ld::ABH ai::ADD li::ABL        // hi(address) -> ABH, lo(address) -> ABL
+T5: l::DL ai::DL li::AC
 
 # Microcode example
 
