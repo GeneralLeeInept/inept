@@ -54,7 +54,7 @@
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">GLI_DEBUG;_DEBUG;_CRT_SECURE_NO_WARNINGS;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Development'">GLI_DEVELOPMENT;NDEBUG;_CRT_SECURE_NO_WARNINGS;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">GLI_RELEASE;NDEBUG;_CRT_SECURE_NO_WARNINGS;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreaded$(RuntimeLibrarySuffix)DLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreaded$(RuntimeLibrarySuffix)</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
     </ClCompile>
     <Link>
