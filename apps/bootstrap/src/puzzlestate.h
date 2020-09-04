@@ -39,8 +39,11 @@ private:
 
     void draw_tile(const ControlLineDef& linedef, int x, int y, bool center);
     size_t select_from_bag(int x, int y);
+    size_t select_from_solution(int x, int y);
     void remove_from_solution(int x, int y);
     bool add_to_solution(int x, int y, size_t def);
+    void wrap_text(const std::string& text, int w, size_t& off, size_t& len);
+    void draw_text_box(int x, int y, int w, int h, const std::string& text);
 
     std::vector<ControlLineDef> _linedefs;
     std::vector<size_t> _solution;

@@ -6,6 +6,7 @@
 #include "puzzle.h"
 #include "random.h"
 #include "types.h"
+#include "vga9.h"
 
 namespace Bootstrap
 {
@@ -76,7 +77,7 @@ enum PuzzleBoardLayout
 };
 
 
-static const std::string ControlLineDescriptions[] = {
+static const std::string ToolTips[] = {
     "Latch the accumulator from the internal bus.",
     "Latch the index register from the internal bus.",
     "Latch the program counter low byte from the internal bus.",
@@ -146,7 +147,7 @@ bool PuzzleState::on_update(float delta)
             {
                 for (int wire = 0; wire < 18; ++wire)
                 {
-                    uint8_t w = _solution[clock * 18 + wire];
+                    uint8_t w = (uint8_t)_solution[clock * 18 + wire];
 
                     if (w)
                     {
@@ -221,6 +222,9 @@ bool PuzzleState::on_update(float delta)
     _app->clear_screen(gli::Pixel(0x1F1D2C));
     _app->draw_sprite(0, 0, &_sprites[Sprite::Board]);
 
+    draw_text_box(PuzzleBoardLayout::OpcodeDescX, PuzzleBoardLayout::OpcodeDescY, PuzzleBoardLayout::OpcodeDescW,
+                  PuzzleBoardLayout::OpcodeDescH, Puzzle::TestPuzzle.description);
+
     int idx = 0;
     for (const ControlLineDef& linedef : _linedefs)
     {
@@ -268,10 +272,32 @@ bool PuzzleState::on_update(float delta)
                 _app->draw_sprite(go_button_rect.origin.x, go_button_rect.origin.y, &_sprites[Sprite::GoButtonPressed]);
             }
         }
-
-        if (_dragging)
+        else
         {
-            draw_tile(_linedefs[_dragging - 1], _app->mouse_state().x, _app->mouse_state().y, true);
+            // Tool tip
+            size_t tipindex = _dragging;
+
+            if (!tipindex)
+            {
+                tipindex = select_from_bag(mouse_pos.x, mouse_pos.y);
+
+                if (!tipindex)
+                {
+                    tipindex = select_from_solution(mouse_pos.x, mouse_pos.y);
+                }
+            }
+
+            if (tipindex)
+            {
+                const std::string& tiptext = ToolTips[tipindex - 1];
+                draw_text_box(PuzzleBoardLayout::ToolTipX, PuzzleBoardLayout::ToolTipY, PuzzleBoardLayout::ToolTipW, PuzzleBoardLayout::ToolTipH,
+                              tiptext);
+            }
+
+            if (_dragging)
+            {
+                draw_tile(_linedefs[_dragging - 1], _app->mouse_state().x, _app->mouse_state().y, true);
+            }
         }
     }
 
@@ -282,14 +308,9 @@ bool PuzzleState::on_init(App* app)
 {
     _app = app;
 
-    static const char* sprite_files[Sprite::Count] = {
-        GliAssetPath("gui/puzzle_board.png"),
-        GliAssetPath("gui/puzzle_pieces_sheet.png"),
-        GliAssetPath("gui/go_btn_down.png"),
-        GliAssetPath("gui/verifying.png"),
-        GliAssetPath("gui/validation_fail.png"),
-        GliAssetPath("gui/validation_success.png")
-    };
+    static const char* sprite_files[Sprite::Count] = { GliAssetPath("gui/puzzle_board.png"),    GliAssetPath("gui/puzzle_pieces_sheet.png"),
+                                                       GliAssetPath("gui/go_btn_down.png"),     GliAssetPath("gui/verifying.png"),
+                                                       GliAssetPath("gui/validation_fail.png"), GliAssetPath("gui/validation_success.png") };
 
     size_t idx = 0;
 
@@ -429,6 +450,30 @@ size_t PuzzleState::select_from_bag(int x, int y)
 }
 
 
+size_t PuzzleState::select_from_solution(int x, int y)
+{
+    V2i pos{ x, y };
+    Recti solution_rect{ { PuzzleBoardLayout::SolutionOX, PuzzleBoardLayout::SolutionOY },
+                         { PuzzleBoardLayout::SolutionStep * PuzzleBoardLayout::SolutionColumns,
+                           PuzzleBoardLayout::SolutionStep * PuzzleBoardLayout::SolutionRows } };
+    size_t tile = 0;
+
+    if (contains(solution_rect, pos))
+    {
+        V2i offset = pos - solution_rect.origin;
+        size_t index =
+                (offset.x / PuzzleBoardLayout::SolutionStep) + (offset.y / PuzzleBoardLayout::SolutionStep) * PuzzleBoardLayout::SolutionColumns;
+
+        if (index < SolutionRows * SolutionColumns)
+        {
+            tile = _solution[index];
+        }
+    }
+
+    return tile;
+}
+
+
 void PuzzleState::remove_from_solution(int x, int y)
 {
     V2i pos{ x, y };
@@ -500,6 +545,52 @@ bool PuzzleState::add_to_solution(int x, int y, size_t def)
     }
 
     return false;
+}
+
+
+void PuzzleState::wrap_text(const std::string& text, int w, size_t& off, size_t& len)
+{
+    if (off)
+    {
+        while (text[off] == ' ') ++off;
+    }
+
+    size_t space = 0;
+
+    for (size_t pos = off; pos < text.size(); ++pos)
+    {
+        if ((pos - off) >= w && space > 0)
+        {
+            len = space - off;
+            return;
+        }
+
+        if (text[pos] == ' ')
+        {
+            space = pos;
+        }
+    }
+
+    len = std::string::npos;
+}
+
+
+void PuzzleState::draw_text_box(int x, int y, int w, int h, const std::string& text)
+{
+    int line_width_chars = w / vga9_glyph_width;
+    int max_lines = h / vga9_glyph_height;
+
+    size_t pos = 0;
+    size_t len = 0;
+
+    for (int i = 0; i < max_lines && pos < text.size() && len != std::string::npos; ++i)
+    {
+        wrap_text(text, line_width_chars, pos, len);
+        _app->draw_string(x, y, text.substr(pos, len).c_str(), vga9_glyphs, vga9_glyph_width, vga9_glyph_height, gli::Pixel(0xFF000000),
+                          gli::Pixel(0xFF097900));
+        pos += len;
+        y += vga9_glyph_height;
+    }
 }
 
 } // namespace Bootstrap
