@@ -18,6 +18,7 @@ enum PuzzleTileSheet
     bLatch_d,
     bLatch_i,
     bSet,
+    bLatch_x,
     lblAC,
     lblX,
     lblPCL,
@@ -52,28 +53,31 @@ enum TileSheetLayout
 
 enum PuzzleBoardLayout
 {
-    SolutionOX = 49,
-    SolutionOY = 17,
+    SolutionX = 49,
+    SolutionY = 17,
     SolutionColumns = 18,
     SolutionRows = 4,
     SolutionStep = 32,
-    BagOX = 208,
-    BagOY = 147,
+    BagX = 208,
+    BagY = 152,
     BagStep = 32,
     BagColumns = 7,
     BagRows = 6,
-    OpcodeDescX = 32,
-    OpcodeDescY = 163,
-    OpcodeDescW = 158,
-    OpcodeDescH = 114,
+    OpcodeDescX = 34,
+    OpcodeDescY = 165,
+    OpcodeDescW = 156,
+    OpcodeDescH = 112,
     GoButtonX = 31,
-    GoButtonY = 283,
+    GoButtonY = 301,
     GoButtonW = 160,
     GoButtonH = 32,
-    ToolTipX = 450,
-    ToolTipY = 157,
-    ToolTipW = 158,
-    ToolTipH = 167
+    ToolTipX = 452,
+    ToolTipY = 159,
+    ToolTipW = 156,
+    ToolTipH = 165,
+    TextColor = 0xFFA25500,
+    TextBgColor = 0xFF280920,
+    BgColor = 0xFFC4C4C4
 };
 
 
@@ -230,8 +234,8 @@ bool PuzzleState::on_update(float delta)
     {
         int bx = idx % PuzzleBoardLayout::BagColumns;
         int by = idx / PuzzleBoardLayout::BagColumns;
-        int x = PuzzleBoardLayout::BagOX + bx * PuzzleBoardLayout::BagStep;
-        int y = PuzzleBoardLayout::BagOY + by * PuzzleBoardLayout::BagStep;
+        int x = PuzzleBoardLayout::BagX + bx * PuzzleBoardLayout::BagStep;
+        int y = PuzzleBoardLayout::BagY + by * PuzzleBoardLayout::BagStep;
         draw_tile(linedef, x, y, false);
         idx++;
     }
@@ -243,8 +247,8 @@ bool PuzzleState::on_update(float delta)
         {
             int sx = idx % PuzzleBoardLayout::SolutionColumns;
             int sy = idx / PuzzleBoardLayout::SolutionColumns;
-            int x = PuzzleBoardLayout::SolutionOX + sx * PuzzleBoardLayout::SolutionStep;
-            int y = PuzzleBoardLayout::SolutionOY + sy * PuzzleBoardLayout::SolutionStep;
+            int x = PuzzleBoardLayout::SolutionX + sx * PuzzleBoardLayout::SolutionStep;
+            int y = PuzzleBoardLayout::SolutionY + sy * PuzzleBoardLayout::SolutionStep;
             draw_tile(_linedefs[def_index - 1], x, y, false);
         }
         idx++;
@@ -334,9 +338,9 @@ bool PuzzleState::on_init(App* app)
         { TgmCpu::Wire::liABH,  PuzzleTileSheet::lblABH,   PuzzleTileSheet::bLatch_i      },
         { TgmCpu::Wire::liAI,   PuzzleTileSheet::lblAI,    PuzzleTileSheet::bLatch_i      },
         { TgmCpu::Wire::liBI,   PuzzleTileSheet::lblBI,    PuzzleTileSheet::bLatch_i      },
-        { TgmCpu::Wire::laADD,  PuzzleTileSheet::lblADD,   PuzzleTileSheet::bLatch_i      },
-        { TgmCpu::Wire::lxDL,   PuzzleTileSheet::lblDL,    PuzzleTileSheet::bLatch_i      },
-        { TgmCpu::Wire::laC,    PuzzleTileSheet::lblC,     PuzzleTileSheet::bLatch_i      },
+        { TgmCpu::Wire::laADD,  PuzzleTileSheet::lblADD,   PuzzleTileSheet::bLatch_x      },
+        { TgmCpu::Wire::lxDL,   PuzzleTileSheet::lblDL,    PuzzleTileSheet::bLatch_x      },
+        { TgmCpu::Wire::laC,    PuzzleTileSheet::lblC,     PuzzleTileSheet::bLatch_x      },
         { TgmCpu::Wire::ldDOR,  PuzzleTileSheet::lblDOR,   PuzzleTileSheet::bLatch_d      },
         { TgmCpu::Wire::ldP,    PuzzleTileSheet::lblP,     PuzzleTileSheet::bLatch_d      },
         { TgmCpu::Wire::ldAC,   PuzzleTileSheet::lblAC,    PuzzleTileSheet::bLatch_d      },
@@ -427,7 +431,7 @@ void PuzzleState::draw_tile(const ControlLineDef& linedef, int x, int y, bool ce
 size_t PuzzleState::select_from_bag(int x, int y)
 {
     V2i pos{ x, y };
-    Recti bag_rect{ { PuzzleBoardLayout::BagOX, PuzzleBoardLayout::BagOY },
+    Recti bag_rect{ { PuzzleBoardLayout::BagX, PuzzleBoardLayout::BagY },
                     { PuzzleBoardLayout::BagStep * PuzzleBoardLayout::BagColumns, PuzzleBoardLayout::BagStep * PuzzleBoardLayout::BagRows } };
     size_t selected = 0;
 
@@ -453,7 +457,7 @@ size_t PuzzleState::select_from_bag(int x, int y)
 size_t PuzzleState::select_from_solution(int x, int y)
 {
     V2i pos{ x, y };
-    Recti solution_rect{ { PuzzleBoardLayout::SolutionOX, PuzzleBoardLayout::SolutionOY },
+    Recti solution_rect{ { PuzzleBoardLayout::SolutionX, PuzzleBoardLayout::SolutionY },
                          { PuzzleBoardLayout::SolutionStep * PuzzleBoardLayout::SolutionColumns,
                            PuzzleBoardLayout::SolutionStep * PuzzleBoardLayout::SolutionRows } };
     size_t tile = 0;
@@ -477,7 +481,7 @@ size_t PuzzleState::select_from_solution(int x, int y)
 void PuzzleState::remove_from_solution(int x, int y)
 {
     V2i pos{ x, y };
-    Recti solution_rect{ { PuzzleBoardLayout::SolutionOX, PuzzleBoardLayout::SolutionOY },
+    Recti solution_rect{ { PuzzleBoardLayout::SolutionX, PuzzleBoardLayout::SolutionY },
                          { PuzzleBoardLayout::SolutionStep * PuzzleBoardLayout::SolutionColumns,
                            PuzzleBoardLayout::SolutionStep * PuzzleBoardLayout::SolutionRows } };
 
@@ -511,7 +515,7 @@ void PuzzleState::remove_from_solution(int x, int y)
 bool PuzzleState::add_to_solution(int x, int y, size_t def)
 {
     V2i pos{ x, y };
-    Recti solution_rect{ { PuzzleBoardLayout::SolutionOX, PuzzleBoardLayout::SolutionOY },
+    Recti solution_rect{ { PuzzleBoardLayout::SolutionX, PuzzleBoardLayout::SolutionY },
                          { PuzzleBoardLayout::SolutionStep * PuzzleBoardLayout::SolutionColumns,
                            PuzzleBoardLayout::SolutionStep * PuzzleBoardLayout::SolutionRows } };
 
@@ -586,8 +590,8 @@ void PuzzleState::draw_text_box(int x, int y, int w, int h, const std::string& t
     for (int i = 0; i < max_lines && pos < text.size() && len != std::string::npos; ++i)
     {
         wrap_text(text, line_width_chars, pos, len);
-        _app->draw_string(x, y, text.substr(pos, len).c_str(), vga9_glyphs, vga9_glyph_width, vga9_glyph_height, gli::Pixel(0xFF000000),
-                          gli::Pixel(0xFF097900));
+        _app->draw_string(x, y, text.substr(pos, len).c_str(), vga9_glyphs, vga9_glyph_width, vga9_glyph_height,
+                          gli::Pixel(PuzzleBoardLayout::TextColor), gli::Pixel(PuzzleBoardLayout::TextBgColor));
         pos += len;
         y += vga9_glyph_height;
     }
