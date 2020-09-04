@@ -29,6 +29,7 @@ private:
         Bullet_,
         MapMarkers,
         Hud,
+        GameOver,
         Count
     };
 
@@ -95,6 +96,7 @@ private:
     float _post_puzzle_cooloff;
     int _score;
     int _health;
+    bool _game_over;
 };
 
 } // namespace Bootstrap

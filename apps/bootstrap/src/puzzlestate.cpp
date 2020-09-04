@@ -124,6 +124,9 @@ static const std::string ToolTips[] = {
     "Set the ALU reset B signal. Resets the input B register to zero.",
 };
 
+static const float VerifyingTime = 1.0f;
+static const float ResultTime = 2.0f;
+
 bool PuzzleState::on_update(float delta)
 {
     V2i mouse_pos{ _app->mouse_state().x, _app->mouse_state().y };
@@ -161,7 +164,7 @@ bool PuzzleState::on_update(float delta)
             }
 
             _success = Puzzle::verify(Puzzle::TestPuzzle, instruction);
-            _complete = 2.0f;
+            _complete = ResultTime;
         }
     }
     else
@@ -177,7 +180,7 @@ bool PuzzleState::on_update(float delta)
 
                 if (contains(go_button_rect, mouse_pos))
                 {
-                    _verifying = 0.5f;
+                    _verifying = VerifyingTime;
                 }
             }
         }

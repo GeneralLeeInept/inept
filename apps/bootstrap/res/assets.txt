@@ -2,6 +2,7 @@ frontend/*.png
 gui/hud.png
 gui/puzzle_board.png
 gui/puzzle_pieces_sheet.png
+gui/game_over.png
 gui/go_btn_down.png
 gui/map_markers.png
 gui/validation_fail.png

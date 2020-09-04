@@ -54,7 +54,7 @@ bool GamePlayState::on_init(App* app)
 
     static const char* sprite_sheet_paths[Sprite::Count] = { GliAssetPath("sprites/droid.png"), GliAssetPath("sprites/illegal_opcode.png"),
                                                              GliAssetPath("fx/bullet.png"), GliAssetPath("gui/map_markers.png"),
-                                                             GliAssetPath("gui/hud.png") };
+                                                             GliAssetPath("gui/hud.png"), GliAssetPath("gui/game_over.png") };
 
     size_t i = 0;
 
@@ -144,6 +144,7 @@ bool GamePlayState::on_enter()
     _map_view = false;
     _health = 100;
     _score = 0;
+    _game_over = false;
 
     return true;
 }
@@ -188,6 +189,12 @@ static float ease_out(float t)
 
 bool GamePlayState::on_update(float delta)
 {
+    if (_game_over && _app->key_state(gli::Key_Space).pressed)
+    {
+        _app->set_next_state(AppState::InGame); // TODO: title screen.
+        return true;
+    }
+
     if (_puzzle_target && !_puzzle_mode)
     {
         _puzzle_mode = _puzzle_state.on_enter();
@@ -226,17 +233,18 @@ bool GamePlayState::on_update(float delta)
         if (_health <= 0)
         {
             _movables[0].active = false;
+            _game_over = true;
         }
 
         if (_map_view)
         {
-            if (_app->key_state(gli::Key_Escape).pressed)
+            if (_app->key_state(gli::Key_Escape).pressed || _game_over)
             {
                 _map_view = false;
                 delta = 0.0f;
             }
         }
-        else if (!_map_view)
+        else if (!_map_view && !_game_over)
         {
             if (_app->key_state(gli::Key_M).pressed)
             {
@@ -576,42 +584,53 @@ void GamePlayState::render_game(float delta)
         draw_sprite(bullet.position, Sprite::Bullet_, 0);
     }
 
-    // HUD
-    int health_fill = (_health * HudGfx::HealthFillW) / 100;
-    _app->blend_partial_sprite(16 + HudGfx::HealthBarW - HudGfx::HealthFillW, 16 + 3, _sprites[Sprite::Hud], HudGfx::HealthFillX, HudGfx::HealthFillY,
-                               health_fill, HudGfx::HealthFillH, 255);
-    _app->blend_partial_sprite(16, 16, _sprites[Sprite::Hud], HudGfx::HealthBarX, HudGfx::HealthBarY, HudGfx::HealthBarW, HudGfx::HealthBarH, 255);
-
-    int score_digits[4];
-    if (_score >= 9999)
+    if (_game_over)
     {
-        score_digits[0] = 9;
-        score_digits[1] = 9;
-        score_digits[2] = 9;
-        score_digits[3] = 9;
+        int x = (_app->screen_width() - _sprites[Sprite::GameOver].width()) / 2;
+        int y = (_app->screen_height() - _sprites[Sprite::GameOver].height()) / 2;
+        _app->blend_sprite(x, y, _sprites[Sprite::GameOver], 255);
     }
     else
     {
-        int score_temp = _score;
-        score_digits[0] = score_temp / 1000;
-        score_temp -= score_digits[0] * 1000;
-        score_digits[1] = score_temp / 100;
-        score_temp -= score_digits[1] * 100;
-        score_digits[2] = score_temp / 10;
-        score_temp -= score_digits[2] * 10;
-        score_digits[3] = score_temp;
-    }
+        // HUD
+        int health_fill = (_health * HudGfx::HealthFillW) / 100;
+        _app->blend_partial_sprite(16 + HudGfx::HealthBarW - HudGfx::HealthFillW, 16 + 3, _sprites[Sprite::Hud], HudGfx::HealthFillX, HudGfx::HealthFillY,
+                                   health_fill, HudGfx::HealthFillH, 255);
+        _app->blend_partial_sprite(16, 16, _sprites[Sprite::Hud], HudGfx::HealthBarX, HudGfx::HealthBarY, HudGfx::HealthBarW, HudGfx::HealthBarH, 255);
 
-    int score_x = _app->screen_width() - (16 + HudGfx::ScoreW + HudGfx::ScoreNumbersW * 4);
-    int score_y = 16 + (HudGfx::HealthBarH - HudGfx::ScoreH) / 2;
-    _app->blend_partial_sprite(score_x, score_y, _sprites[Sprite::Hud], HudGfx::ScoreX, HudGfx::ScoreY, HudGfx::ScoreW, HudGfx::ScoreH, 255);
-    score_x += HudGfx::ScoreW;
+        int score_digits[4];
+        if (_score >= 9999)
+        {
+            score_digits[0] = 9;
+            score_digits[1] = 9;
+            score_digits[2] = 9;
+            score_digits[3] = 9;
+        }
+        else
+        {
+            int score_temp = _score;
+            score_digits[0] = score_temp / 1000;
+            score_temp -= score_digits[0] * 1000;
+            score_digits[1] = score_temp / 100;
+            score_temp -= score_digits[1] * 100;
+            score_digits[2] = score_temp / 10;
+            score_temp -= score_digits[2] * 10;
+            score_digits[3] = score_temp;
+        }
 
-    for (int i = 0; i < 4; ++i)
-    {
-        _app->blend_partial_sprite(score_x, score_y, _sprites[Sprite::Hud], HudGfx::ScoreNumbersX + score_digits[i] * HudGfx::ScoreNumbersW,
-                                   HudGfx::ScoreNumbersY, HudGfx::ScoreNumbersW, HudGfx::ScoreNumbersH, 255);
-        score_x += HudGfx::ScoreNumbersW;
+        //int score_x = _app->screen_width() - (16 + HudGfx::ScoreW + HudGfx::ScoreNumbersW * 4);
+        //int score_y = 16 + (HudGfx::HealthBarH - HudGfx::ScoreH) / 2;
+        //_app->blend_partial_sprite(score_x, score_y, _sprites[Sprite::Hud], HudGfx::ScoreX, HudGfx::ScoreY, HudGfx::ScoreW, HudGfx::ScoreH, 255);
+        //score_x += HudGfx::ScoreW;
+        int score_x = _app->screen_width() - (16 + HudGfx::ScoreNumbersW * 4);
+        int score_y = 16 + (HudGfx::HealthBarH - HudGfx::ScoreNumbersH) / 2;
+
+        for (int i = 0; i < 4; ++i)
+        {
+            _app->blend_partial_sprite(score_x, score_y, _sprites[Sprite::Hud], HudGfx::ScoreNumbersX + score_digits[i] * HudGfx::ScoreNumbersW,
+                                       HudGfx::ScoreNumbersY, HudGfx::ScoreNumbersW, HudGfx::ScoreNumbersH, 255);
+            score_x += HudGfx::ScoreNumbersW;
+        }
     }
 }
 

@@ -100,6 +100,12 @@ bool App::on_update(float delta)
     return !!_active_state;
 }
 
+
+void App::set_next_state(AppState next_state)
+{
+    _next_state = next_state;
+}
+
 } // namespace Bootstrap
 
 Bootstrap::App app;
