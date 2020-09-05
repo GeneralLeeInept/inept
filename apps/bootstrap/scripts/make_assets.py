@@ -2,6 +2,7 @@ import argparse
 import shutil
 from pathlib import Path
 import compile_map
+import compile_puzzle
 
 
 def get_asset_root():
@@ -27,6 +28,11 @@ def process_files(file_set, target_dir):
             target_path = target_path.with_suffix('.bin')
             with open(f, 'rt') as input, open(target_path, 'wb') as output:
                 compile_map.process(input, get_asset_root(), output)
+        elif file_type == '.xml':
+            # Puzzle file
+            target_path = target_path.with_suffix('.bin')
+            with open(f, 'rt') as input, open(target_path, 'wb') as output:
+                compile_puzzle.process(input, output)
         else:
             # Default
             shutil.copy2(f, target_path)

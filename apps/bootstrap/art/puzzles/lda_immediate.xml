@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<puzzle>
+    <title/>
+    <description>$11 - Load accumulator immediate</description>
+    <tests>
+        <test>
+            <initial_state pc="1" a="0">
+                <ram addr="0">
+                    11,20
+                </ram>
+            </initial_state>
+            <pass_state pc="2" a="20" />
+        </test>
+    </tests>
+</puzzle>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<puzzle>
+    <title/>
+    <description>$12 - Load accumulator indirect</description>
+    <tests>
+        <test>
+            <initial_state pc="ff" p="0" a="0" x="0">
+                <ram addr="ff">
+                    80,20
+                </ram>
+                <ram addr="2080">
+                    10
+                </ram>
+            </initial_state>
+            <pass_state pc="101" a="10" />
+        </test>
+    </tests>
+</puzzle>

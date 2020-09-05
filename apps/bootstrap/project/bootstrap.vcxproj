@@ -89,6 +89,7 @@
     <ClInclude Include="..\src\splash.h" />
     <ClInclude Include="..\src\tilemap.h" />
     <ClInclude Include="..\src\version.h" />
+    <ClInclude Include="..\src\vread.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\bootstrap.cpp" />
@@ -100,6 +101,7 @@
     <ClCompile Include="..\src\splash.cpp" />
     <ClCompile Include="..\src\tgmcpu.cpp" />
     <ClCompile Include="..\src\tilemap.cpp" />
+    <ClCompile Include="..\src\vread.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\res\small.ico" />

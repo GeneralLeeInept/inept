@@ -43,6 +43,7 @@ struct Definition
 };
 
 
+bool load(Definition& puzzle, const std::string& path);
 bool verify(const Definition& puzzle, const TgmCpu::Instruction& solution);
 
 extern Definition TestPuzzle;

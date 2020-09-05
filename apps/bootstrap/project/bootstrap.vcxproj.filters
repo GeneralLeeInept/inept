@@ -53,6 +53,9 @@
     <ClInclude Include="..\src\puzzle.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\vread.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\bootstrap.cpp">
@@ -81,6 +84,9 @@
     </ClCompile>
     <ClCompile Include="..\src\puzzle.cpp">
       <Filter>inc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\vread.cpp">
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

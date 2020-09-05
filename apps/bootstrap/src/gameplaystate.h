@@ -1,6 +1,7 @@
 #pragma once
 
 #include "iappstate.h"
+#include "puzzle.h"
 #include "puzzlestate.h"
 #include "tilemap.h"
 #include "types.h"
@@ -74,6 +75,7 @@ private:
 
     size_t find_enemy_in_range(const V2f& pos, float radius);
 
+    std::vector<Puzzle::Definition> _puzzles;
     std::vector<Movable> _movables;
     std::vector<AiBrain> _brains;
     std::vector<Bullet> _bullets;
@@ -97,6 +99,8 @@ private:
     int _score;
     int _health;
     bool _game_over;
+    size_t _next_puzzle;
+    size_t _ais_remaining;
 };
 
 } // namespace Bootstrap

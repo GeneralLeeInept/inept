@@ -10,6 +10,7 @@ gui/validation_success.png
 gui/verifying.png
 maps/6502.tmx
 maps/6502.png
+puzzles/*.xml
 sprites/*.png
 tilesets/*.png
 fx/*.png

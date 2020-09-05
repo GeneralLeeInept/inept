@@ -187,17 +187,9 @@ System memory operates at a full clock though, if Tn asserts a new address to th
 T1: ai::AC li::X
 T2: *
 
-T1.1. *
-T1.2. internal_bus = AC
-T1.3. *
-T1.4. X = internal_bus
-
-
-### Example ADC (carry is broken though, can't set ALU carry in from the processor status register)
-T1: l::DL ai::AC li::AI
-T2: ad::DL ld::BI
-T3: s::SUM la::ADD ls::C
-T4: ai::ADD li::AC
+### Example LDA
+T1: l::DL ad::DL ld::AC s::PI
+T2: *
 
 T1.1. DL = system bus
 T1.2. internal_bus = AC
@@ -241,19 +233,17 @@ T1: *
 NB: The original opcode set was reduced to those required by to simulate the universe.
 
 Opcode  Mnemonic    Description                     Effect                      Flags
-00      NOP         No operation.
-11      LDA         Load accumulator immediate.     A = operand
-12      LDA         Load accumulator indirect.      A = load(address)
-39      ADC         Add immediate.                  A = A + operand             C
-3A      ADC         Add indirect.                   A = A + load(address)       C
-3F      TAX         Transfer accumulator to X.      X = A
-40      TXA         Transfer X to accumulator.      A = X
-52      INC         Increment indirect.             (address) = (address) + 1   C
-6A      JMP         Jump to address.                PC = (address)
-6B      JMP         Jump to address indirect.       PC = ((address))
+- 11      LDA         Load accumulator immediate.     A = imm-8                   -
+- 12      LDA         Load accumulator indirect.      A = (imm-16)           -
+- 39      ADD         Add immediate.                  A = A + operand             C
+- 3F      TAX         Transfer accumulator to X.      X = A                       -
+- 40      TXA         Transfer X to accumulator.      A = X                       -
+- 52      INC         Increment accumulator.          A = A + 1                   C
+- 6A      JMP         Jump to address.                PC = imm-16                 -
+6B      JMP         Jump to address indirect.       PC = (imm-16)            -
 70      INX         Increment X register.           X = X + 1                   C
-7B      SUB         Subtract immediate.             A = A - operand             C
-88      OR          OR immediate.                   A = A | operand
-8A      XOR         XOR indirect.                   A = A ^ (address)
-A9      STA         Store accumulator.              (address) = A
+- 7B      SUB         Subtract immediate.             A = A - operand             C
+88      OR          OR immediate.                   A = A | operand             -
+8A      XOR         XOR indirect.                   A = A ^ (address)           -
+- A9      STA         Store accumulator.              (address) = A               -
 B0      CLC         Clear the carry flag.                                       C

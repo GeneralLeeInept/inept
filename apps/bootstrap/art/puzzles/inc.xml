@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<puzzle>
+    <title/>
+    <description>$52 - Increment accumulator</description>
+    <tests>
+        <test>
+            <initial_state a="FF" />
+            <pass_state p ="1" a="00" />
+        </test>
+    </tests>
+</puzzle>

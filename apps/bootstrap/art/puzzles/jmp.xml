@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<puzzle>
+    <title/>
+    <description>$6A - Jump</description>
+    <tests>
+        <test>
+            <initial_state pc="ff">
+                <ram addr="fe">
+                    12,80,20
+                </ram>
+            </initial_state>
+            <pass_state pc="2080" />
+        </test>
+    </tests>
+</puzzle>

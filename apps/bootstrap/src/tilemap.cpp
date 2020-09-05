@@ -1,17 +1,18 @@
 #include "tilemap.h"
 
 #include "collision.h"
+#include "vread.h"
 
 #include <gli.h>
+
+namespace Bootstrap
+{
 
 constexpr uint32_t map4cc()
 {
     uint32_t magic = 0;
     return magic | ('M' << 24) | ('A' << 16) | ('P' << 8) | ' ';
 }
-
-namespace Bootstrap
-{
 
 std::string asset_path(const std::string& path)
 {
@@ -26,76 +27,6 @@ std::string asset_path(const std::string& path)
     std::string buf(size, '\0');
     std::snprintf(&buf[0], size, "%s%s", container.c_str(), path.c_str());
     return buf;
-}
-
-
-template <typename T>
-bool vread(T& output, std::vector<uint8_t>& data, size_t& read_ptr)
-{
-    if (sizeof(T) > data.size() - read_ptr)
-    {
-        return false;
-    }
-
-    memcpy(&output, &data[read_ptr], sizeof(T));
-    read_ptr += sizeof(T);
-    return true;
-}
-
-
-bool vread(std::string& s, std::vector<uint8_t>& data, size_t& read_ptr)
-{
-    uint16_t len;
-
-    if (!vread(len, data, read_ptr))
-    {
-        return false;
-    }
-
-    if (len > data.size() - read_ptr)
-    {
-        return false;
-    }
-
-    s.resize(len);
-    memcpy(&s[0], &data[read_ptr], len);
-    read_ptr += len;
-    return true;
-}
-
-
-template <typename T>
-bool vread(std::vector<T>& v, size_t count, std::vector<uint8_t>& data, size_t& read_ptr)
-{
-    v.resize(count);
-
-    bool result = true;
-
-    for (auto& t : v)
-    {
-        result = vread(t, data, read_ptr);
-
-        if (!result)
-        {
-            break;
-        }
-    }
-
-    return result;
-}
-
-
-template <typename T>
-bool vread(std::vector<T>& v, std::vector<uint8_t>& data, size_t& read_ptr)
-{
-    uint16_t count;
-
-    if (!vread(count, data, read_ptr))
-    {
-        return false;
-    }
-
-    return vread(v, count, data, read_ptr);
 }
 
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<puzzle>
+    <title>>$7B - SUB imm8</title>
+    <description>Subtract the operand from the accumulator.</description>
+    <tests>
+        <test>
+            <initial_state pc="01" a="03">
+                <ram addr="00">
+                    39,3
+                </ram>
+            </initial_state>
+            <pass_state pc="02" a="00" />
+        </test>
+    </tests>
+</puzzle>

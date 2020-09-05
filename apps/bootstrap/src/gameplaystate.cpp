@@ -21,13 +21,17 @@ enum HudGfx
     HealthFillW = 160,
     HealthFillH = 16,
     ScoreX = 193,
-    ScoreY = 3,
+    ScoreY = 2,
     ScoreW = 144,
     ScoreH = 20,
     ScoreNumbersX = 337,
-    ScoreNumbersY = 3,
+    ScoreNumbersY = 2,
     ScoreNumbersW = 24,
-    ScoreNumbersH = 20
+    ScoreNumbersH = 20,
+    IllegalOpcodeX = 2,
+    IllegalOpcodeY = 40,
+    IllegalOpcodeW = 24,
+    IllegalOpcodeH = 20,
 };
 
 
@@ -88,6 +92,42 @@ bool GamePlayState::on_init(App* app)
         return false;
     }
 
+    // clang-format off
+    static const std::vector<const char*> puzzle_paths{
+        GliAssetPath("puzzles/sub.bin"),
+        GliAssetPath("puzzles/tax.bin"),
+        GliAssetPath("puzzles/txa.bin"),
+        GliAssetPath("puzzles/lda_immediate.bin"),
+        GliAssetPath("puzzles/add.bin"),
+        GliAssetPath("puzzles/sub.bin"),
+        GliAssetPath("puzzles/inc.bin"),
+        GliAssetPath("puzzles/jmp.bin"),
+        GliAssetPath("puzzles/lda_indirect.bin"),
+        GliAssetPath("puzzles/sta.bin"),
+    };
+    // clang-format on
+
+    _puzzles.reserve(puzzle_paths.size());
+
+    for (const char* path : puzzle_paths)
+    {
+        Puzzle::Definition definition;
+
+        if (Puzzle::load(definition, path))
+        {
+            _puzzles.push_back(definition);
+        }
+        else
+        {
+            gli::logf("GamePlayState::on_init: Failed to load puzzle '%s'\n", path);
+        }
+    }
+
+    if (_puzzles.empty())
+    {
+        return 0;
+    }
+
     return true;
 }
 
@@ -140,11 +180,13 @@ bool GamePlayState::on_enter()
         ai_movable++;
     }
 
+    _ais_remaining = _brains.size();
     _simulation_delta = 0.0f;
     _map_view = false;
     _health = 100;
     _score = 0;
     _game_over = false;
+    _next_puzzle = 0;
 
     return true;
 }
@@ -197,6 +239,7 @@ bool GamePlayState::on_update(float delta)
 
     if (_puzzle_target && !_puzzle_mode)
     {
+        _puzzle_state.set_puzzle(_puzzles[_next_puzzle]);
         _puzzle_mode = _puzzle_state.on_enter();
     }
 
@@ -216,9 +259,11 @@ bool GamePlayState::on_update(float delta)
             if (success)
             {
                 _movables[_puzzle_target].active = false;
-                _score += 123;
-                _health += 10;
+                _score += 100;
+                _health += 20;
                 if (_health > 100) _health = 100;
+                _next_puzzle = (_next_puzzle + 1) % _puzzles.size();
+                --_ais_remaining;
             }
             else
             {
@@ -631,6 +676,32 @@ void GamePlayState::render_game(float delta)
             _app->blend_partial_sprite(score_x, score_y, _sprites[Sprite::Hud], HudGfx::ScoreNumbersX + score_digits[i] * HudGfx::ScoreNumbersW,
                                        HudGfx::ScoreNumbersY, HudGfx::ScoreNumbersW, HudGfx::ScoreNumbersH, 255);
             score_x += HudGfx::ScoreNumbersW;
+        }
+
+        if (_ais_remaining >= 99)
+        {
+            score_digits[0] = 9;
+            score_digits[1] = 9;
+        }
+        else
+        {
+            score_digits[0] = _ais_remaining / 10;
+            score_digits[1] = _ais_remaining % 10;
+        }
+
+        int illegal_opcode_pad = 8;
+        int remaining_x = _app->screen_width() - (16 + HudGfx::ScoreNumbersW * 2 + HudGfx::IllegalOpcodeW + illegal_opcode_pad);
+        int remaining_y = _app->screen_height() - (16 + HudGfx::ScoreNumbersH);
+        _app->blend_partial_sprite(remaining_x, remaining_y, _sprites[Sprite::Hud], HudGfx::IllegalOpcodeX, HudGfx::IllegalOpcodeY,
+                                   HudGfx::IllegalOpcodeW, HudGfx::IllegalOpcodeH, 255);
+        remaining_x += HudGfx::IllegalOpcodeW + illegal_opcode_pad;
+
+        for (int i = 0; i < 2; ++i)
+        {
+            _app->blend_partial_sprite(remaining_x, remaining_y, _sprites[Sprite::Hud],
+                                       HudGfx::ScoreNumbersX + score_digits[i] * HudGfx::ScoreNumbersW,
+                                       HudGfx::ScoreNumbersY, HudGfx::ScoreNumbersW, HudGfx::ScoreNumbersH, 255);
+            remaining_x += HudGfx::ScoreNumbersW;
         }
     }
 }

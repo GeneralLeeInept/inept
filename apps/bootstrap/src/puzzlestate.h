@@ -1,6 +1,7 @@
 #pragma once
 
 #include "iappstate.h"
+#include "puzzle.h"
 
 #include <gli.h>
 
@@ -18,6 +19,7 @@ public:
     void on_resume() override;
     bool on_update(float delta) override;
 
+    void set_puzzle(const Puzzle::Definition& puzzle) { _puzzle = &puzzle; }
     bool result() { return _success; }
 
 private:
@@ -51,6 +53,7 @@ private:
     std::vector<size_t> _solution;
     gli::Sprite _sprites[Sprite::Count];
     App* _app;
+    const Puzzle::Definition* _puzzle;
     size_t _dragging;
     bool _go_pressed;
     float _verifying;

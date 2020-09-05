@@ -163,7 +163,7 @@ bool PuzzleState::on_update(float delta)
                 }
             }
 
-            _success = Puzzle::verify(Puzzle::TestPuzzle, instruction);
+            _success = Puzzle::verify(*_puzzle, instruction);
             _complete = ResultTime;
         }
     }
@@ -230,7 +230,7 @@ bool PuzzleState::on_update(float delta)
     _app->draw_sprite(0, 0, &_sprites[Sprite::Board]);
 
     draw_text_box(PuzzleBoardLayout::OpcodeDescX, PuzzleBoardLayout::OpcodeDescY, PuzzleBoardLayout::OpcodeDescW,
-                  PuzzleBoardLayout::OpcodeDescH, Puzzle::TestPuzzle.description);
+                  PuzzleBoardLayout::OpcodeDescH, _puzzle->description);
 
     int idx = 0;
     for (const ControlLineDef& linedef : _linedefs)
@@ -387,6 +387,11 @@ void PuzzleState::on_destroy() {}
 
 bool PuzzleState::on_enter()
 {
+    if (!_puzzle)
+    {
+        return false;
+    }
+
     _app->show_mouse(true);
     _go_pressed = false;
     _dragging = 0;

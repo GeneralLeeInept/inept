@@ -1,0 +1,19 @@
+(+) 1. implement an emulator for the CPU(!!) because I can't think of a better way to validate puzzle solutions
+(+) 2. link the puzzle mini-game with the map exploring / shmup game (you start the mini-game by raising an NMI with a nearby illegal opcode
+(+) 3. make the illegal opcode's bullets damage the player (yes, illegal opcodes fire bullets, get used to it)
+(+) 4. add some puzzles (i.e. opcodes for to implement in the puzzle game)
+--- 5. add map based quests / progression
+6. add victory condition / state
+(+) 7. add defeat condition / state
+--- 8. add sfx
+--- 9. add background music
+--- 10. add controller support
+11. link up the front-end
+(+) 12. User manual 
+13. CPU reference
+--- 14. inter-entity collisions
+
+Bugs
+----
+* off screen enemies shoot at you
+* puzzle piece wraparound at the edge of the piece bag

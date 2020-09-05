@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<puzzle>
+    <title>>$39 - ADD imm8</title>
+    <description>Add the operand to the accumulator.</description>
+    <tests>
+        <test>
+            <initial_state pc="01" a="FF">
+                <ram addr="00">
+                    39,3
+                </ram>
+            </initial_state>
+            <pass_state pc="02" p="01" a="02" />
+        </test>
+    </tests>
+</puzzle>

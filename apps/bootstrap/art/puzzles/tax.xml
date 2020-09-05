@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<puzzle>
+    <title/>
+    <description>$3f - Transfer A to X</description>
+    <tests>
+        <test>
+            <initial_state a="1e" x="cd" />
+            <pass_state a="1e" x="1e" />
+        </test>
+    </tests>
+</puzzle>
