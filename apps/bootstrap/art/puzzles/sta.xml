@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <puzzle>
-    <title>$A9 - STA imm-16</title>
+    <title>$A9 STA imm16</title>
     <description>Store accumulator</description>
     <tests>
         <test>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <puzzle>
-    <title/>
-    <description>$3f - Transfer X to A</description>
+    <title>$40 TXA</title>
+    <description>Transfer X to A</description>
     <tests>
         <test>
             <initial_state a="1e" x="cd" />

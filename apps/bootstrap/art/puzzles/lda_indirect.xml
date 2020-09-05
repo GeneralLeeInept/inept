@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <puzzle>
-    <title/>
-    <description>$12 - Load accumulator indirect</description>
+    <title>$12 LDA imm16</title>
+    <description>Load accumulator absolute</description>
     <tests>
         <test>
             <initial_state pc="ff" p="0" a="0" x="0">

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <puzzle>
-    <title/>
-    <description>$6A - Jump</description>
+    <title>$6A JMP imm16</title>
+    <description>Transfer execution</description>
     <tests>
         <test>
             <initial_state pc="ff">

@@ -5,9 +5,11 @@ gui/puzzle_pieces_sheet.png
 gui/game_over.png
 gui/go_btn_down.png
 gui/map_markers.png
+gui/title.png
 gui/validation_fail.png
 gui/validation_success.png
 gui/verifying.png
+gui/victory.png
 maps/6502.tmx
 maps/6502.png
 puzzles/*.xml

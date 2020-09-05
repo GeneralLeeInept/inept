@@ -58,7 +58,8 @@ bool GamePlayState::on_init(App* app)
 
     static const char* sprite_sheet_paths[Sprite::Count] = { GliAssetPath("sprites/droid.png"), GliAssetPath("sprites/illegal_opcode.png"),
                                                              GliAssetPath("fx/bullet.png"),     GliAssetPath("gui/map_markers.png"),
-                                                             GliAssetPath("gui/hud.png"),       GliAssetPath("gui/game_over.png") };
+                                                             GliAssetPath("gui/hud.png"),       GliAssetPath("gui/game_over.png"),
+                                                             GliAssetPath("gui/title.png"),     GliAssetPath("gui/victory.png") };
 
     size_t i = 0;
 
@@ -182,11 +183,13 @@ bool GamePlayState::on_enter()
 
     _ais_remaining = _brains.size();
     _simulation_delta = 0.0f;
-    _map_view = false;
+    _map_view = 0;
     _health = 100;
     _score = 0;
     _game_over = false;
     _next_puzzle = 0;
+    _pre_start = true;
+    _state_transition_timer = 0.0f;
 
     return true;
 }
@@ -228,84 +231,184 @@ static float ease_out(float t)
     return 1.0f - std::pow(t, 3.0f);
 }
 
+static const float ShortFade = 0.125f;
 
 bool GamePlayState::on_update(float delta)
 {
     if (_game_over && _app->key_state(gli::Key_Space).pressed)
     {
-        _app->set_next_state(AppState::InGame); // TODO: title screen.
+        _app->set_next_state(AppState::InGame);
         return true;
     }
-
-    if (_puzzle_target && !_puzzle_mode)
+    else if (_pre_start && _app->key_state(gli::Key_Space).pressed)
     {
-        _puzzle_state.set_puzzle(_puzzles[_next_puzzle]);
-        _puzzle_mode = _puzzle_state.on_enter();
+        _pre_start = false;
+        _state_transition_timer = 0.0f;
+        _hud_fade = ShortFade;
     }
 
-    if (_puzzle_mode)
+    if (_pre_start)
     {
-        if (!_puzzle_state.on_update(delta))
-        {
-            // Check result and react accordingly.
-            bool success = _puzzle_state.result();
-            _puzzle_state.on_exit();
-            _puzzle_mode = false;
-            _nmitimer = 0.0f;
-            _nmifired = 0.0f;
-            _bullets.clear();
-            _post_puzzle_cooloff = 0.5f;
+        render_game(delta);
 
-            if (success)
-            {
-                _movables[_puzzle_target].active = false;
-                _score += 100;
-                _health += 20;
-                if (_health > 100) _health = 100;
-                _next_puzzle = (_next_puzzle + 1) % _puzzles.size();
-                --_ais_remaining;
-            }
-            else
-            {
-                _health -= 20;
-            }
-
-            _puzzle_target = 0;
-        }
-    }
-
-    if (!_puzzle_mode)
-    {
-        if (_health <= 0)
+        if (_state_transition_timer < 0.5f)
         {
-            _movables[0].active = false;
-            _game_over = true;
-        }
-
-        if (_map_view)
-        {
-            if (_app->key_state(gli::Key_Escape).pressed || _game_over)
-            {
-                _map_view = false;
-                delta = 0.0f;
-            }
-        }
-        else if (!_map_view && !_game_over)
-        {
-            if (_app->key_state(gli::Key_M).pressed)
-            {
-                _map_view = true;
-            }
-        }
-
-        if (_map_view)
-        {
-            render_minimap(delta);
+            _app->set_screen_fade(App::BgColor, ease_out(_state_transition_timer * 2.0f));
         }
         else
         {
-            update_simulation(delta);
-            render_game(delta);
+            render_overlay(_state_transition_timer - 1.0f, Sprite::PressStart);
+        }
+
+        _state_transition_timer += delta;
+
+        return true;
+    }
+    else if (_game_over)
+    {
+        update_simulation(delta);
+        render_game(delta);
+        _state_transition_timer += delta;
+
+        if (_ais_remaining == 0)
+        {
+            render_overlay(_state_transition_timer, Sprite::Victory);
+        }
+        else
+        {
+            render_overlay(_state_transition_timer, Sprite::GameOver);
+        }
+    }
+    else
+    {
+        if (_puzzle_target && !_puzzle_mode)
+        {
+            if (_state_transition_timer < ShortFade)
+            {
+                render_game(delta);
+                render_hud(delta);
+                _app->set_screen_fade(App::BgColor, ease_in(_state_transition_timer / ShortFade));
+                _state_transition_timer += delta;
+            }
+            else
+            {
+                _puzzle_state.set_puzzle(_puzzles[_next_puzzle]);
+                _puzzle_mode = _puzzle_state.on_enter();
+            }
+        }
+
+        if (_puzzle_mode)
+        {
+            if (!_puzzle_state.on_update(delta))
+            {
+                // Check result and react accordingly.
+                bool success = _puzzle_state.result();
+                _puzzle_state.on_exit();
+                _puzzle_mode = false;
+                _nmitimer = 0.0f;
+                _nmifired = 0.0f;
+                _bullets.clear();
+                _post_puzzle_cooloff = 0.5f;
+                _state_transition_timer = 0.0f;
+
+                if (success)
+                {
+                    _movables[_puzzle_target].active = false;
+                    _score += 100;
+                    _health += 20;
+                    if (_health > 100) _health = 100;
+                    _next_puzzle = (_next_puzzle + 1) % _puzzles.size();
+                    --_ais_remaining;
+                }
+                else
+                {
+                    _health -= 20;
+                }
+
+                _puzzle_target = 0;
+            }
+        }
+
+        if (!_puzzle_mode)
+        {
+            if (_post_puzzle_cooloff > 0.0f)
+            {
+                render_game(delta);
+                render_hud(delta);
+
+                _state_transition_timer += delta;
+                _post_puzzle_cooloff -= delta;
+                _app->set_screen_fade(App::BgColor, ease_out(_state_transition_timer / ShortFade));
+
+                if (_post_puzzle_cooloff < 0.0f)
+                {
+                    _post_puzzle_cooloff = 0.0f;
+                }
+            }
+            else
+            {
+                // _map_view: 0 - map not active, 1 - game fade out, 2 - map fade in, 3 - view map, 4 - map fade out, 5 - game fade in
+
+                if (_map_view == 3)
+                {
+                    if (_app->key_state(gli::Key_Escape).pressed || _game_over)
+                    {
+                        _map_view = 4;
+                        _state_transition_timer = 0.0f;
+                    }
+                }
+                else if (_map_view == 0 && !_game_over)
+                {
+                    if (_app->key_state(gli::Key_M).pressed)
+                    {
+                        _map_view = 1;
+                        _state_transition_timer = 0.0f;
+                    }
+                }
+
+                if (_map_view)
+                {
+                    if (_map_view != 3)
+                    {
+                        if (_state_transition_timer >= ShortFade)
+                        {
+                            if (++_map_view == 6)
+                            {
+                                _map_view = 0;
+                            }
+
+                            _state_transition_timer = 0.0f;
+                        }
+                    }
+
+                    if (_map_view == 0 || _map_view == 1 || _map_view == 5)
+                    {
+                        render_game(delta);
+                        render_hud(delta);
+                    }
+                    else
+                    {
+                        render_minimap(delta);
+                    }
+
+                    if (_map_view == 1 || _map_view == 4)
+                    {
+                        _app->set_screen_fade(App::BgColor, ease_in(_state_transition_timer / ShortFade));
+                    }
+                    else if (_map_view == 2 || _map_view == 5)
+                    {
+                        _app->set_screen_fade(App::BgColor, ease_out(_state_transition_timer / ShortFade));
+                    }
+
+                    _state_transition_timer += delta;
+                }
+                else
+                {
+                    update_simulation(delta);
+                    render_game(delta);
+                    render_hud(delta);
+                }
+            }
         }
     }
 
@@ -319,6 +422,21 @@ void GamePlayState::update_simulation(float delta)
     // Simulate at 120Hz regardless of frame rate..
     while (_simulation_delta > 1.0f / 120.0f)
     {
+        if (!_game_over)
+        {
+            if (_health <= 0)
+            {
+                _movables[0].active = false;
+                _game_over = true;
+                _state_transition_timer = 0.0f;
+            }
+            else if (_ais_remaining == 0)
+            {
+                _game_over = true;
+                _state_transition_timer = 0.0f;
+            }
+        }
+
         delta = 1.0f / 120.0f;
         _simulation_delta -= delta;
 
@@ -392,6 +510,11 @@ void GamePlayState::update_simulation(float delta)
             {
                 // See if we caught an illegal opcode.
                 _puzzle_target = find_enemy_in_range(player.position, NmiRadius);
+
+                if (_puzzle_target)
+                {
+                    _state_transition_timer = 0.0f;
+                }
             }
         }
         else
@@ -406,15 +529,6 @@ void GamePlayState::update_simulation(float delta)
         }
 
         update_bullets(delta);
-
-        if (_post_puzzle_cooloff > delta)
-        {
-            _post_puzzle_cooloff -= delta;
-        }
-        else
-        {
-            _post_puzzle_cooloff = 0.0f;
-        }
     }
 }
 
@@ -650,88 +764,98 @@ void GamePlayState::render_game(float delta)
     {
         draw_sprite(bullet.position, Sprite::Bullet_, 0);
     }
+}
 
-    if (_game_over)
+
+void GamePlayState::render_hud(float delta)
+{
+    uint8_t hud_alpha = (uint8_t)std::ceil((1.0f - ease_in(_hud_fade)) * 255.0f);
+
+    // HUD
+    int health_fill = (_health * HudGfx::HealthFillW) / 100;
+    _app->blend_partial_sprite(16 + HudGfx::HealthBarW - HudGfx::HealthFillW, 16 + 3, _sprites[Sprite::Hud], HudGfx::HealthFillX, HudGfx::HealthFillY,
+                               health_fill, HudGfx::HealthFillH, hud_alpha);
+    _app->blend_partial_sprite(16, 16, _sprites[Sprite::Hud], HudGfx::HealthBarX, HudGfx::HealthBarY, HudGfx::HealthBarW, HudGfx::HealthBarH,
+                               hud_alpha);
+
+    int score_digits[4];
+    if (_score >= 9999)
     {
-        int x = (_app->screen_width() - _sprites[Sprite::GameOver].width()) / 2;
-        int y = (_app->screen_height() - _sprites[Sprite::GameOver].height()) / 2;
-        _app->blend_sprite(x, y, _sprites[Sprite::GameOver], 255);
+        score_digits[0] = 9;
+        score_digits[1] = 9;
+        score_digits[2] = 9;
+        score_digits[3] = 9;
     }
     else
     {
-        // HUD
-        int health_fill = (_health * HudGfx::HealthFillW) / 100;
-        _app->blend_partial_sprite(16 + HudGfx::HealthBarW - HudGfx::HealthFillW, 16 + 3, _sprites[Sprite::Hud], HudGfx::HealthFillX,
-                                   HudGfx::HealthFillY, health_fill, HudGfx::HealthFillH, 255);
-        _app->blend_partial_sprite(16, 16, _sprites[Sprite::Hud], HudGfx::HealthBarX, HudGfx::HealthBarY, HudGfx::HealthBarW, HudGfx::HealthBarH,
-                                   255);
-
-        int score_digits[4];
-        if (_score >= 9999)
-        {
-            score_digits[0] = 9;
-            score_digits[1] = 9;
-            score_digits[2] = 9;
-            score_digits[3] = 9;
-        }
-        else
-        {
-            int score_temp = _score;
-            score_digits[0] = score_temp / 1000;
-            score_temp -= score_digits[0] * 1000;
-            score_digits[1] = score_temp / 100;
-            score_temp -= score_digits[1] * 100;
-            score_digits[2] = score_temp / 10;
-            score_temp -= score_digits[2] * 10;
-            score_digits[3] = score_temp;
-        }
-
-        //int score_x = _app->screen_width() - (16 + HudGfx::ScoreW + HudGfx::ScoreNumbersW * 4);
-        //int score_y = 16 + (HudGfx::HealthBarH - HudGfx::ScoreH) / 2;
-        //_app->blend_partial_sprite(score_x, score_y, _sprites[Sprite::Hud], HudGfx::ScoreX, HudGfx::ScoreY, HudGfx::ScoreW, HudGfx::ScoreH, 255);
-        //score_x += HudGfx::ScoreW;
-        int score_x = _app->screen_width() - (16 + HudGfx::ScoreNumbersW * 4);
-        int score_y = 16 + (HudGfx::HealthBarH - HudGfx::ScoreNumbersH) / 2;
-
-        for (int i = 0; i < 4; ++i)
-        {
-            _app->blend_partial_sprite(score_x, score_y, _sprites[Sprite::Hud], HudGfx::ScoreNumbersX + score_digits[i] * HudGfx::ScoreNumbersW,
-                                       HudGfx::ScoreNumbersY, HudGfx::ScoreNumbersW, HudGfx::ScoreNumbersH, 255);
-            score_x += HudGfx::ScoreNumbersW;
-        }
-
-        if (_ais_remaining >= 99)
-        {
-            score_digits[0] = 9;
-            score_digits[1] = 9;
-        }
-        else
-        {
-            score_digits[0] = _ais_remaining / 10;
-            score_digits[1] = _ais_remaining % 10;
-        }
-
-        int illegal_opcode_pad = 8;
-        int remaining_x = _app->screen_width() - (16 + HudGfx::ScoreNumbersW * 2 + HudGfx::IllegalOpcodeW + illegal_opcode_pad);
-        int remaining_y = _app->screen_height() - (16 + HudGfx::ScoreNumbersH);
-        _app->blend_partial_sprite(remaining_x, remaining_y, _sprites[Sprite::Hud], HudGfx::IllegalOpcodeX, HudGfx::IllegalOpcodeY,
-                                   HudGfx::IllegalOpcodeW, HudGfx::IllegalOpcodeH, 255);
-        remaining_x += HudGfx::IllegalOpcodeW + illegal_opcode_pad;
-
-        for (int i = 0; i < 2; ++i)
-        {
-            _app->blend_partial_sprite(remaining_x, remaining_y, _sprites[Sprite::Hud],
-                                       HudGfx::ScoreNumbersX + score_digits[i] * HudGfx::ScoreNumbersW, HudGfx::ScoreNumbersY, HudGfx::ScoreNumbersW,
-                                       HudGfx::ScoreNumbersH, 255);
-            remaining_x += HudGfx::ScoreNumbersW;
-        }
+        int score_temp = _score;
+        score_digits[0] = score_temp / 1000;
+        score_temp -= score_digits[0] * 1000;
+        score_digits[1] = score_temp / 100;
+        score_temp -= score_digits[1] * 100;
+        score_digits[2] = score_temp / 10;
+        score_temp -= score_digits[2] * 10;
+        score_digits[3] = score_temp;
     }
+
+    int score_x = _app->screen_width() - (16 + HudGfx::ScoreNumbersW * 4);
+    int score_y = 16 + (HudGfx::HealthBarH - HudGfx::ScoreNumbersH) / 2;
+
+    for (int i = 0; i < 4; ++i)
+    {
+        _app->blend_partial_sprite(score_x, score_y, _sprites[Sprite::Hud], HudGfx::ScoreNumbersX + score_digits[i] * HudGfx::ScoreNumbersW,
+                                   HudGfx::ScoreNumbersY, HudGfx::ScoreNumbersW, HudGfx::ScoreNumbersH, hud_alpha);
+        score_x += HudGfx::ScoreNumbersW;
+    }
+
+    if (_ais_remaining >= 99)
+    {
+        score_digits[0] = 9;
+        score_digits[1] = 9;
+    }
+    else
+    {
+        score_digits[0] = _ais_remaining / 10;
+        score_digits[1] = _ais_remaining % 10;
+    }
+
+    int illegal_opcode_pad = 8;
+    int remaining_x = _app->screen_width() - (16 + HudGfx::ScoreNumbersW * 2 + HudGfx::IllegalOpcodeW + illegal_opcode_pad);
+    int remaining_y = _app->screen_height() - (16 + HudGfx::ScoreNumbersH);
+    _app->blend_partial_sprite(remaining_x, remaining_y, _sprites[Sprite::Hud], HudGfx::IllegalOpcodeX, HudGfx::IllegalOpcodeY,
+                               HudGfx::IllegalOpcodeW, HudGfx::IllegalOpcodeH, hud_alpha);
+    remaining_x += HudGfx::IllegalOpcodeW + illegal_opcode_pad;
+
+    for (int i = 0; i < 2; ++i)
+    {
+        _app->blend_partial_sprite(remaining_x, remaining_y, _sprites[Sprite::Hud], HudGfx::ScoreNumbersX + score_digits[i] * HudGfx::ScoreNumbersW,
+                                   HudGfx::ScoreNumbersY, HudGfx::ScoreNumbersW, HudGfx::ScoreNumbersH, hud_alpha);
+        remaining_x += HudGfx::ScoreNumbersW;
+    }
+
+    if (_hud_fade > delta)
+    {
+        _hud_fade -= delta;
+    }
+    else
+    {
+        _hud_fade = 0.0f;
+    }
+}
+
+
+void GamePlayState::render_overlay(float delta, Sprite overlay)
+{
+    int x = (_app->screen_width() - _sprites[overlay].width()) / 2;
+    int y = (_app->screen_height() - _sprites[overlay].height()) / 2;
+    uint8_t overlay_fade = (uint8_t)std::ceil(ease_in(delta) * 255.0f);
+    _app->blend_sprite(x, y, _sprites[overlay], overlay_fade);
 }
 
 
 void GamePlayState::render_minimap(float delta)
 {
-    _app->clear_screen(gli::Pixel(0x1F1D2C));
+    _app->clear_screen(gli::Pixel(App::BgColor));
 
     int mx, my;
     mx = (_app->screen_width() - _tilemap.minimap().width()) / 2;
@@ -742,13 +866,26 @@ void GamePlayState::render_minimap(float delta)
     _tilemap.pos_to_minimap(_movables[0].position, px, py);
     _app->blend_partial_sprite(mx + px - 4, my + py - 4, _sprites[Sprite::MapMarkers], 0, 0, 8, 8, 255);
 
+    for (const AiBrain& brain : _brains)
+    {
+        const Movable& movable = _movables[brain.movable];
+
+        if (movable.active)
+        {
+            _tilemap.pos_to_minimap(movable.position, px, py);
+            _app->blend_partial_sprite(mx + px - 4, my + py - 4, _sprites[Sprite::MapMarkers], 8, 0, 8, 8, 255);
+        }
+    }
+
     if (_player_zone)
     {
         int w = (int)_player_zone->name.size() * vga9_glyph_width;
         int h = vga9_glyph_height;
-        int x = (_app->screen_width() - w) / 2;
-        int y = 300 - (h / 2);
-        _app->draw_string(x, y, _player_zone->name.c_str(), vga9_glyphs, vga9_glyph_width, vga9_glyph_height, gli::Pixel(0xFFC0C0C0), gli::Pixel(0));
+        int x = 32;
+        int y = 150;
+        _app->draw_text_box(x, y, 235, vga9_glyph_height, "Current location:", 0xFFE2E2E2, App::BgColor);
+        y += vga9_glyph_height;
+        _app->draw_text_box(x, y, 235, 205 - vga9_glyph_height, _player_zone->name.c_str(), 0xFFE2E2E2, App::BgColor);
     }
 }
 

@@ -39,13 +39,14 @@ void main()
 #version 400 core
 
 uniform sampler2D sDiffuseMap;
+uniform float fFade;
 
 in vec2 vTexCoord;
 out vec4 oColor;
 
 void main()
 {
-    oColor = texture(sDiffuseMap, vTexCoord);
+    oColor = vec4(texture(sDiffuseMap, vTexCoord).rgb, fFade);
 }
     )"
 };
@@ -74,6 +75,7 @@ GLuint _shader_program{};
 GLuint _vbo = 0;
 GLuint _vao = 0;
 GLuint _texture = 0;
+GLuint _uniform_fade = 0;
 std::atomic<bool> _quit;
 std::atomic<bool> _active;
 std::atomic<bool> _mouse_active;
@@ -352,6 +354,8 @@ bool App::initialize(const char* name, int screen_width, int screen_height, int 
     glBindTexture(GL_TEXTURE_2D, _texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    _uniform_fade = glGetUniformLocation(_shader_program, "fFade");
 
     _opengl.make_current(false);
 
@@ -944,6 +948,12 @@ void App::blend_partial_sprite(int x, int y, const Sprite& sprite, int ox, int o
 }
 
 
+void App::set_screen_fade(Pixel color, float fade)
+{
+    m_fade_color = color;
+    m_fade = fade;
+}
+
 void App::shutdown()
 {
     glDeleteTextures(1, &_texture);
@@ -1096,12 +1106,28 @@ void App::engine_loop()
 
         // Present
         _opengl.begin_frame();
+
+        if (m_fade > 0.0f)
+        {
+            glClearColor(m_fade_color.r / 255.0f, m_fade_color.g / 255.0f, m_fade_color.b / 255.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        }
+        else
+        {
+            glDisable(GL_BLEND);
+        }
+
         glBindTexture(GL_TEXTURE_2D, _texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_screen_width, m_screen_height, 0, GL_BGRA, GL_UNSIGNED_BYTE, m_framebuffer);
         glUseProgram(_shader_program);
+        glUniform1f(_uniform_fade, 1.0f - m_fade);
         glBindVertexArray(_vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         _opengl.end_frame();
+
+        m_fade = 0.0f;
     }
 
     on_destroy();

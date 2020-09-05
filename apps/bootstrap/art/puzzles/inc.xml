@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <puzzle>
-    <title/>
-    <description>$52 - Increment accumulator</description>
+    <title>$70 INX</title>
+    <description>Increment index register</description>
     <tests>
         <test>
-            <initial_state a="FF" />
-            <pass_state p ="1" a="00" />
+            <initial_state x="FF" />
+            <pass_state p ="1" x="00" />
         </test>
     </tests>
 </puzzle>

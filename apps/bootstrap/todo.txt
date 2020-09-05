@@ -13,17 +13,15 @@
 13. CPU reference
 --- 14. inter-entity collisions
 15. Cheat / hint - encode a solution in the puzzles, allow the user to study the solution and then clear the grid
-16. Win32 build
-17. Windows 7 compatibility (exclude xinput?)
-
+--- 16. Win32 build
+--- 17. Windows 7 compatibility (exclude xinput?)
+16. Indexed instructions?
+17. Death / destruction animations
 
 Polish
 ------
-* transitions between puzzle and game (i.e.fade in and out)
 * puzzle prolog and epilog
 * health up / down anim
-* Splash screens refresh
-* Title screen
 
 
 Bugs

@@ -31,6 +31,8 @@ private:
         MapMarkers,
         Hud,
         GameOver,
+        PressStart,
+        Victory,
         Count
     };
 
@@ -66,6 +68,8 @@ private:
     void update_ai(float delta);
 
     void render_game(float delta);
+    void render_hud(float delta);
+    void render_overlay(float delta, Sprite sprite);
     void render_minimap(float delta);
 
     void draw_sprite(const V2f& position, Sprite sprite, int frame);
@@ -97,7 +101,7 @@ private:
     float _nmifired;
     float _simulation_delta;
     const TileMap::Zone* _player_zone;
-    bool _map_view;
+    int _map_view;
     bool _puzzle_mode;
     size_t _puzzle_target;
     float _post_puzzle_cooloff;
@@ -106,6 +110,9 @@ private:
     bool _game_over;
     size_t _next_puzzle;
     size_t _ais_remaining;
+    bool _pre_start;
+    float _state_transition_timer;
+    float _hud_fade;
 };
 
 } // namespace Bootstrap

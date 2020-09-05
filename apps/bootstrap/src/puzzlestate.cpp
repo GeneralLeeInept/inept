@@ -63,10 +63,14 @@ enum PuzzleBoardLayout
     BagStep = 32,
     BagColumns = 7,
     BagRows = 6,
+    OpcodeTitleX = 34,
+    OpcodeTitleY = 165,
+    OpcodeTitleW = 154,
+    OpcodeTitleH = 16,
     OpcodeDescX = 34,
-    OpcodeDescY = 165,
-    OpcodeDescW = 156,
-    OpcodeDescH = 112,
+    OpcodeDescY = 177,
+    OpcodeDescW = 154,
+    OpcodeDescH = 99,
     GoButtonX = 31,
     GoButtonY = 301,
     GoButtonW = 160,
@@ -126,8 +130,70 @@ static const std::string ToolTips[] = {
 
 static const float VerifyingTime = 1.0f;
 static const float ResultTime = 2.0f;
+static const float ShortFade = 0.125f;
+
+static float clamp(float t, float min, float max)
+{
+    return t < min ? min : (t > max ? max : t);
+}
+
+
+static float ease_in(float t)
+{
+    t = clamp(t, 0.0f, 1.0f);
+    return 1.0f - std::pow(1.0f - t, 3.0f);
+}
+
+
+static float ease_out(float t)
+{
+    t = clamp(t, 0.0f, 1.0f);
+    return 1.0f - std::pow(t, 3.0f);
+}
+
 
 bool PuzzleState::on_update(float delta)
+{
+    // _state: 0 - fading in, 1 - puzzling, 2 - fading out
+    if (_state == 0 && _state_timer >= ShortFade)
+    {
+        _state = 1;
+        _app->show_mouse(true);
+    }
+    else if (_state == 2 && _state_timer >= ShortFade)
+    {
+        return false;
+    }
+
+    if (_state == 1)
+    {
+        if (!update_simulation(delta))
+        {
+            _state = 2;
+            _state_timer = 0.0f;
+        }
+    }
+    else
+    {
+        _state_timer += delta;
+    }
+
+    render(delta);
+
+    if (_state == 0)
+    {
+        _app->set_screen_fade(App::BgColor, ease_out(_state_timer / ShortFade));
+    }
+    else if (_state == 2)
+    {
+        _app->set_screen_fade(App::BgColor, ease_in(_state_timer / ShortFade));
+    }
+
+    return true;
+}
+
+
+bool PuzzleState::update_simulation(float delta)
 {
     V2i mouse_pos{ _app->mouse_state().x, _app->mouse_state().y };
     Recti go_button_rect{ { PuzzleBoardLayout::GoButtonX, PuzzleBoardLayout::GoButtonY }, { GoButtonW, GoButtonH } };
@@ -225,12 +291,23 @@ bool PuzzleState::on_update(float delta)
         }
     }
 
+    return true;
+}
+
+void PuzzleState::render(float delta)
+{
+    V2i mouse_pos{ _app->mouse_state().x, _app->mouse_state().y };
+    Recti go_button_rect{ { PuzzleBoardLayout::GoButtonX, PuzzleBoardLayout::GoButtonY }, { GoButtonW, GoButtonH } };
+
     // Render
     _app->clear_screen(gli::Pixel(0x1F1D2C));
     _app->draw_sprite(0, 0, &_sprites[Sprite::Board]);
 
-    draw_text_box(PuzzleBoardLayout::OpcodeDescX, PuzzleBoardLayout::OpcodeDescY, PuzzleBoardLayout::OpcodeDescW,
-                  PuzzleBoardLayout::OpcodeDescH, _puzzle->description);
+
+    _app->draw_text_box(PuzzleBoardLayout::OpcodeTitleX, PuzzleBoardLayout::OpcodeTitleY, PuzzleBoardLayout::OpcodeTitleW,
+                        PuzzleBoardLayout::OpcodeTitleH, _puzzle->title, PuzzleBoardLayout::TextColor, PuzzleBoardLayout::TextBgColor);
+    _app->draw_text_box(PuzzleBoardLayout::OpcodeDescX, PuzzleBoardLayout::OpcodeDescY, PuzzleBoardLayout::OpcodeDescW,
+                        PuzzleBoardLayout::OpcodeDescH, _puzzle->description, PuzzleBoardLayout::TextColor, PuzzleBoardLayout::TextBgColor);
 
     int idx = 0;
     for (const ControlLineDef& linedef : _linedefs)
@@ -297,8 +374,8 @@ bool PuzzleState::on_update(float delta)
             if (tipindex)
             {
                 const std::string& tiptext = ToolTips[tipindex - 1];
-                draw_text_box(PuzzleBoardLayout::ToolTipX, PuzzleBoardLayout::ToolTipY, PuzzleBoardLayout::ToolTipW, PuzzleBoardLayout::ToolTipH,
-                              tiptext);
+                _app->draw_text_box(PuzzleBoardLayout::ToolTipX, PuzzleBoardLayout::ToolTipY, PuzzleBoardLayout::ToolTipW,
+                                    PuzzleBoardLayout::ToolTipH, tiptext, PuzzleBoardLayout::TextColor, PuzzleBoardLayout::TextBgColor);
             }
 
             if (_dragging)
@@ -307,8 +384,6 @@ bool PuzzleState::on_update(float delta)
             }
         }
     }
-
-    return true;
 }
 
 bool PuzzleState::on_init(App* app)
@@ -392,7 +467,6 @@ bool PuzzleState::on_enter()
         return false;
     }
 
-    _app->show_mouse(true);
     _go_pressed = false;
     _dragging = 0;
     _solution.clear();
@@ -400,6 +474,8 @@ bool PuzzleState::on_enter()
     _verifying = 0.0f;
     _complete = 0.0f;
     _success = false;
+    _state_timer = 0.0f;
+    _state = 0;
     return true;
 }
 
@@ -559,50 +635,5 @@ bool PuzzleState::add_to_solution(int x, int y, size_t def)
     return false;
 }
 
-
-void PuzzleState::wrap_text(const std::string& text, int w, size_t& off, size_t& len)
-{
-    if (off)
-    {
-        while (text[off] == ' ') ++off;
-    }
-
-    size_t space = 0;
-
-    for (size_t pos = off; pos < text.size(); ++pos)
-    {
-        if ((pos - off) >= w && space > 0)
-        {
-            len = space - off;
-            return;
-        }
-
-        if (text[pos] == ' ')
-        {
-            space = pos;
-        }
-    }
-
-    len = std::string::npos;
-}
-
-
-void PuzzleState::draw_text_box(int x, int y, int w, int h, const std::string& text)
-{
-    int line_width_chars = w / vga9_glyph_width;
-    int max_lines = h / vga9_glyph_height;
-
-    size_t pos = 0;
-    size_t len = 0;
-
-    for (int i = 0; i < max_lines && pos < text.size() && len != std::string::npos; ++i)
-    {
-        wrap_text(text, line_width_chars, pos, len);
-        _app->draw_string(x, y, text.substr(pos, len).c_str(), vga9_glyphs, vga9_glyph_width, vga9_glyph_height,
-                          gli::Pixel(PuzzleBoardLayout::TextColor), gli::Pixel(PuzzleBoardLayout::TextBgColor));
-        pos += len;
-        y += vga9_glyph_height;
-    }
-}
 
 } // namespace Bootstrap

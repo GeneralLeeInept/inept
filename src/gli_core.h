@@ -260,6 +260,7 @@ public:
     void draw_partial_sprite(int x, int y, const Sprite* sprite, int ox, int oy, int w, int h);
     void blend_sprite(int x, int y, const Sprite& sprite, uint8_t alpha);
     void blend_partial_sprite(int x, int y, const Sprite& sprite, int ox, int oy, int w, int h, uint8_t alpha);
+    void set_screen_fade(Pixel color, float fade);
 
 private:
     void shutdown();
@@ -281,6 +282,8 @@ private:
     int m_screen_height;
     int m_window_width;
     int m_window_height;
+    Pixel m_fade_color;
+    float m_fade;
 };
 
 } // namespace gli

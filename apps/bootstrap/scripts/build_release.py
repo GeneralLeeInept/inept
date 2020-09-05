@@ -47,6 +47,7 @@ def get_next_version(repo):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', dest='testing', action='store_true', help='Build release for testing')
+    parser.add_argument('-v', dest='version', help='Version to build')
     args = parser.parse_args()
 
     try:
@@ -62,7 +63,7 @@ if __name__ == "__main__":
         build_id = repo.git.rev_parse(sha_head, short=7).upper()
 
         # Release tag
-        release_version = get_next_version(repo)
+        release_version = get_next_version(repo) if not args.version else args.version
         release_version = f'{release_version}-testing' if args.testing else release_version
         release_tag = f'bootstrap-{release_version}'
         print(f"Building version '{release_version} using commit '{build_id}'")

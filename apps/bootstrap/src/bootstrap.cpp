@@ -5,6 +5,7 @@
 #include "iappstate.h"
 #include "splash.h"
 #include "version.h"
+#include "vga9.h"
 
 #include <memory>
 #include <string>
@@ -106,6 +107,53 @@ void App::set_next_state(AppState next_state)
 {
     _next_state = next_state;
 }
+
+
+void App::wrap_text(const std::string& text, int w, size_t& off, size_t& len)
+{
+    if (off)
+    {
+        while (text[off] == ' ')
+            ++off;
+    }
+
+    size_t space = 0;
+
+    for (size_t pos = off; pos < text.size(); ++pos)
+    {
+        if ((pos - off) >= w && space > 0)
+        {
+            len = space - off;
+            return;
+        }
+
+        if (text[pos] == ' ')
+        {
+            space = pos;
+        }
+    }
+
+    len = std::string::npos;
+}
+
+
+void App::draw_text_box(int x, int y, int w, int h, const std::string& text, const gli::Pixel& fg, const gli::Pixel& bg)
+{
+    int line_width_chars = w / vga9_glyph_width;
+    int max_lines = h / vga9_glyph_height;
+
+    size_t pos = 0;
+    size_t len = 0;
+
+    for (int i = 0; i < max_lines && pos < text.size() && len != std::string::npos; ++i)
+    {
+        wrap_text(text, line_width_chars, pos, len);
+        draw_string(x, y, text.substr(pos, len).c_str(), vga9_glyphs, vga9_glyph_width, vga9_glyph_height, fg, bg);
+        pos += len;
+        y += vga9_glyph_height;
+    }
+}
+
 
 } // namespace Bootstrap
 

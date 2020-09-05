@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <puzzle>
-    <title>>$39 - ADD imm8</title>
-    <description>Add the operand to the accumulator.</description>
+    <title>>$39 ADD imm8</title>
+    <description>Add imm8 to accumulator</description>
     <tests>
         <test>
             <initial_state pc="01" a="FF">
