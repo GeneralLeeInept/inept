@@ -279,24 +279,24 @@ bool GamePlayState::on_update(float delta)
             render_overlay(_state_transition_timer, Sprite::GameOver);
         }
     }
+    else if (_puzzle_target && !_puzzle_mode)
+    {
+        if (_state_transition_timer < ShortFade)
+        {
+            render_game(delta);
+            render_hud(delta);
+            _app->set_screen_fade(App::BgColor, ease_in(_state_transition_timer / ShortFade));
+            _state_transition_timer += delta;
+        }
+        else
+        {
+            _puzzle_state.set_puzzle(_puzzles[_next_puzzle]);
+            _puzzle_mode = _puzzle_state.on_enter();
+            _app->set_screen_fade(App::BgColor, 1.0f);
+        }
+    }
     else
     {
-        if (_puzzle_target && !_puzzle_mode)
-        {
-            if (_state_transition_timer < ShortFade)
-            {
-                render_game(delta);
-                render_hud(delta);
-                _app->set_screen_fade(App::BgColor, ease_in(_state_transition_timer / ShortFade));
-                _state_transition_timer += delta;
-            }
-            else
-            {
-                _puzzle_state.set_puzzle(_puzzles[_next_puzzle]);
-                _puzzle_mode = _puzzle_state.on_enter();
-            }
-        }
-
         if (_puzzle_mode)
         {
             if (!_puzzle_state.on_update(delta))
