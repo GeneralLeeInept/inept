@@ -47,6 +47,7 @@ private:
 
     struct AiBrain
     {
+        float idle_timer;
         size_t movable;
         float next_think;
         V2f target_position;
@@ -62,6 +63,8 @@ private:
     };
 
     void update_simulation(float delta);
+    void update_ai(float delta);
+
     void render_game(float delta);
     void render_minimap(float delta);
 
@@ -74,6 +77,8 @@ private:
     void update_bullets(float delta);
 
     size_t find_enemy_in_range(const V2f& pos, float radius);
+
+    bool on_screen(const Movable& movable, float hysterisis);
 
     std::vector<Puzzle::Definition> _puzzles;
     std::vector<Movable> _movables;

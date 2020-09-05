@@ -8,12 +8,24 @@
 --- 8. add sfx
 --- 9. add background music
 --- 10. add controller support
-11. link up the front-end
+(+) 11. link up the front-end
 (+) 12. User manual 
 13. CPU reference
 --- 14. inter-entity collisions
+15. Cheat / hint - encode a solution in the puzzles, allow the user to study the solution and then clear the grid
+16. Win32 build
+17. Windows 7 compatibility (exclude xinput?)
+
+
+Polish
+------
+* transitions between puzzle and game (i.e.fade in and out)
+* puzzle prolog and epilog
+* health up / down anim
+* Splash screens refresh
+* Title screen
+
 
 Bugs
 ----
-* off screen enemies shoot at you
 * puzzle piece wraparound at the edge of the piece bag

@@ -57,8 +57,8 @@ bool GamePlayState::on_init(App* app)
     _app = app;
 
     static const char* sprite_sheet_paths[Sprite::Count] = { GliAssetPath("sprites/droid.png"), GliAssetPath("sprites/illegal_opcode.png"),
-                                                             GliAssetPath("fx/bullet.png"), GliAssetPath("gui/map_markers.png"),
-                                                             GliAssetPath("gui/hud.png"), GliAssetPath("gui/game_over.png") };
+                                                             GliAssetPath("fx/bullet.png"),     GliAssetPath("gui/map_markers.png"),
+                                                             GliAssetPath("gui/hud.png"),       GliAssetPath("gui/game_over.png") };
 
     size_t i = 0;
 
@@ -94,7 +94,6 @@ bool GamePlayState::on_init(App* app)
 
     // clang-format off
     static const std::vector<const char*> puzzle_paths{
-        GliAssetPath("puzzles/sub.bin"),
         GliAssetPath("puzzles/tax.bin"),
         GliAssetPath("puzzles/txa.bin"),
         GliAssetPath("puzzles/lda_immediate.bin"),
@@ -170,6 +169,7 @@ bool GamePlayState::on_enter()
         brain.movable = ai_movable;
         brain.target_position = spawn_position;
         brain.shot_timer = 0.0f;
+        brain.idle_timer = 0.0f;
         movable.active = true;
         movable.sprite = Sprite::IllegalOpcode;
         movable.position = spawn_position;
@@ -302,7 +302,7 @@ bool GamePlayState::on_update(float delta)
         {
             render_minimap(delta);
         }
-        else 
+        else
         {
             update_simulation(delta);
             render_game(delta);
@@ -363,139 +363,7 @@ void GamePlayState::update_simulation(float delta)
             }
         }
 
-        for (AiBrain& brain : _brains)
-        {
-            Movable& movable = _movables[brain.movable];
-
-            if (movable.active)
-            {
-                bool player_visible = false;
-                brain.next_think -= delta;
-
-                if (brain.player_spotted > 0.0f)
-                {
-                    brain.player_spotted -= delta;
-
-                    if (brain.player_spotted <= 0.0f)
-                    {
-                        brain.player_spotted = 0.0f;
-                        brain.target_position = movable.position;
-                    }
-                }
-
-                if (brain.shot_timer > 0.0f)
-                {
-                    brain.shot_timer -= delta;
-                }
-
-                if (brain.next_think <= 0.0f)
-                {
-                    // Time to consider..
-                    float player_distance_sq = length_sq(player.position - movable.position);
-
-                    if (player.active && player_distance_sq < (20.0f * 20.0f))
-                    {
-                        player_visible = !_tilemap.raycast(movable.position, player.position, TileMap::TileFlag::BlocksLos, nullptr);
-                    }
-
-                    if (player_visible)
-                    {
-                        brain.player_spotted = 1.0f;
-
-                        if (player_distance_sq < (2.0f * 2.0f))
-                        {
-                            V2f dir = normalize(movable.position - player.position);
-                            brain.target_position = player.position + dir * 4.0f;
-                        }
-                        else if (player_distance_sq > (5.0f * 5.0f))
-                        {
-                            V2f dir = normalize(movable.position - player.position);
-                            brain.target_position = player.position + dir * 3.0f;
-                        }
-                        else
-                        {
-                            if (length_sq(player.velocity) > 1.0f)
-                            {
-                                brain.target_position = movable.position + V2f{ player.velocity.y, player.velocity.x };
-                            }
-                            else
-                            {
-                                brain.target_position = movable.position + V2f{ gRandom.get(), gRandom.get() };
-                            }
-                        }
-                    }
-                    else if (brain.player_spotted > delta)
-                    {
-                        brain.player_spotted -= delta;
-                    }
-
-                    brain.next_think += 0.5f;
-                }
-
-                // update velocity
-                float distance_to_target_sq = length_sq(brain.target_position - movable.position);
-                static const float MoveThreshold = 1.0f;
-
-                if (distance_to_target_sq > (MoveThreshold * MoveThreshold))
-                {
-                    movable.velocity = normalize(brain.target_position - movable.position) * dv;
-                }
-
-                // update facing
-                int facing = movable.frame & 1;
-
-                if (player_visible)
-                {
-                    // Always face the player when in sight
-                    facing = player.position.x > movable.position.x;
-                }
-                else if (std::abs(movable.velocity.x) > 0)
-                {
-                    // Face direction we're heading
-                    facing = movable.velocity.x > 0;
-                }
-
-                movable.frame = brain.player_spotted ? 2 + facing : facing;
-
-                if (_post_puzzle_cooloff <= 0.0f)
-                {
-                    // fire muh laser
-                    if (player_visible && brain.shot_timer <= 0.0f)
-                    {
-                        float fire = gRandom.get();
-                        bool fired = false;
-
-                        if (fire > 0.8f)
-                        {
-                            V2f dir = normalize(player.position - movable.position);
-                            V2f perp = V2f{ dir.y, dir.x };
-
-                            // Fire a spread
-                            int num = (fire > 0.9f) ? 5 : 3;
-
-                            for (int i = -num / 2; i <= num / 2; ++i)
-                            {
-                                V2f shot_dir = dir + perp * (float)i;
-                                fire_bullet(movable, movable.position + shot_dir);
-                            }
-
-                            fired = true;
-                        }
-                        else if (fire > 0.5f)
-                        {
-                            // Fire one
-                            fire_bullet(movable, player.position);
-                            fired = true;
-                        }
-
-                        if (fired)
-                        {
-                            brain.shot_timer = gRandom.get(0.3f, 0.8f);
-                        }
-                    }
-                }
-            }
-        }
+        update_ai(delta);
 
         move_movables(delta);
 
@@ -550,6 +418,160 @@ void GamePlayState::update_simulation(float delta)
     }
 }
 
+void GamePlayState::update_ai(float delta)
+{
+    Movable& player = _movables[0];
+
+    for (AiBrain& brain : _brains)
+    {
+        Movable& movable = _movables[brain.movable];
+
+        if (!movable.active)
+        {
+            continue;
+        }
+
+        //float hysterisis = (brain.idle_timer > 0.0f) ? 32.0f : 0.0f;
+        float hysterisis = -2.0f; //(brain.idle_timer > 0.0f) ? 32.0f : 0.0f;
+
+        if (on_screen(movable, hysterisis))
+        {
+            brain.idle_timer = 0.5f;
+        }
+
+        if (brain.idle_timer > 0.0f)
+        {
+            brain.idle_timer -= delta;
+
+            bool player_visible = false;
+            brain.next_think -= delta;
+
+            if (brain.player_spotted > 0.0f)
+            {
+                brain.player_spotted -= delta;
+
+                if (brain.player_spotted <= 0.0f)
+                {
+                    brain.player_spotted = 0.0f;
+                    brain.target_position = movable.position;
+                }
+            }
+
+            if (brain.shot_timer > 0.0f)
+            {
+                brain.shot_timer -= delta;
+            }
+
+            if (brain.next_think <= 0.0f)
+            {
+                // Time to consider..
+                float player_distance_sq = length_sq(player.position - movable.position);
+
+                if (player.active && player_distance_sq < (20.0f * 20.0f))
+                {
+                    player_visible = !_tilemap.raycast(movable.position, player.position, TileMap::TileFlag::BlocksLos, nullptr);
+                }
+
+                if (player_visible)
+                {
+                    brain.player_spotted = 1.0f;
+
+                    if (player_distance_sq < (2.0f * 2.0f))
+                    {
+                        V2f dir = normalize(movable.position - player.position);
+                        brain.target_position = player.position + dir * 4.0f;
+                    }
+                    else if (player_distance_sq > (5.0f * 5.0f))
+                    {
+                        V2f dir = normalize(movable.position - player.position);
+                        brain.target_position = player.position + dir * 3.0f;
+                    }
+                    else
+                    {
+                        if (length_sq(player.velocity) > 1.0f)
+                        {
+                            brain.target_position = movable.position + V2f{ player.velocity.y, player.velocity.x };
+                        }
+                        else
+                        {
+                            brain.target_position = movable.position + V2f{ gRandom.get(), gRandom.get() };
+                        }
+                    }
+                }
+                else if (brain.player_spotted > delta)
+                {
+                    brain.player_spotted -= delta;
+                }
+
+                brain.next_think += 0.5f;
+            }
+
+            // update velocity
+            float distance_to_target_sq = length_sq(brain.target_position - movable.position);
+            static const float MoveThreshold = 1.0f;
+
+            if (distance_to_target_sq > (MoveThreshold * MoveThreshold))
+            {
+                movable.velocity = normalize(brain.target_position - movable.position) * dv;
+            }
+
+            // update facing
+            int facing = movable.frame & 1;
+
+            if (player_visible)
+            {
+                // Always face the player when in sight
+                facing = player.position.x > movable.position.x;
+            }
+            else if (std::abs(movable.velocity.x) > 0)
+            {
+                // Face direction we're heading
+                facing = movable.velocity.x > 0;
+            }
+
+            movable.frame = brain.player_spotted ? 2 + facing : facing;
+
+            if (_post_puzzle_cooloff <= 0.0f)
+            {
+                // fire muh laser
+                if (player_visible && brain.shot_timer <= 0.0f)
+                {
+                    float fire = gRandom.get();
+                    bool fired = false;
+
+                    if (fire > 0.8f)
+                    {
+                        V2f dir = normalize(player.position - movable.position);
+                        V2f perp = V2f{ dir.y, dir.x };
+
+                        // Fire a spread
+                        int num = (fire > 0.9f) ? 5 : 3;
+
+                        for (int i = -num / 2; i <= num / 2; ++i)
+                        {
+                            V2f shot_dir = dir + perp * (float)i;
+                            fire_bullet(movable, movable.position + shot_dir);
+                        }
+
+                        fired = true;
+                    }
+                    else if (fire > 0.5f)
+                    {
+                        // Fire one
+                        fire_bullet(movable, player.position);
+                        fired = true;
+                    }
+
+                    if (fired)
+                    {
+                        brain.shot_timer = gRandom.get(0.3f, 0.8f);
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 void GamePlayState::render_game(float delta)
 {
@@ -557,9 +579,8 @@ void GamePlayState::render_game(float delta)
 
     Movable& player = _movables[0];
 
-    // playfield = 412 x 360
-    _cx = (int)(player.position.x * _tilemap.tile_size() + 0.5f) - 320;
-    _cy = (int)(player.position.y * _tilemap.tile_size() + 0.5f) - 180;
+    _cx = (int)(player.position.x * _tilemap.tile_size() + 0.5f) - _app->screen_width() / 2;
+    _cy = (int)(player.position.y * _tilemap.tile_size() + 0.5f) - _app->screen_height() / 2;
 
     int coarse_scroll_x = _cx / _tilemap.tile_size();
     int coarse_scroll_y = _cy / _tilemap.tile_size();
@@ -640,9 +661,10 @@ void GamePlayState::render_game(float delta)
     {
         // HUD
         int health_fill = (_health * HudGfx::HealthFillW) / 100;
-        _app->blend_partial_sprite(16 + HudGfx::HealthBarW - HudGfx::HealthFillW, 16 + 3, _sprites[Sprite::Hud], HudGfx::HealthFillX, HudGfx::HealthFillY,
-                                   health_fill, HudGfx::HealthFillH, 255);
-        _app->blend_partial_sprite(16, 16, _sprites[Sprite::Hud], HudGfx::HealthBarX, HudGfx::HealthBarY, HudGfx::HealthBarW, HudGfx::HealthBarH, 255);
+        _app->blend_partial_sprite(16 + HudGfx::HealthBarW - HudGfx::HealthFillW, 16 + 3, _sprites[Sprite::Hud], HudGfx::HealthFillX,
+                                   HudGfx::HealthFillY, health_fill, HudGfx::HealthFillH, 255);
+        _app->blend_partial_sprite(16, 16, _sprites[Sprite::Hud], HudGfx::HealthBarX, HudGfx::HealthBarY, HudGfx::HealthBarW, HudGfx::HealthBarH,
+                                   255);
 
         int score_digits[4];
         if (_score >= 9999)
@@ -699,8 +721,8 @@ void GamePlayState::render_game(float delta)
         for (int i = 0; i < 2; ++i)
         {
             _app->blend_partial_sprite(remaining_x, remaining_y, _sprites[Sprite::Hud],
-                                       HudGfx::ScoreNumbersX + score_digits[i] * HudGfx::ScoreNumbersW,
-                                       HudGfx::ScoreNumbersY, HudGfx::ScoreNumbersW, HudGfx::ScoreNumbersH, 255);
+                                       HudGfx::ScoreNumbersX + score_digits[i] * HudGfx::ScoreNumbersW, HudGfx::ScoreNumbersY, HudGfx::ScoreNumbersW,
+                                       HudGfx::ScoreNumbersH, 255);
             remaining_x += HudGfx::ScoreNumbersW;
         }
     }
@@ -903,7 +925,8 @@ void GamePlayState::update_bullets(float delta)
         if (!check_collision(next_position, TileMap::TileFlag::BlocksBullets, bullet.radius))
         {
             // Check if hit player
-            if (_movables[0].active && swept_circle_vs_circle(bullet.position, next_position, bullet.radius, _movables[0].position, _movables[0].radius))
+            if (_movables[0].active &&
+                swept_circle_vs_circle(bullet.position, next_position, bullet.radius, _movables[0].position, _movables[0].radius))
             {
                 // Hit the player
                 _health -= 5;
@@ -945,6 +968,17 @@ size_t GamePlayState::find_enemy_in_range(const V2f& pos, float radius)
     return closest;
 }
 
+bool GamePlayState::on_screen(const Movable& movable, float hysterisis)
+{
+    V2f screen_rect_expansion{ movable.radius + hysterisis, movable.radius + hysterisis };
+    V2f screen_rect_origin{ 0.0f, 0.0f };
+    V2f screen_rect_extent{ (float)_app->screen_width(), (float)_app->screen_height() };
+    screen_rect_origin = screen_rect_origin - screen_rect_expansion * 0.5f;
+    screen_rect_extent = screen_rect_extent + screen_rect_expansion;
+    Rectf screen_rect = { screen_rect_origin, screen_rect_extent };
+    V2f movable_screen_position = { movable.position.x * _tilemap.tile_size() - _cx, movable.position.y * _tilemap.tile_size() - _cy };
+    return contains(screen_rect, movable_screen_position);
+}
 
 } // namespace Bootstrap
 // namespace Bootstrap
