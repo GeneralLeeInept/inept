@@ -1110,7 +1110,7 @@ void App::engine_loop()
 }
 
 
-LRESULT App::window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+LRESULT CALLBACK App::window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     App* app = (App*)GetProp(hwnd, L"IneptEngineWindow");
 

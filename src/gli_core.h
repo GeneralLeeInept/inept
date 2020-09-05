@@ -266,7 +266,7 @@ private:
     void pump_messages();
     void engine_loop();
 
-    static LRESULT window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
+    static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
     HWND m_hwnd = NULL;
     short* m_keystate[2] = {};
