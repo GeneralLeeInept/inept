@@ -19,6 +19,7 @@ bool App::on_create()
 {
     _states.reserve(AppState::Count);
     _states.insert(std::pair<AppState, AppStatePtr>(AppState::Splash, std::make_unique<SplashState>()));
+    //_states.insert(std::pair<AppState, AppStatePtr>(AppState::Frontend, std::make_unique<TitleScreenState>()));
     _states.insert(std::pair<AppState, AppStatePtr>(AppState::InGame, std::make_unique<GamePlayState>()));
 
     for (const auto& kvp : _states)
@@ -33,7 +34,7 @@ bool App::on_create()
     }
 
     _state = AppState::Count;
-    _next_state = AppState::InGame;
+    _next_state = AppState::Splash;
     _active_state = nullptr;
 
     return true;

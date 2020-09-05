@@ -218,6 +218,7 @@ bool GamePlayState::on_update(float delta)
                 _movables[_puzzle_target].active = false;
                 _score += 123;
                 _health += 10;
+                if (_health > 100) _health = 100;
             }
             else
             {

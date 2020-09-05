@@ -70,6 +70,11 @@ void SplashState::on_resume() {}
 
 bool SplashState::on_update(float delta)
 {
+    if (_app->key_state(gli::Key_Space).pressed)
+    {
+        _app->set_next_state(AppState::InGame);
+    }
+
     float alpha = 1.0f;
 
     _screen_timer += delta;
@@ -111,8 +116,7 @@ bool SplashState::on_update(float delta)
         }
         else
         {
-            //_app->set_next_state(AppState::Frontend);
-            _current_screen = 0;
+            _app->set_next_state(AppState::InGame);
         }
     }
 
