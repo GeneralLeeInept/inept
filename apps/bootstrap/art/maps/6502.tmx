@@ -218,8 +218,5 @@
   <object id="101" name="ai" type="spawn" x="3022" y="690">
    <point/>
   </object>
-  <object id="102" name="ai" type="spawn" x="3022" y="690">
-   <point/>
-  </object>
  </objectgroup>
 </map>

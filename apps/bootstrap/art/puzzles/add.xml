@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <puzzle>
-    <title>>$39 ADD imm8</title>
+    <title>$39 ADD imm8</title>
     <description>Add imm8 to accumulator</description>
     <tests>
         <test>

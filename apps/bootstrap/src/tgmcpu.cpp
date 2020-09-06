@@ -5,8 +5,8 @@ namespace Bootstrap
 
 void TgmCpu::ALU::calculate(bool wires[Wire::Count])
 {
-    uint16_t a = wires[Wire::sAZ] ? 0 : input_a;
-    uint16_t b = wires[Wire::sBZ] ? 0 : input_b;
+    uint16_t a = input_a;
+    uint16_t b = input_b;
     uint16_t c = wires[Wire::sCI] ? 1 : 0;
 
     if (wires[Wire::sNEG])
@@ -95,6 +95,16 @@ void TgmCpu::clock(const std::vector<uint8_t>& lines)
     if (wires[Wire::sPI])
     {
         program_counter.value++;
+    }
+
+    if (wires[Wire::sAZ])
+    {
+        alu.input_a = 0;
+    }
+
+    if (wires[Wire::sBZ])
+    {
+        alu.input_b = 0;
     }
 
     // 2. On the first falling edge asserts are pulled down (buses are written).

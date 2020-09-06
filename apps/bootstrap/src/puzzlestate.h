@@ -49,9 +49,12 @@ private:
     size_t select_from_solution(int x, int y);
     void remove_from_solution(int x, int y);
     bool add_to_solution(int x, int y, size_t def);
+    std::vector<size_t> sort_solution_row(int row);
+    std::vector<size_t> sort_bag();
 
     std::vector<ControlLineDef> _linedefs;
     std::vector<size_t> _solution;
+    std::vector<size_t> _bag_order;
     gli::Sprite _sprites[Sprite::Count];
     App* _app;
     const Puzzle::Definition* _puzzle;
@@ -62,6 +65,7 @@ private:
     bool _success;
     float _state_timer;
     int _state;
+    int _ghost_row;
 };
 
 } // namespace Bootstrap

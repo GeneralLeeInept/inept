@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <puzzle>
-    <title>>$7B SUB imm8</title>
+    <title>$7B SUB imm8</title>
     <description>Subtract operand from accumulator</description>
     <tests>
         <test>

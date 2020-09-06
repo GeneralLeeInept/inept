@@ -8,6 +8,9 @@
 #include "types.h"
 #include "vga9.h"
 
+#include <algorithm>
+#include <numeric>
+
 namespace Bootstrap
 {
 
@@ -42,7 +45,8 @@ enum PuzzleTileSheet
     lblNEG,
     lblAZ,
     lblBZ,
-    lblC
+    lblC,
+    Ghost
 };
 
 enum TileSheetLayout
@@ -127,6 +131,52 @@ static const std::string ToolTips[] = {
     "Set the ALU reset A signal. Resets the input A register to zero.",
     "Set the ALU reset B signal. Resets the input B register to zero.",
 };
+
+// clang-format off
+// Presentation order - show tiles in an order corresponding to CPU order of execution
+static const std::vector<uint8_t> sort_order{
+    TgmCpu::Wire::sPI,
+    TgmCpu::Wire::sSUM,
+    TgmCpu::Wire::sSHR,
+    TgmCpu::Wire::sOR,
+    TgmCpu::Wire::sXOR,
+    TgmCpu::Wire::sAND,
+    TgmCpu::Wire::sAZ,
+    TgmCpu::Wire::sBZ,
+    TgmCpu::Wire::sNEG,
+    TgmCpu::Wire::sCI,
+    TgmCpu::Wire::lxDL,
+    TgmCpu::Wire::adDL,
+    TgmCpu::Wire::adAC,
+    TgmCpu::Wire::adPCL,
+    TgmCpu::Wire::adPCH,
+    TgmCpu::Wire::adP,
+    TgmCpu::Wire::aiDL,
+    TgmCpu::Wire::aiAC,
+    TgmCpu::Wire::aiX,
+    TgmCpu::Wire::aiPCL,
+    TgmCpu::Wire::aiPCH,
+    TgmCpu::Wire::aiADD,
+    TgmCpu::Wire::ldDOR,
+    TgmCpu::Wire::ldAC,
+    TgmCpu::Wire::ldPCL,
+    TgmCpu::Wire::ldPCH,
+    TgmCpu::Wire::ldP,
+    TgmCpu::Wire::ldABH,
+    TgmCpu::Wire::ldBI,
+    TgmCpu::Wire::laADD,
+    TgmCpu::Wire::laC,
+    TgmCpu::Wire::liAC,
+    TgmCpu::Wire::liX,
+    TgmCpu::Wire::liPCL,
+    TgmCpu::Wire::liPCH,
+    TgmCpu::Wire::liABL,
+    TgmCpu::Wire::liABH,
+    TgmCpu::Wire::liAI,
+    TgmCpu::Wire::liBI,
+    TgmCpu::Wire::sW,
+};
+// clang-format on
 
 static const float VerifyingTime = 1.0f;
 static const float ResultTime = 2.0f;
@@ -291,6 +341,17 @@ bool PuzzleState::update_simulation(float delta)
         }
     }
 
+    _ghost_row = -1;
+
+    if (_dragging)
+    {
+        V2i ghost_pos = mouse_pos - V2i{ PuzzleBoardLayout::SolutionX, PuzzleBoardLayout::SolutionY };
+        if (ghost_pos.x < PuzzleBoardLayout::SolutionStep * PuzzleBoardLayout::SolutionColumns && ghost_pos.y < PuzzleBoardLayout::SolutionStep * PuzzleBoardLayout::SolutionRows)
+        {
+            _ghost_row = ghost_pos.y / PuzzleBoardLayout::SolutionStep;
+        }
+    }
+
     return true;
 }
 
@@ -310,18 +371,19 @@ void PuzzleState::render(float delta)
                         PuzzleBoardLayout::OpcodeDescH, _puzzle->description, PuzzleBoardLayout::TextColor, PuzzleBoardLayout::TextBgColor);
 
     int idx = 0;
-    for (const ControlLineDef& linedef : _linedefs)
+    for (size_t def_index : _bag_order)
     {
         int bx = idx % PuzzleBoardLayout::BagColumns;
         int by = idx / PuzzleBoardLayout::BagColumns;
         int x = PuzzleBoardLayout::BagX + bx * PuzzleBoardLayout::BagStep;
         int y = PuzzleBoardLayout::BagY + by * PuzzleBoardLayout::BagStep;
-        draw_tile(linedef, x, y, false);
+        draw_tile(_linedefs[def_index], x, y, false);
         idx++;
     }
 
+#if 0
     idx = 0;
-    for (const size_t& def_index : _solution)
+    for (size_t def_index : _solution)
     {
         if (def_index)
         {
@@ -333,6 +395,34 @@ void PuzzleState::render(float delta)
         }
         idx++;
     }
+
+    if (_ghost_row != -1)
+    {
+        int x = PuzzleBoardLayout::SolutionX;
+        int y = PuzzleBoardLayout::SolutionY + _ghost_row * PuzzleBoardLayout::SolutionStep;
+        int ox = (PuzzleTileSheet::Ghost % TileSheetLayout::Columns) * TileSheetLayout::TileSize;
+        int oy = (PuzzleTileSheet::Ghost / TileSheetLayout::Columns) * TileSheetLayout::TileSize;
+        _app->blend_partial_sprite(x, y, _sprites[Sprite::PiecesSheet], ox, oy, TileSheetLayout::TileSize, TileSheetLayout::TileSize, 255);
+    }
+#else
+    for (int i = 0; i < PuzzleBoardLayout::SolutionRows; ++i)
+    {
+        std::vector<size_t> sorted = sort_solution_row(i);
+
+        idx = 0;
+
+        for (size_t def_index : sorted)
+        {
+            if (def_index)
+            {
+                int x = PuzzleBoardLayout::SolutionX + idx * PuzzleBoardLayout::SolutionStep;
+                int y = PuzzleBoardLayout::SolutionY + i * PuzzleBoardLayout::SolutionStep;
+                draw_tile(_linedefs[def_index - 1], x, y, false);
+            }
+            idx++;
+        }
+    }
+#endif
 
     if (_complete > 0.0f)
     {
@@ -448,10 +538,12 @@ bool PuzzleState::on_init(App* app)
         { TgmCpu::Wire::sNEG,   PuzzleTileSheet::lblNEG,   PuzzleTileSheet::bSet          },
         { TgmCpu::Wire::sAZ,    PuzzleTileSheet::lblAZ,    PuzzleTileSheet::bSet          },
         { TgmCpu::Wire::sBZ,    PuzzleTileSheet::lblBZ,    PuzzleTileSheet::bSet          },
+        { TgmCpu::Wire::Count,  PuzzleTileSheet::Ghost,    PuzzleTileSheet::Ghost         },
     };
     // clang-format on
 
     _linedefs.insert(_linedefs.end(), defs.begin(), defs.end());
+    _bag_order = sort_bag();
 
     return true;
 }
@@ -476,6 +568,7 @@ bool PuzzleState::on_enter()
     _success = false;
     _state_timer = 0.0f;
     _state = 0;
+    _ghost_row = -1;
     return true;
 }
 
@@ -502,9 +595,15 @@ void PuzzleState::draw_tile(const ControlLineDef& linedef, int x, int y, bool ce
         y -= TileSheetLayout::TileSize / 2;
     }
 
-    int ox = (bgtile % TileSheetLayout::Columns) * TileSheetLayout::TileSize;
-    int oy = (bgtile / TileSheetLayout::Columns) * TileSheetLayout::TileSize;
-    _app->draw_partial_sprite(x, y, &_sprites[Sprite::PiecesSheet], ox, oy, TileSheetLayout::TileSize, TileSheetLayout::TileSize);
+    int ox;
+    int oy;
+
+    if (bgtile != PuzzleTileSheet::Ghost)
+    {
+        ox = (bgtile % TileSheetLayout::Columns) * TileSheetLayout::TileSize;
+        oy = (bgtile / TileSheetLayout::Columns) * TileSheetLayout::TileSize;
+        _app->draw_partial_sprite(x, y, &_sprites[Sprite::PiecesSheet], ox, oy, TileSheetLayout::TileSize, TileSheetLayout::TileSize);
+    }
 
     ox = (fgtile % TileSheetLayout::Columns) * TileSheetLayout::TileSize;
     oy = (fgtile / TileSheetLayout::Columns) * TileSheetLayout::TileSize;
@@ -524,13 +623,13 @@ size_t PuzzleState::select_from_bag(int x, int y)
         V2i offset = pos - bag_rect.origin;
         selected = (offset.x / PuzzleBoardLayout::BagStep) + (offset.y / PuzzleBoardLayout::BagStep) * PuzzleBoardLayout::BagColumns;
 
-        if (selected >= _linedefs.size())
+        if (selected >= _bag_order.size())
         {
             selected = 0;
         }
         else
         {
-            selected = selected + 1;
+            selected = _bag_order[selected] + 1;
         }
     }
 
@@ -635,5 +734,71 @@ bool PuzzleState::add_to_solution(int x, int y, size_t def)
     return false;
 }
 
+
+std::vector<size_t> PuzzleState::sort_solution_row(int row)
+{
+    // Sort the solution row so that signals and control bus wires appear in the order they take effect
+    // DL -> Signals (other than write) -> ASSERTS -> LATCHES (other than DL) -> W
+    // Include the ghost (if it's in this row and can be added)
+    std::vector<size_t> result;
+    result.reserve(PuzzleBoardLayout::SolutionColumns);
+
+    for (size_t i = 0; i < PuzzleBoardLayout::SolutionColumns; ++i)
+    {
+        if (_solution[i + row * PuzzleBoardLayout::SolutionColumns])
+        {
+            result.push_back(_solution[i + row * PuzzleBoardLayout::SolutionColumns]);
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if (row == _ghost_row && result.size() < PuzzleBoardLayout::SolutionColumns)
+    {
+        result.push_back(_linedefs.size());
+    }
+
+    std::sort(result.begin(), result.end(), [this](const size_t& a, const size_t& b) -> bool
+    {
+        const ControlLineDef& la = (a == _linedefs.size()) ? _linedefs[_dragging - 1] : _linedefs[a - 1];
+        const ControlLineDef& lb = (b == _linedefs.size()) ? _linedefs[_dragging - 1] : _linedefs[b - 1];
+        auto ita = std::find(sort_order.begin(), sort_order.end(), la.line);
+        auto itb = std::find(sort_order.begin(), sort_order.end(), lb.line);
+        bool result = true;
+
+        if (ita != sort_order.end() && itb != sort_order.end())
+        {
+            result = std::distance(sort_order.begin(), ita) < std::distance(sort_order.begin(), itb);
+        }
+
+        return result;
+    });
+
+    return result;
+}
+
+std::vector<size_t> PuzzleState::sort_bag()
+{
+    std::vector<size_t> result(_linedefs.size() - 1);
+    std::iota(result.begin(), result.end(), 0);
+    std::sort(result.begin(), result.end(), [this](const size_t& a, const size_t& b) -> bool {
+        const ControlLineDef& la = _linedefs[a];
+        const ControlLineDef& lb = _linedefs[b];
+        auto ita = std::find(sort_order.begin(), sort_order.end(), la.line);
+        auto itb = std::find(sort_order.begin(), sort_order.end(), lb.line);
+        bool result = true;
+
+        if (ita != sort_order.end() && itb != sort_order.end())
+        {
+            result = std::distance(sort_order.begin(), ita) < std::distance(sort_order.begin(), itb);
+        }
+
+        return result;
+    });
+
+    return result;
+}
 
 } // namespace Bootstrap
