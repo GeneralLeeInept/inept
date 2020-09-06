@@ -44,7 +44,7 @@ def get_next_version(repo):
     return format_version(major, minor, int(patch) + 1)
 
 
-def release_package(arch, executable, assets, testing):
+def release_package(release_version, arch, executable, assets, testing):
     release_dir = get_app_root() / 'releases' / release_version / arch
     release_dir.mkdir(parents=True, exist_ok=args.testing)
     shutil.copy2(Path(tempdir) / 'assets.zip', release_dir / 'assets.glp')
@@ -59,7 +59,6 @@ if __name__ == "__main__":
     parser.add_argument('-v', dest='version', help='Version to build')
     args = parser.parse_args()
 
-    # try:
     inept_root = get_inept_root()
     repo = Repo(inept_root)
 
@@ -101,12 +100,9 @@ if __name__ == "__main__":
         shutil.make_archive(Path(tempdir) / 'assets', 'zip', assets_dir)
 
         # Create release packages
-        release_package('x86', get_inept_root() / 'project/_builds/bootstrap/Win32/Release/bin/bootstrap.exe', Path(tempdir) / 'assets.zip', args.testing)
-        release_package('x64', get_inept_root() / 'project/_builds/bootstrap/Release/bin/bootstrap.exe', Path(tempdir) / 'assets.zip', args.testing)
+        release_package(release_version, 'x86', get_inept_root() / 'project/_builds/bootstrap/Win32/Release/bin/bootstrap.exe', Path(tempdir) / 'assets.zip', args.testing)
+        release_package(release_version, 'x64', get_inept_root() / 'project/_builds/bootstrap/Release/bin/bootstrap.exe', Path(tempdir) / 'assets.zip', args.testing)
 
     # Add tag to repo
     if not args.testing:
         new_tag = repo.create_tag(release_tag, ref=head, message=f'Bootstrap release {release_version}')
-
-    # except Exception as err:
-    #     print(f"Error: {err}")
