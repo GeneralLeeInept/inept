@@ -615,7 +615,7 @@ size_t PuzzleState::select_from_bag(int x, int y)
 {
     V2i pos{ x, y };
     Recti bag_rect{ { PuzzleBoardLayout::BagX, PuzzleBoardLayout::BagY },
-                    { PuzzleBoardLayout::BagStep * PuzzleBoardLayout::BagColumns, PuzzleBoardLayout::BagStep * PuzzleBoardLayout::BagRows } };
+                    { PuzzleBoardLayout::BagStep * PuzzleBoardLayout::BagColumns - 1, PuzzleBoardLayout::BagStep * PuzzleBoardLayout::BagRows - 1 } };
     size_t selected = 0;
 
     if (contains(bag_rect, pos))
