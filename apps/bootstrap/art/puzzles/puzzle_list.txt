@@ -1,0 +1,12 @@
+tax
+txa
+lda_immediate
+sta_indexed
+clc
+add
+sub
+inc
+ora_indexed
+jmp
+lda_indirect
+sta

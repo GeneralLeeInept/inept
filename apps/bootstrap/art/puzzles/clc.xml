@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<puzzle>
+    <title>$B0 CLC</title>
+    <description>Clear carry bit</description>
+    <tests>
+        <test>
+            <initial_state p="3"/>
+            <pass_state p="2" />
+        </test>
+    </tests>
+</puzzle>

@@ -5,6 +5,9 @@
 #include "bootstrap.h"
 #include "random.h"
 #include "vga9.h"
+#include "vread.h"
+
+#include <algorithm>
 
 namespace Bootstrap
 {
@@ -56,6 +59,44 @@ static const float dv = 6.0f;
 static const float bullet_speed = 10.0f; // experimentally derived
 
 
+constexpr uint32_t puzzle_list_4cc()
+{
+    uint32_t magic = 0;
+    return magic | ('P' << 24) | ('L' << 16) | ('S' << 8) | 'T';
+}
+
+
+std::vector<std::string> load_puzzle_list(const std::string& path)
+{
+    std::vector<uint8_t> data;
+    std::vector<std::string> result;
+
+    if (!GliFileSystem::get()->read_entire_file(path.c_str(), data))
+    {
+        return result;
+    }
+
+    size_t read_ptr = 0;
+    uint32_t magic;
+
+    if (!vread(magic, data, read_ptr) || magic != puzzle_list_4cc())
+    {
+        return result;
+    }
+
+    std::vector<std::string> temp;
+    bool success = vread(temp, data, read_ptr);
+
+    if (success)
+    {
+        result.reserve(temp.size());
+        std::transform(temp.begin(), temp.end(), std::back_inserter(result), [](const std::string& path) -> std::string { return asset_path(path); });
+    }
+
+    return result;
+}
+
+
 bool GamePlayState::on_init(App* app)
 {
     _app = app;
@@ -97,24 +138,30 @@ bool GamePlayState::on_init(App* app)
         return false;
     }
 
-    // clang-format off
-    static const std::vector<const char*> puzzle_paths{
-        GliAssetPath("puzzles/tax.bin"),
-        GliAssetPath("puzzles/txa.bin"),
-        GliAssetPath("puzzles/lda_immediate.bin"),
-        GliAssetPath("puzzles/add.bin"),
-        GliAssetPath("puzzles/sub.bin"),
-        GliAssetPath("puzzles/inc.bin"),
-        GliAssetPath("puzzles/ora_indexed.bin"),
-        GliAssetPath("puzzles/jmp.bin"),
-        GliAssetPath("puzzles/lda_indirect.bin"),
-        GliAssetPath("puzzles/sta.bin"),
-    };
-    // clang-format on
+    //// clang-format off
+    //static const std::vector<const char*> puzzle_paths{
+    //    GliAssetPath("puzzles/tax.bin"),
+    //    GliAssetPath("puzzles/txa.bin"),
+    //    GliAssetPath("puzzles/lda_immediate.bin"),
+    //    GliAssetPath("puzzles/add.bin"),
+    //    GliAssetPath("puzzles/sub.bin"),
+    //    GliAssetPath("puzzles/inc.bin"),
+    //    GliAssetPath("puzzles/ora_indexed.bin"),
+    //    GliAssetPath("puzzles/jmp.bin"),
+    //    GliAssetPath("puzzles/lda_indirect.bin"),
+    //    GliAssetPath("puzzles/sta.bin"),
+    //};
+    //// clang-format on
+    std::vector<std::string> puzzle_paths = load_puzzle_list(GliAssetPath("puzzles/puzzle_list.bin"));
+
+    if (puzzle_paths.empty())
+    {
+        return false;
+    }
 
     _puzzles.reserve(puzzle_paths.size());
 
-    for (const char* path : puzzle_paths)
+    for (const std::string& path : puzzle_paths)
     {
         Puzzle::Definition definition;
 
@@ -317,6 +364,7 @@ bool GamePlayState::on_update(float delta)
                 _bullets.clear();
                 _post_puzzle_cooloff = 0.5f;
                 _state_transition_timer = 0.0f;
+                _movables[0].velocity = V2f{};
 
                 if (success)
                 {

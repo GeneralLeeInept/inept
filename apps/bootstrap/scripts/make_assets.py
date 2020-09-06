@@ -1,5 +1,6 @@
 import argparse
 import shutil
+import struct
 from pathlib import Path
 import compile_map
 import compile_puzzle
@@ -16,23 +17,39 @@ def add_files(pattern, file_set):
         file_set.add(path)
 
 
+def process_puzzle_list(input, output):
+    output.write(struct.pack('L', 0x504c5354))
+    lines = list(filter(None, (line.rstrip() for line in input)))
+    output.write(struct.pack('H', len(lines)))
+
+    for l in lines:
+        path = f'puzzles/{l}.bin'.encode('utf-8')
+        output.write(struct.pack('H', len(path)))
+        output.write(path)
+
+
 def process_files(file_set, target_dir):
     for f in file_set:
         print(f"Processing asset '{f}'")
         file_type = f.suffix.lower()
         target_path = target_dir / f.relative_to(get_asset_root())
         target_path.parents[0].mkdir(parents=True, exist_ok=True)
+        puzzles = target_path.match('**/puzzles/*')
 
         if file_type == '.tmx':
             # Tiled map file...
             target_path = target_path.with_suffix('.bin')
             with open(f, 'rt') as input, open(target_path, 'wb') as output:
                 compile_map.process(input, get_asset_root(), output)
-        elif file_type == '.xml':
+        elif puzzles and file_type == '.xml':
             # Puzzle file
             target_path = target_path.with_suffix('.bin')
             with open(f, 'rt') as input, open(target_path, 'wb') as output:
                 compile_puzzle.process(input, output)
+        elif puzzles and target_path.name == 'puzzle_list.txt':
+            target_path = target_path.with_suffix('.bin')
+            with open(f, 'rt') as input, open(target_path, 'wb') as output:
+                process_puzzle_list(input, output)
         else:
             # Default
             shutil.copy2(f, target_path)

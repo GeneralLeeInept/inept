@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<puzzle>
+    <title>$AB STA imm8,X</title>
+    <description>Store accumulator, indexed</description>
+    <tests>
+        <test>
+            <initial_state pc="1" a="CD" x="80">
+                <ram addr="0">
+                    11,20
+                </ram>
+            </initial_state>
+            <pass_state pc="2" a="CD" x="80">
+                <ram addr="2080">
+                    CD
+                </ram>
+            </pass_state>
+        </test>
+    </tests>
+</puzzle>

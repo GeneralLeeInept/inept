@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<puzzle>
+    <title>$54 INC imm8,X</title>
+    <description>Increment memory, indexed</description>
+    <tests>
+        <test>
+            <initial_state pc="1" p="0" x="FF">
+                <ram addr="00">
+                    54,03
+                </ram>
+                <ram addr="03FF">
+                    FF
+                </ram>
+            </initial_state>
+            <pass_state pc="2" p="1" x="FF">
+                <ram addr="03FF">
+                    00
+                </ram>
+            </pass_state>
+        </test>
+    </tests>
+</puzzle>

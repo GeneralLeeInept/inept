@@ -13,6 +13,7 @@ gui/victory.png
 maps/6502.tmx
 maps/6502.png
 puzzles/*.xml
+puzzles/puzzle_list.txt
 sprites/*.png
 tilesets/*.png
 fx/*.png

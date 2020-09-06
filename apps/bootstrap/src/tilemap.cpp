@@ -1,5 +1,6 @@
 #include "tilemap.h"
 
+#include "assets.h"
 #include "collision.h"
 #include "vread.h"
 
@@ -12,21 +13,6 @@ constexpr uint32_t map4cc()
 {
     uint32_t magic = 0;
     return magic | ('M' << 24) | ('A' << 16) | ('P' << 8) | ' ';
-}
-
-std::string asset_path(const std::string& path)
-{
-    // This is all because I messed up the filesystem - I don't want to have to special case every file path I use.
-#if GLI_SHIPPING
-    const std::string container = "//assets.glp//";
-#else
-    const std::string container;
-#endif
-
-    size_t size = std::snprintf(nullptr, 0, "%s%s", container.c_str(), path.c_str()) + 1;
-    std::string buf(size, '\0');
-    std::snprintf(&buf[0], size, "%s%s", container.c_str(), path.c_str());
-    return buf;
 }
 
 
