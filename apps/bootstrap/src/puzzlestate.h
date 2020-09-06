@@ -49,7 +49,7 @@ private:
     size_t select_from_solution(int x, int y);
     void remove_from_solution(int x, int y);
     bool add_to_solution(int x, int y, size_t def);
-    std::vector<size_t> sort_solution_row(int row);
+    std::vector<size_t> sort_solution_row(int row, bool add_ghost);
     std::vector<size_t> sort_bag();
 
     std::vector<ControlLineDef> _linedefs;

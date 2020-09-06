@@ -72,7 +72,7 @@ enum PuzzleBoardLayout
     OpcodeTitleW = 154,
     OpcodeTitleH = 16,
     OpcodeDescX = 34,
-    OpcodeDescY = 177,
+    OpcodeDescY = 181,
     OpcodeDescW = 154,
     OpcodeDescH = 99,
     GoButtonX = 31,
@@ -157,6 +157,8 @@ static const std::vector<uint8_t> sort_order{
     TgmCpu::Wire::aiPCL,
     TgmCpu::Wire::aiPCH,
     TgmCpu::Wire::aiADD,
+    TgmCpu::Wire::laADD,
+    TgmCpu::Wire::laC,
     TgmCpu::Wire::ldDOR,
     TgmCpu::Wire::ldAC,
     TgmCpu::Wire::ldPCL,
@@ -164,8 +166,6 @@ static const std::vector<uint8_t> sort_order{
     TgmCpu::Wire::ldP,
     TgmCpu::Wire::ldABH,
     TgmCpu::Wire::ldBI,
-    TgmCpu::Wire::laADD,
-    TgmCpu::Wire::laC,
     TgmCpu::Wire::liAC,
     TgmCpu::Wire::liX,
     TgmCpu::Wire::liPCL,
@@ -407,7 +407,7 @@ void PuzzleState::render(float delta)
 #else
     for (int i = 0; i < PuzzleBoardLayout::SolutionRows; ++i)
     {
-        std::vector<size_t> sorted = sort_solution_row(i);
+        std::vector<size_t> sorted = sort_solution_row(i, true);
 
         idx = 0;
 
@@ -648,11 +648,13 @@ size_t PuzzleState::select_from_solution(int x, int y)
     if (contains(solution_rect, pos))
     {
         V2i offset = pos - solution_rect.origin;
-        size_t index =
-                (offset.x / PuzzleBoardLayout::SolutionStep) + (offset.y / PuzzleBoardLayout::SolutionStep) * PuzzleBoardLayout::SolutionColumns;
+        int row = offset.y / PuzzleBoardLayout::SolutionStep;
+        int column = offset.x / PuzzleBoardLayout::SolutionStep;
 
-        if (index < SolutionRows * SolutionColumns)
+        if (row < PuzzleBoardLayout::SolutionRows && column < PuzzleBoardLayout::SolutionColumns)
         {
+            std::vector<size_t> sorted = sort_solution_row(row, false);
+            size_t index = row * PuzzleBoardLayout::SolutionColumns + column;
             tile = _solution[index];
         }
     }
@@ -735,7 +737,7 @@ bool PuzzleState::add_to_solution(int x, int y, size_t def)
 }
 
 
-std::vector<size_t> PuzzleState::sort_solution_row(int row)
+std::vector<size_t> PuzzleState::sort_solution_row(int row, bool add_ghost)
 {
     // Sort the solution row so that signals and control bus wires appear in the order they take effect
     // DL -> Signals (other than write) -> ASSERTS -> LATCHES (other than DL) -> W
@@ -755,11 +757,12 @@ std::vector<size_t> PuzzleState::sort_solution_row(int row)
         }
     }
 
-    if (row == _ghost_row && result.size() < PuzzleBoardLayout::SolutionColumns)
+    if (add_ghost && row == _ghost_row && result.size() < PuzzleBoardLayout::SolutionColumns)
     {
         result.push_back(_linedefs.size());
     }
 
+#if 0
     std::sort(result.begin(), result.end(), [this](const size_t& a, const size_t& b) -> bool
     {
         const ControlLineDef& la = (a == _linedefs.size()) ? _linedefs[_dragging - 1] : _linedefs[a - 1];
@@ -775,6 +778,7 @@ std::vector<size_t> PuzzleState::sort_solution_row(int row)
 
         return result;
     });
+#endif
 
     return result;
 }

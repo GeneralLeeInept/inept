@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<puzzle>
+    <title>$BB ORA imm8,X</title>
+    <description>Bitwise OR with accumulator, indexed.</description>
+    <tests>
+        <test>
+            <initial_state pc="1" x="2C" a="A5">
+                <ram addr="0">
+                    BB,30
+                </ram>
+                <ram addr="302C">
+                    5A
+                </ram>
+            </initial_state>
+            <pass_state pc="2" x="2C" a="FF" />
+        </test>
+    </tests>
+</puzzle>

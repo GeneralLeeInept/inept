@@ -95,12 +95,14 @@ bool GamePlayState::on_init(App* app)
 
     // clang-format off
     static const std::vector<const char*> puzzle_paths{
+        GliAssetPath("puzzles/ora_indexed.bin"),
         GliAssetPath("puzzles/tax.bin"),
         GliAssetPath("puzzles/txa.bin"),
         GliAssetPath("puzzles/lda_immediate.bin"),
         GliAssetPath("puzzles/add.bin"),
         GliAssetPath("puzzles/sub.bin"),
         GliAssetPath("puzzles/inc.bin"),
+        GliAssetPath("puzzles/ora_indexed.bin"),
         GliAssetPath("puzzles/jmp.bin"),
         GliAssetPath("puzzles/lda_indirect.bin"),
         GliAssetPath("puzzles/sta.bin"),

@@ -15,11 +15,12 @@
 15. Cheat / hint - encode a solution in the puzzles, allow the user to study the solution and then clear the grid
 --- 16. Win32 build
 --- 17. Windows 7 compatibility (exclude xinput?)
-16. Indexed instructions?
+16. Rev-C CPU: Indexed instructions
 17. Death / destruction animations
 18. color blind -- use shapes as well as colors to distinguish wires
-19. Sort wires in lines in order that they are signalled within a cycle
-20. Hints for documentation.
+(+) 19. Sort wires in lines in order that they are signalled within a cycle
+(+) 20. Hints for documentation.
+
 
 Polish
 ------
@@ -31,3 +32,4 @@ Polish
 Bugs
 ----
 * puzzle piece wraparound at the edge of the piece bag
+* solution piece tool tips are wrong
