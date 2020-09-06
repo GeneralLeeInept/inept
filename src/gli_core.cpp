@@ -1217,16 +1217,30 @@ int wWinMainInternal(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLin
 
     std::vector<char*> argv(__argc);
 
-    for (int i = 0; i < __argc; ++i)
+    if (__wargv)
     {
-        argv[i] = gli::wchar_to_utf8(__wargv[i]);
+        for (int i = 0; i < __argc; ++i)
+        {
+            argv[i] = gli::wchar_to_utf8(__wargv[i]);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < __argc; ++i)
+        {
+            argv[i] = __argv[i];
+        }
     }
 
     int result = gli_main(__argc, argv.data());
 
-    for (char*& argptr : argv)
+
+    if (__wargv)
     {
-        free(argptr);
+        for (char*& argptr : argv)
+        {
+            free(argptr);
+        }
     }
 
     CoUninitialize();
@@ -1258,3 +1272,30 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
     return result;
 }
+
+
+#ifdef WIN32
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nCmdShow)
+{
+    int result;
+
+    if (IsDebuggerPresent())
+    {
+        result = wWinMainInternal(hInstance, hPrevInstance, GetCommandLineW(), nCmdShow);
+    }
+    else
+    {
+        __try
+        {
+            result = wWinMainInternal(hInstance, hPrevInstance, GetCommandLineW(), nCmdShow);
+        }
+        __except (UnhandledExceptionFilter(GetExceptionInformation()))
+        {
+            MessageBoxW(0, L"A wild exception appears! The application will die horribly now.", L"Oh no!", MB_ICONERROR | MB_OK);
+            result = -1;
+        }
+    }
+
+    return result;
+}
+#endif

@@ -44,64 +44,69 @@ def get_next_version(repo):
     return format_version(major, minor, int(patch) + 1)
 
 
+def release_package(arch, executable, assets, testing):
+    release_dir = get_app_root() / 'releases' / release_version / arch
+    release_dir.mkdir(parents=True, exist_ok=args.testing)
+    shutil.copy2(Path(tempdir) / 'assets.zip', release_dir / 'assets.glp')
+    package_exe_name = f'{executable.stem}_{arch}{executable.suffix}'
+    shutil.copy2(executable, release_dir / package_exe_name)
+    archive_name = f'releases/bootstrap-{arch}-{release_version}{"-testing" if testing else ""}'
+    shutil.make_archive(get_app_root() / archive_name, 'zip', release_dir)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', dest='testing', action='store_true', help='Build release for testing')
     parser.add_argument('-v', dest='version', help='Version to build')
     args = parser.parse_args()
 
-    try:
-        inept_root = get_inept_root()
-        repo = Repo(inept_root)
+    # try:
+    inept_root = get_inept_root()
+    repo = Repo(inept_root)
 
-        if not args.testing and repo.is_dirty():
-            raise RuntimeError("Repository is not up to date, cannot continue.")
+    if not args.testing and repo.is_dirty():
+        raise RuntimeError("Repository is not up to date, cannot continue.")
 
-        # Build ID
-        head = repo.head.commit
-        sha_head = head.hexsha
-        build_id = repo.git.rev_parse(sha_head, short=7).upper()
+    # Build ID
+    head = repo.head.commit
+    sha_head = head.hexsha
+    build_id = repo.git.rev_parse(sha_head, short=7).upper()
 
-        # Release tag
-        release_version = get_next_version(repo) if not args.version else args.version
-        release_version = f'{release_version}-testing' if args.testing else release_version
-        release_tag = f'bootstrap-{release_version}'
-        print(f"Building version '{release_version} using commit '{build_id}'")
+    # Release tag
+    release_version = get_next_version(repo) if not args.version else args.version
+    release_version = f'{release_version}-testing' if args.testing else release_version
+    release_tag = f'bootstrap-{release_version}'
+    print(f"Building version '{release_version} using commit '{build_id}'")
 
-        # Build
-        msbuild =  r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\MSBuild\Current\Bin\MSBuild.exe"
-        if not os.path.isfile(msbuild):
-            raise RuntimeError("MsBuild not found.")
+    # Build
+    msbuild =  r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\MSBuild\Current\Bin\MSBuild.exe"
+    if not os.path.isfile(msbuild):
+        raise RuntimeError("MsBuild not found.")
 
-        solution = str(inept_root / 'project/inept.sln') # don't love this, should generate solutions for the apps
-        print(f"Building {solution}...")
-        target = '-t:bootstrap:Rebuild'
-        configuration = '-p:Configuration=Release'
-        platform = '-p:Platform=x64'
-        appversion = f'-p:GliAppVersion=\\"Version {release_version} Build {build_id}\\"'
-        shipping = '-p:GliShipping=1'
-        subprocess.check_call([msbuild, solution, target, configuration, platform, appversion, shipping])
+    solution = str(inept_root / 'project/inept.sln') # don't love this, should generate solutions for the apps
+    print(f"Building {solution}...")
+    target = '-t:bootstrap' if args.testing else '-t:bootstrap:Rebuild'
+    configuration = '-p:Configuration=Release'
+    platform = '-p:Platform=x64'
+    appversion = f'-p:GliAppVersion=\\"Version {release_version} Build {build_id}\\"'
+    shipping = '-p:GliShipping=1'
+    subprocess.check_call([msbuild, solution, target, configuration, platform, appversion, shipping])
 
-        # Create release folder
-        release_dir = get_app_root() / 'releases' / release_version
-        release_dir.mkdir(parents=True, exist_ok=args.testing)
+    platform = '-p:Platform=Win32'
+    subprocess.check_call([msbuild, solution, target, configuration, platform, appversion, shipping])
 
-        # Build assets
-        with tempfile.TemporaryDirectory() as tempdir, open(get_app_root() / 'res/assets.txt') as asset_list:
-            assets_dir = Path(tempdir) / 'assets'
-            make_assets.process(asset_list, assets_dir)
-            shutil.make_archive(Path(tempdir) / 'assets', 'zip', assets_dir)
-            shutil.copy2(Path(tempdir) / 'assets.zip', release_dir / 'assets.glp')
+    # Build assets
+    with tempfile.TemporaryDirectory() as tempdir, open(get_app_root() / 'res/assets.txt') as asset_list:
+        assets_dir = Path(tempdir) / 'assets'
+        make_assets.process(asset_list, assets_dir)
+        shutil.make_archive(Path(tempdir) / 'assets', 'zip', assets_dir)
 
-        # Copy build to release
-        shutil.copy2(get_inept_root() / 'project/_builds/bootstrap/Release/bin/bootstrap.exe', release_dir / 'bootstrap.exe')
+        # Create release packages
+        release_package('x86', get_inept_root() / 'project/_builds/bootstrap/Win32/Release/bin/bootstrap.exe', Path(tempdir) / 'assets.zip', args.testing)
+        release_package('x64', get_inept_root() / 'project/_builds/bootstrap/Release/bin/bootstrap.exe', Path(tempdir) / 'assets.zip', args.testing)
 
-        if not args.testing:
-            # Create zip
-            shutil.make_archive(get_app_root() / f'releases/bootstrap-{release_version}', 'zip', release_dir)
+    # Add tag to repo
+    if not args.testing:
+        new_tag = repo.create_tag(release_tag, ref=head, message=f'Bootstrap release {release_version}')
 
-            # Add tag to git
-            new_tag = repo.create_tag(release_tag, ref=head, message=f'Bootstrap release {release_version}')
-
-    except Exception as err:
-        print(f"Error: {err}")
+    # except Exception as err:
+    #     print(f"Error: {err}")

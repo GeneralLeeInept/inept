@@ -159,11 +159,17 @@ void App::draw_text_box(int x, int y, int w, int h, const std::string& text, con
 
 Bootstrap::App app;
 
+#ifdef WIN32
+#define GLI_PLATFORM "Win32"
+#else
+#define GLI_PLATFORM "x64"
+#endif
+
 int gli_main(int argc, char** argv)
 {
-    size_t size = std::snprintf(nullptr, 0, "Bootstrap (%s)", APP_VERSION) + 1;
+    size_t size = std::snprintf(nullptr, 0, "Bootstrap (%s %s)", GLI_PLATFORM, APP_VERSION) + 1;
     std::string title(size, '\0');
-    std::snprintf(&title[0], size, "Bootstrap (%s)", APP_VERSION);
+    std::snprintf(&title[0], size, "Bootstrap (%s %s)", GLI_PLATFORM, APP_VERSION);
 
     if (app.initialize(title.c_str(), 640, 360, 2))
     {

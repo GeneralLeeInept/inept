@@ -6,3 +6,4 @@
 * Add appversion to project template (cf build_release.py)
 * Windows resource files are a mess, I'm not even sure what I intend to do with them
 * I mostly like the asset build process in bootstrap (it's a good start at least) but it's irritating to have to build when iterating
+* Can I haz fullscreen?
