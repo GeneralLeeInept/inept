@@ -44,6 +44,10 @@ static const float NmiCooldown = 1.2f;
 static const float NmiDuration = NmiCooldown;
 static const float NmiRadius = 1.5f;
 
+static const float ParticleLifeMin = 0.2f;
+static const float ParticleLifeMax = 0.5f;
+
+
 // Physics constants
 static const float min_v = 0.5f;
 static const float drag = 0.95f;
@@ -95,7 +99,6 @@ bool GamePlayState::on_init(App* app)
 
     // clang-format off
     static const std::vector<const char*> puzzle_paths{
-        GliAssetPath("puzzles/ora_indexed.bin"),
         GliAssetPath("puzzles/tax.bin"),
         GliAssetPath("puzzles/txa.bin"),
         GliAssetPath("puzzles/lda_immediate.bin"),
@@ -269,6 +272,7 @@ bool GamePlayState::on_update(float delta)
     else if (_game_over)
     {
         update_simulation(delta);
+        update_particles(delta);
         render_game(delta);
         _state_transition_timer += delta;
 
@@ -285,6 +289,7 @@ bool GamePlayState::on_update(float delta)
     {
         if (_state_transition_timer < ShortFade)
         {
+            update_particles(delta);
             render_game(delta);
             render_hud(delta);
             _app->set_screen_fade(App::BgColor, ease_in(_state_transition_timer / ShortFade));
@@ -315,6 +320,7 @@ bool GamePlayState::on_update(float delta)
 
                 if (success)
                 {
+                    spawn_particle_system(_movables[_puzzle_target]);
                     _movables[_puzzle_target].active = false;
                     _score += 100;
                     _health += 20;
@@ -385,6 +391,7 @@ bool GamePlayState::on_update(float delta)
 
                     if (_map_view == 0 || _map_view == 1 || _map_view == 5)
                     {
+                        update_particles(delta);
                         render_game(delta);
                         render_hud(delta);
                     }
@@ -407,6 +414,7 @@ bool GamePlayState::on_update(float delta)
                 else
                 {
                     update_simulation(delta);
+                    update_particles(delta);
                     render_game(delta);
                     render_hud(delta);
                 }
@@ -421,6 +429,11 @@ void GamePlayState::update_simulation(float delta)
 {
     _simulation_delta += delta;
 
+    if (_app->key_state(gli::Key_P).pressed)
+    {
+        spawn_particle_system(_movables[0]);
+    }
+
     // Simulate at 120Hz regardless of frame rate..
     while (_simulation_delta > 1.0f / 120.0f)
     {
@@ -431,6 +444,7 @@ void GamePlayState::update_simulation(float delta)
                 _movables[0].active = false;
                 _game_over = true;
                 _state_transition_timer = 0.0f;
+                spawn_particle_system(_movables[0]);
             }
             else if (_ais_remaining == 0)
             {
@@ -762,6 +776,8 @@ void GamePlayState::render_game(float delta)
     }
 
     // fx - post-sprites
+    render_particles();
+
     for (Bullet& bullet : _bullets)
     {
         draw_sprite(bullet.position, Sprite::Bullet_, 0);
@@ -1081,6 +1097,63 @@ void GamePlayState::update_bullets(float delta)
     _bullets = keep_bullets;
 }
 
+
+void GamePlayState::spawn_particle_system(const Movable& movable)
+{
+    gli::Sprite& sprite = _sprites[movable.sprite];
+    int size = sprite.height();
+    _particles.reserve(_particles.size() + size);
+    V2f pos = (movable.position * _tilemap.tile_size()) + V2f{ size * -0.5f, size * -0.5f };
+
+    pos.x += 48.0f;
+
+    for (int i = 0; i < size; ++i)
+    {
+        Particle p;
+        p.column = i;
+        p.sprite = movable.sprite;
+        p.frame = movable.frame;
+        p.life = gRandom.get(ParticleLifeMin, ParticleLifeMax);
+        p.max_life = p.life;
+        p.velocity.y = -2.0f * sprite.height() / p.life;
+        p.position = pos;
+        pos.x = pos.x + 1.0f;
+        _particles.push_back(p);
+    }
+}
+
+
+void GamePlayState::update_particles(float delta)
+{
+    std::vector<Particle> keep_particles;
+    keep_particles.reserve(_particles.size());
+
+    for (Particle& particle : _particles)
+    {
+        if (particle.life > delta)
+        {
+            particle.life -= delta;
+            particle.position.y += delta * particle.velocity.y;
+            keep_particles.push_back(particle);
+        }
+    }
+
+    _particles = keep_particles;
+}
+
+
+void GamePlayState::render_particles()
+{
+    for (Particle& p : _particles)
+    {
+        gli::Sprite& sprite = _sprites[p.sprite];
+        int size = sprite.height();
+        int sx = (int)(p.position.x + 0.5f) - _cx;
+        int sy = (int)(p.position.y + 0.5f) - _cy;
+        uint8_t alpha = std::ceil(ease_in(p.life / p.max_life) * 255.0f);
+        _app->blend_partial_sprite(sx, sy, sprite, p.frame * size + p.column, 0, 1, size, alpha);
+    }
+}
 
 size_t GamePlayState::find_enemy_in_range(const V2f& pos, float radius)
 {

@@ -64,6 +64,17 @@ private:
         float radius;
     };
 
+    struct Particle
+    {
+        V2f position;
+        V2f velocity;
+        float life;
+        float max_life;
+        Sprite sprite;
+        int frame;
+        int column;
+    };
+
     void update_simulation(float delta);
     void update_ai(float delta);
 
@@ -80,6 +91,10 @@ private:
     void fire_bullet(const Movable& attacker, const V2f& target);
     void update_bullets(float delta);
 
+    void spawn_particle_system(const Movable& movable);
+    void update_particles(float delta);
+    void render_particles();
+
     size_t find_enemy_in_range(const V2f& pos, float radius);
 
     bool on_screen(const Movable& movable, float hysterisis);
@@ -88,6 +103,7 @@ private:
     std::vector<Movable> _movables;
     std::vector<AiBrain> _brains;
     std::vector<Bullet> _bullets;
+    std::vector<Particle> _particles;
 
     PuzzleState _puzzle_state;
     TileMap _tilemap;
