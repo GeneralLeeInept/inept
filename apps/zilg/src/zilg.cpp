@@ -128,7 +128,7 @@ public:
         return true;
     }
 
-    GliFileSystem fs;
+    gli::FileSystem fs;
     ZMachine zm;
     std::vector<uint8_t> story_data;
     std::string input_buffer;
