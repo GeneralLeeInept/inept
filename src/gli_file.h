@@ -5,32 +5,38 @@
 #include <memory>
 
 
-class GliFile
+namespace gli
 {
+
+class FileContainer;
+
+
+class File
+{
+    friend FileContainer;
+
 public:
-    GliFile(class GliFileContainer* container, void* handle);
-    ~GliFile();
+    File(FileContainer* container, void* handle);
+    ~File();
 
     void close();
     bool valid();
 
 protected:
-    friend class GliFileContainer;
-
-    class GliFileContainer* _container;
+    FileContainer* _container;
     void* _handle;
 };
 
 
-class GliFileContainer
+class FileContainer
 {
 public:
-    GliFileContainer() = default;
-    virtual ~GliFileContainer() = default;
+    FileContainer() = default;
+    virtual ~FileContainer() = default;
 
-    bool open(const char* path, GliFile*& handle);
-    void close(GliFile* handle);
-    bool valid(GliFile* handle);
+    bool open(const char* path, File*& handle);
+    void close(File* handle);
+    bool valid(File* handle);
     
     bool read_entire_file(const char* path, std::vector<uint8_t>& contents);
 
@@ -45,27 +51,29 @@ protected:
 };
 
 
-class GliFileSystem
+class FileSystem
 {
 public:
-    static GliFileSystem* get();
+    static FileSystem* get();
 
-    ~GliFileSystem();
+    ~FileSystem();
 
     void shutdown();
 
-    bool open(const char* path, GliFile*& handle);
+    bool open(const char* path, File*& handle);
     bool read_entire_file(const char* path, std::vector<uint8_t>& contents);
 
 private:
-    using GliFileContainerPtr = std::unique_ptr<GliFileContainer>;
-    using GliFileContainerList = std::vector<GliFileContainerPtr>;
-    using GliFileContainerLookup = std::unordered_map<std::string, size_t>;
+    using FileContainerPtr = std::unique_ptr<FileContainer>;
+    using FileContainerList = std::vector<FileContainerPtr>;
+    using FileContainerLookup = std::unordered_map<std::string, size_t>;
 
-    GliFileContainerList _containers;
-    GliFileContainerLookup _container_lookup;
+    FileContainerList _containers;
+    FileContainerLookup _container_lookup;
 
-    GliFileContainer* get_or_create_container(const std::string& container_name);
+    FileContainer* get_or_create_container(const std::string& container_name);
 
-    static GliFileSystem* _singleton;
+    static FileSystem* _singleton;
 };
+
+}

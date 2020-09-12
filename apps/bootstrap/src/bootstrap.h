@@ -27,6 +27,7 @@ private:
     IAppState* _active_state;
     AppState _state;
     AppState _next_state;
+    gli::AudioEngine _audio_engine;
 
     void wrap_text(const std::string& text, int w, size_t& off, size_t& len);
 };

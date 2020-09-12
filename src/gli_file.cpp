@@ -6,22 +6,25 @@
 
 #include <stdio.h>
 
-bool GliFileContainer::open(const char* path, GliFile*& handle)
+namespace gli
+{
+
+bool FileContainer::open(const char* path, File*& handle)
 {
     void* handlei = nullptr;
 
     if (!open_internal(path, handlei))
     {
-        gli::logf("GliFileContainer::open: open_internal failed for '%s'\n", path);
+        gliLog(LogLevel::Warning, "File", "FileContainer::open", "open_internal failed for '%s'.", path);
         return false;
     }
 
-    handle = new GliFile(this, handlei);
+    handle = new File(this, handlei);
     return true;
 }
 
 
-void GliFileContainer::close(GliFile* handle)
+void FileContainer::close(File* handle)
 {
     if (handle)
     {
@@ -31,38 +34,38 @@ void GliFileContainer::close(GliFile* handle)
 }
 
 
-bool GliFileContainer::valid(GliFile* handle)
+bool FileContainer::valid(File* handle)
 {
     return valid_internal(handle->_handle);
 }
 
 
-bool GliFileContainer::read_entire_file(const char* path, std::vector<uint8_t>& contents)
+bool FileContainer::read_entire_file(const char* path, std::vector<uint8_t>& contents)
 {
     return read_entire_file_internal(path, contents);
 }
 
 
-GliFile::GliFile(GliFileContainer* container, void* handle)
+File::File(FileContainer* container, void* handle)
     : _container(container)
     , _handle()
 {
 }
 
 
-GliFile::~GliFile()
+File::~File()
 {
     close();
 }
 
 
-bool GliFile::valid()
+bool File::valid()
 {
     return _container && _container->valid(this);
 }
 
 
-void GliFile::close()
+void File::close()
 {
     if (_container)
     {
@@ -74,7 +77,7 @@ void GliFile::close()
 
 
 // TODO: File container representing the OS file system (or part thereof)
-class GliFileContainerSystem : public GliFileContainer
+class FileContainerSystem : public FileContainer
 {
 public:
     bool attach(const char* container_name) override { return true; }
@@ -125,7 +128,7 @@ public:
 };
 
 
-class GliFileContainerZipFile : public GliFileContainer
+class FileContainerZipFile : public FileContainer
 {
 public:
     bool attach(const char* container_name) override
@@ -141,7 +144,7 @@ public:
     {
         if (_unzfile)
         {
-            gli::logm("Dettaching zip file container.\n");
+            gliLog(LogLevel::Info, "File", "FileContainerZipFile::dettach", "Dettaching zip file container.");
 
             if (_file_opened)
             {
@@ -157,30 +160,30 @@ public:
     {
         if (!_unzfile)
         {
-            gli::logm("GliFileContainerZipFile::open_internal: Not attached.\n");
+            gliLog(LogLevel::Error, "File", "FileContainerZipFile::open_internal", "Not attached.");
             return false;
         }
 
         if (_file_opened)
         {
-            gli::logm("GliFileContainerZipFile::open_internal: Only one file may be opened at a time.\n");
+            gliLog(LogLevel::Error, "File", "FileContainerZipFile::open_internal", "Only one file may be opened at a time.");
             return false;
         }
 
         if (unzLocateFile(_unzfile, path, 1))
         {
-            gli::logf("GliFileContainerZipFile::open_internal: File '%s' not found.\n", path);
+            gliLog(LogLevel::Error, "File", "FileContainerZipFile::open_internal", "File '%s' not found.", path);
             return false;
         }
 
         if (unzGetCurrentFileInfo(_unzfile, &_current_file_info, nullptr, 0, nullptr, 0, nullptr, 0))
         {
-            gli::logf("GliFileContainerZipFile::open_internal: Error getting file info for file '%s' [%d].\n", path, UNZ_ERRNO);
+            gliLog(LogLevel::Error, "File", "FileContainerZipFile::open_internal", "Error getting file info for file '%s' [%d].", path, UNZ_ERRNO);
         }
 
         if (unzOpenCurrentFile(_unzfile))
         {
-            gli::logf("GliFileContainerZipFile::open_internal: Error opening '%s' [%d].\n", path, UNZ_ERRNO);
+            gliLog(LogLevel::Error, "File", "FileContainerZipFile::open_internal", "Error opening '%s' [%d].", path, UNZ_ERRNO);
             return false;
         }
 
@@ -207,30 +210,32 @@ public:
     {
         if (!_unzfile)
         {
-            gli::logm("GliFileContainerZipFile::read_entire_file_internal: Not attached.\n");
+            gliLog(LogLevel::Error, "File", "FileContainerZipFile::read_entire_file_internal", "Not attached.");
             return false;
         }
 
         if (_file_opened)
         {
-            gli::logm("GliFileContainerZipFile::read_entire_file_internal: Only one file may be opened at a time.\n");
+            gliLog(LogLevel::Error, "File", "FileContainerZipFile::read_entire_file_internal", "Only one file may be opened at a time.");
             return false;
         }
 
         if (unzLocateFile(_unzfile, path, 1))
         {
-            gli::logf("GliFileContainerZipFile::read_entire_file_internal: File '%s' not found.\n", path);
+            gliLog(LogLevel::Error, "File", "FileContainerZipFile::read_entire_file_internal", "File '%s' not found.", path);
             return false;
         }
 
         if (unzGetCurrentFileInfo(_unzfile, &_current_file_info, nullptr, 0, nullptr, 0, nullptr, 0))
         {
-            gli::logf("GliFileContainerZipFile::read_entire_file_internal: Error getting file info for file '%s' [%d].\n", path, UNZ_ERRNO);
+            gliLog(LogLevel::Error, "File", "FileContainerZipFile::read_entire_file_internal", "Error getting file info for file '%s' [%d].", path,
+                   UNZ_ERRNO);
+            return false;
         }
 
         if (unzOpenCurrentFile(_unzfile))
         {
-            gli::logf("GliFileContainerZipFile::read_entire_file_internal: Error opening '%s' [%d].\n", path, UNZ_ERRNO);
+            gliLog(LogLevel::Error, "File", "FileContainerZipFile::read_entire_file_internal", "Error opening '%s' [%d].", path, UNZ_ERRNO);
             return false;
         }
 
@@ -243,7 +248,7 @@ public:
         // of bytes read or a negative number if an error occurred, but the requested read size is unsigned).
         if ((uLong)read_result != _current_file_info.uncompressed_size)
         {
-            gli::logf("GliFileContainerZipFile::read_entire_file_internal: Error reading file '%s' [%d].\n", path, UNZ_ERRNO);
+            gliLog(LogLevel::Error, "File", "FileContainerZipFile::read_entire_file_internal", "Error reading file '%s' [%d].", path, UNZ_ERRNO);
             return false;
         }
 
@@ -258,23 +263,23 @@ private:
 };
 
 
-GliFileSystem g_singleton;
-GliFileSystem* GliFileSystem::_singleton = &g_singleton;
+FileSystem g_singleton;
+FileSystem* FileSystem::_singleton = &g_singleton;
 
 
-GliFileSystem* GliFileSystem::get()
+FileSystem* FileSystem::get()
 {
     return _singleton;
 }
 
 
-GliFileSystem::~GliFileSystem()
+FileSystem::~FileSystem()
 {
     shutdown();
 }
 
 
-void GliFileSystem::shutdown()
+void FileSystem::shutdown()
 {
     for (auto& container : _containers)
     {
@@ -283,7 +288,7 @@ void GliFileSystem::shutdown()
 }
 
 
-bool GliFileSystem::open(const char* path, GliFile*& handle)
+bool FileSystem::open(const char* path, File*& handle)
 {
     /*
         Paths are either raw system paths or paths to files in a container:
@@ -291,7 +296,7 @@ bool GliFileSystem::open(const char* path, GliFile*& handle)
     */
     bool success = false;
     std::string spath(path);
-    GliFileContainer* container = nullptr;
+    FileContainer* container = nullptr;
 
     if (spath.rfind("//", 0) == 0)
     {
@@ -299,7 +304,7 @@ bool GliFileSystem::open(const char* path, GliFile*& handle)
 
         if (delim == std::string::npos)
         {
-            gli::logf("GliFileSystem::open: Couldn't parse path '%s'.\n", path);
+            gliLog(LogLevel::Error, "File", "FileSystem::open", "Couldn't parse path '%s'.", path);
             return false;
         }
 
@@ -309,6 +314,7 @@ bool GliFileSystem::open(const char* path, GliFile*& handle)
     }
     else
     {
+        container = get_or_create_container("");
     }
 
     if (container)
@@ -317,18 +323,18 @@ bool GliFileSystem::open(const char* path, GliFile*& handle)
     }
     else
     {
-        gli::logf("GliFileSystem::open: could not find container to open file '%s'.\n", path);
+        gliLog(LogLevel::Error, "File", "FileSystem::open", "Could not find container to open file '%s'.", path);
     }
 
     return success;
 }
 
 
-bool GliFileSystem::read_entire_file(const char* path, std::vector<uint8_t>& contents)
+bool FileSystem::read_entire_file(const char* path, std::vector<uint8_t>& contents)
 {
     bool success = false;
     std::string spath(path);
-    GliFileContainer* container = nullptr;
+    FileContainer* container = nullptr;
 
     if (spath.rfind("//", 0) == 0)
     {
@@ -336,7 +342,7 @@ bool GliFileSystem::read_entire_file(const char* path, std::vector<uint8_t>& con
 
         if (delim == std::string::npos)
         {
-            gli::logf("GliFileSystem::read_entire_file: Couldn't parse path '%s'.\n", path);
+            gliLog(LogLevel::Error, "File", "FileSystem::read_entire_file", "Couldn't parse path '%s'.", path);
             return false;
         }
 
@@ -355,35 +361,35 @@ bool GliFileSystem::read_entire_file(const char* path, std::vector<uint8_t>& con
     }
     else
     {
-        gli::logf("GliFileSystem::read_entire_file: could not find container to open file '%s'.\n", path);
+        gliLog(LogLevel::Error, "File", "FileSystem::read_entire_file", "Could not find container to open file '%s'.", path);
     }
 
     return success;
 }
 
 
-GliFileContainer* GliFileSystem::get_or_create_container(const std::string& container_name)
+FileContainer* FileSystem::get_or_create_container(const std::string& container_name)
 {
-    GliFileContainerLookup::const_iterator it = _container_lookup.find(container_name);
+    FileContainerLookup::const_iterator it = _container_lookup.find(container_name);
 
     if (it == _container_lookup.end())
     {
-        GliFileContainerPtr new_container;
+        FileContainerPtr new_container;
 
         if (container_name.empty())
         {
-            gli::logf("GliFileSystem::get_or_create: Creating system file container.\n");
-            new_container = std::make_unique<GliFileContainerSystem>();
+            gliLog(LogLevel::Info, "File", "FileSystem::get_or_create", "Creating system file container.");
+            new_container = std::make_unique<FileContainerSystem>();
         }
         else
         {
-            gli::logf("GliFileSystem::get_or_create: Creating zip file container for '%s'\n", container_name.c_str());
-            new_container = std::make_unique<GliFileContainerZipFile>();
+            gliLog(LogLevel::Info, "File", "FileSystem::get_or_create", "Creating zip file container for '%s'", container_name.c_str());
+            new_container = std::make_unique<FileContainerZipFile>();
         }
 
         if (!new_container->attach(container_name.c_str()))
         {
-            gli::logf("GliFileSystem::get_or_create: Failed to attach zip file container for '%s'\n", container_name.c_str());
+            gliLog(LogLevel::Info, "File", "FileSystem::get_or_create", "Failed to attach zip file container for '%s'", container_name.c_str());
             return nullptr;
         }
 
@@ -391,7 +397,7 @@ GliFileContainer* GliFileSystem::get_or_create_container(const std::string& cont
 
         if (!result.second)
         {
-            gli::logf("GliFileSystem::get_or_create: Failed to insert container for '%s' into map\n", container_name.c_str());
+            gliLog(LogLevel::Info, "File", "FileSystem::get_or_create", "Failed to insert container for '%s' into map", container_name.c_str());
             return nullptr;
         }
 
@@ -401,3 +407,5 @@ GliFileContainer* GliFileSystem::get_or_create_container(const std::string& cont
 
     return _containers[it->second].get();
 }
+
+} // namespace gli

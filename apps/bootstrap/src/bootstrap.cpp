@@ -18,6 +18,11 @@ namespace Bootstrap
 
 bool App::on_create()
 {
+    if (!_audio_engine.init())
+    {
+        return false;
+    }
+
     _states.reserve(AppState::Count);
     _states.insert(std::pair<AppState, AppStatePtr>(AppState::Splash, std::make_unique<SplashState>()));
     //_states.insert(std::pair<AppState, AppStatePtr>(AppState::Frontend, std::make_unique<TitleScreenState>()));
@@ -37,6 +42,11 @@ bool App::on_create()
     _state = AppState::Count;
     _next_state = AppState::Splash;
     _active_state = nullptr;
+
+    if (!_audio_engine.start())
+    {
+        return false;
+    }
 
     return true;
 }
@@ -58,6 +68,7 @@ void App::on_destroy()
     }
 
     _states.clear();
+    _audio_engine.stop();
 }
 
 bool App::on_update(float delta)

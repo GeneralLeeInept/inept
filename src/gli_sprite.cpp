@@ -27,7 +27,7 @@ bool Sprite::load(const std::string& path)
 
     std::vector<uint8_t> image_data;
 
-    if (!GliFileSystem::get()->read_entire_file(path.c_str(), image_data))
+    if (!FileSystem::get()->read_entire_file(path.c_str(), image_data))
     {
         return false;
     }

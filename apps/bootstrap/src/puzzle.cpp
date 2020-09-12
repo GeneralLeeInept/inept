@@ -57,7 +57,7 @@ bool load(Definition& puzzle, const std::string& path)
 
     std::vector<uint8_t> data;
 
-    if (!GliFileSystem::get()->read_entire_file(path.c_str(), data))
+    if (!gli::FileSystem::get()->read_entire_file(path.c_str(), data))
     {
         return false;
     }

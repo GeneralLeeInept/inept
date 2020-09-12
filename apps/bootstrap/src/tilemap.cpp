@@ -30,7 +30,7 @@ bool TileMap::load(const std::string& path)
 {
     std::vector<uint8_t> map_data;
 
-    if (!GliFileSystem::get()->read_entire_file(path.c_str(), map_data))
+    if (!gli::FileSystem::get()->read_entire_file(path.c_str(), map_data))
     {
         return false;
     }

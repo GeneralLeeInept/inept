@@ -71,7 +71,7 @@ std::vector<std::string> load_puzzle_list(const std::string& path)
     std::vector<uint8_t> data;
     std::vector<std::string> result;
 
-    if (!GliFileSystem::get()->read_entire_file(path.c_str(), data))
+    if (!gli::FileSystem::get()->read_entire_file(path.c_str(), data))
     {
         return result;
     }
@@ -1152,8 +1152,6 @@ void GamePlayState::spawn_particle_system(const Movable& movable)
     int size = sprite.height();
     _particles.reserve(_particles.size() + size);
     V2f pos = (movable.position * _tilemap.tile_size()) + V2f{ size * -0.5f, size * -0.5f };
-
-    pos.x += 48.0f;
 
     for (int i = 0; i < size; ++i)
     {

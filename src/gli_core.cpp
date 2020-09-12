@@ -1,3 +1,5 @@
+#include "gli_types.h"
+
 #include "gli_core.h"
 
 #include "gli_log.h"

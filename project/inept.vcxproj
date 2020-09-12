@@ -96,6 +96,7 @@
     <ClInclude Include="..\extern\zlib\zconf.h" />
     <ClInclude Include="..\extern\zlib\zlib.h" />
     <ClInclude Include="..\extern\zlib\zutil.h" />
+    <ClInclude Include="..\src\gli_audio.h" />
     <ClInclude Include="..\src\gli_core.h" />
     <ClInclude Include="..\src\gli_debug.h" />
     <ClInclude Include="..\src\gli_file.h" />
@@ -103,6 +104,7 @@
     <ClInclude Include="..\src\gli_log.h" />
     <ClInclude Include="..\src\gli.h" />
     <ClInclude Include="..\src\gli_sprite.h" />
+    <ClInclude Include="..\src\gli_types.h" />
     <ClInclude Include="..\src\opengl40\glad.h" />
     <ClInclude Include="..\src\opengl40\khrplatform.h" />
     <ClInclude Include="..\src\wglext.h" />
@@ -142,6 +144,7 @@
     <ClCompile Include="..\extern\zlib\trees.c" />
     <ClCompile Include="..\extern\zlib\uncompr.c" />
     <ClCompile Include="..\extern\zlib\zutil.c" />
+    <ClCompile Include="..\src\gli_audio.cpp" />
     <ClCompile Include="..\src\gli_core.cpp" />
     <ClCompile Include="..\src\gli_debug.cpp" />
     <ClCompile Include="..\src\gli_file.cpp">

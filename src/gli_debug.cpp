@@ -1,3 +1,4 @@
+#include "gli_debug.h"
 #include "gli_log.h"
 
 #include <intrin.h>

@@ -108,6 +108,12 @@
     <ClInclude Include="..\src\gli_debug.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\gli_audio.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\gli_types.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\extern\zlib\adler32.c">
@@ -192,6 +198,9 @@
       <Filter>stb</Filter>
     </ClCompile>
     <ClCompile Include="..\src\gli_debug.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gli_audio.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
