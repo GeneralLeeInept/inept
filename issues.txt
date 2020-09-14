@@ -8,3 +8,7 @@
 * I mostly like the asset build process in bootstrap (it's a good start at least) but it's irritating to have to build when iterating
 * Can I haz fullscreen?
 * Win32 build feels nasty
+* 32/64-bit OS detection is broke (WIN32 is defined in 64-bit builds)
+* I would enjoy to have a file of cvars (which could be baked for release builds)
+    * Opens an exciting door of a custom pre-processor
+

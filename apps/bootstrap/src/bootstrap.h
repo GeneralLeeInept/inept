@@ -17,16 +17,18 @@ public:
     bool on_create() override;
     void on_destroy() override;
     bool on_update(float delta) override;
-    void set_next_state(AppState next_state);
+    void set_next_state(AppState::Type next_state);
 
     void draw_text_box(int x, int y, int w, int h, const std::string& text, const gli::Pixel& fg, const gli::Pixel& bg);
 
+    void play_sound(int sfx_id);
+
 private:
     using AppStatePtr = std::unique_ptr<IAppState>;
-    std::unordered_map<AppState, AppStatePtr> _states;
+    std::unordered_map<AppState::Type, AppStatePtr> _states;
     IAppState* _active_state;
-    AppState _state;
-    AppState _next_state;
+    AppState::Type _state;
+    AppState::Type _next_state;
     gli::AudioEngine _audio_engine;
 
     void wrap_text(const std::string& text, int w, size_t& off, size_t& len);

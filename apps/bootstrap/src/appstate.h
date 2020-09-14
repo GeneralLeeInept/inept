@@ -2,11 +2,18 @@
 
 namespace Bootstrap
 {
-    enum AppState
-    {
-        Splash,
-        Frontend,
-        InGame,
-        Count
-    };
+namespace AppState
+{
+
+enum
+{
+    Splash,
+    Frontend,
+    InGame,
+    Count
+};
+
+typedef int Type;
+
 }
+} // namespace Bootstrap

@@ -11,15 +11,23 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 # Assets used under license
 
 ### Atari 8-bit Regular font
+Font outlines (c) 2018 Steve Boswell, no other copyright is expressed or implied. Released under the SIL Open Font License, Version 1.1
+
 https://github.com/TheRobotFactory/EightBit-Atari-Fonts
 
-Font outlines (c)2018 Steve Boswell, no other copyright is expressed or implied. Released under the SIL Open Font License, Version 1.1
 
 ## Sci-fi Interior Tiles
-https://opengameart.org/content/sci-fi-interior-tiles
+Sci-fi Interior Tiles by [Buch](https://opengameart.org/users/buch)
 
 CC0 1.0
 
-Copyright/Attribution Notice: 
-NOT REQUIRED, though appreciated: credit me as Buch and link back either to my [OGA profile](https://opengameart.org/users/buch) page or to http://blog-buch.rhcloud.com
+https://opengameart.org/content/sci-fi-interior-tiles
+
+
+## Sci-fi Sound Library
+Sci-fi Sound Library by [Little Robot Sound Factory](www.littlerobotsoundfactory.com)
+
+CC-BY 3.0
+
+https://opengameart.org/content/sci-fi-sound-effects-library
 

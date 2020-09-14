@@ -3,6 +3,7 @@
 #include "assets.h"
 #include "collision.h"
 #include "bootstrap.h"
+#include "sfx.h"
 #include "random.h"
 #include "vga9.h"
 #include "vread.h"
@@ -368,6 +369,7 @@ bool GamePlayState::on_update(float delta)
 
                 if (success)
                 {
+                    _app->play_sound(SfxId::DestroyEnemy);
                     spawn_particle_system(_movables[_puzzle_target]);
                     _movables[_puzzle_target].active = false;
                     _score += 100;
@@ -477,11 +479,6 @@ void GamePlayState::update_simulation(float delta)
 {
     _simulation_delta += delta;
 
-    if (_app->key_state(gli::Key_P).pressed)
-    {
-        spawn_particle_system(_movables[0]);
-    }
-
     // Simulate at 120Hz regardless of frame rate..
     while (_simulation_delta > 1.0f / 120.0f)
     {
@@ -492,6 +489,7 @@ void GamePlayState::update_simulation(float delta)
                 _movables[0].active = false;
                 _game_over = true;
                 _state_transition_timer = 0.0f;
+                _app->play_sound(SfxId::DestroyPlayer);
                 spawn_particle_system(_movables[0]);
             }
             else if (_ais_remaining == 0)
@@ -589,6 +587,7 @@ void GamePlayState::update_simulation(float delta)
             {
                 _nmitimer = NmiDuration;
                 _nmifired = 0.0f;
+                _app->play_sound(SfxId::NMI);
             }
         }
 
@@ -731,12 +730,14 @@ void GamePlayState::update_ai(float delta)
                             fire_bullet(movable, movable.position + shot_dir);
                         }
 
+                        _app->play_sound(SfxId::Attack2);
                         fired = true;
                     }
                     else if (fire > 0.5f)
                     {
                         // Fire one
                         fire_bullet(movable, player.position);
+                        _app->play_sound(SfxId::Attack1);
                         fired = true;
                     }
 

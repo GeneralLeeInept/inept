@@ -3,6 +3,7 @@
 #include "appstate.h"
 #include "gameplaystate.h"
 #include "iappstate.h"
+#include "sfx.h"
 #include "splash.h"
 #include "version.h"
 #include "vga9.h"
@@ -20,13 +21,14 @@ bool App::on_create()
 {
     if (!_audio_engine.init())
     {
+        gliLog(gli::LogLevel::Error, "Bootstrap", "App::on_create", "Failed to initialize audio engine.");
         return false;
     }
 
     _states.reserve(AppState::Count);
-    _states.insert(std::pair<AppState, AppStatePtr>(AppState::Splash, std::make_unique<SplashState>()));
-    //_states.insert(std::pair<AppState, AppStatePtr>(AppState::Frontend, std::make_unique<TitleScreenState>()));
-    _states.insert(std::pair<AppState, AppStatePtr>(AppState::InGame, std::make_unique<GamePlayState>()));
+    _states.insert(std::pair<AppState::Type, AppStatePtr>(AppState::Splash, std::make_unique<SplashState>()));
+    //_states.insert(std::pair<AppState::Type, AppStatePtr>(AppState::Frontend, std::make_unique<TitleScreenState>()));
+    _states.insert(std::pair<AppState::Type, AppStatePtr>(AppState::InGame, std::make_unique<GamePlayState>()));
 
     for (const auto& kvp : _states)
     {
@@ -43,10 +45,20 @@ bool App::on_create()
     _next_state = AppState::Splash;
     _active_state = nullptr;
 
-    if (!_audio_engine.start())
+    if (!load_sfx())
     {
+        gliLog(gli::LogLevel::Error, "Bootstrap", "App::on_create", "Failed to load SFX.");
         return false;
     }
+
+    if (!_audio_engine.start())
+    {
+        gliLog(gli::LogLevel::Error, "Bootstrap", "App::on_create", "Failed to start audio engine.");
+        return false;
+    }
+
+    // FIXME: I need a way to stop sounds so ambience can start in GamePlayState::on_enter and stop in GamePlayState::on_exit
+    play_sound(SfxId::Ambience);
 
     return true;
 }
@@ -110,11 +122,13 @@ bool App::on_update(float delta)
         }
     }
 
+    _audio_engine.update();
+
     return !!_active_state;
 }
 
 
-void App::set_next_state(AppState next_state)
+void App::set_next_state(AppState::Type next_state)
 {
     _next_state = next_state;
 }
@@ -162,6 +176,19 @@ void App::draw_text_box(int x, int y, int w, int h, const std::string& text, con
         draw_string(x, y, text.substr(pos, len).c_str(), vga9_glyphs, vga9_glyph_width, vga9_glyph_height, fg, bg);
         pos += len;
         y += vga9_glyph_height;
+    }
+}
+
+
+void App::play_sound(int sfx_id)
+{
+    const SfxInfo* info;
+    const gli::WaveForm* waveform;
+    get_sfx(sfx_id, info, waveform);
+
+    if (info && waveform)
+    {
+        _audio_engine.play_sound(*waveform, info->fade, info->looping ? gli::Channel::LoopInfinite : 0);
     }
 }
 

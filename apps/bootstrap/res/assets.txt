@@ -17,3 +17,4 @@ puzzles/puzzle_list.txt
 sprites/*.png
 tilesets/*.png
 fx/*.png
+sfx/*.wav

@@ -97,6 +97,7 @@
     <ClInclude Include="..\src\puzzle.h" />
     <ClInclude Include="..\src\puzzlestate.h" />
     <ClInclude Include="..\src\random.h" />
+    <ClInclude Include="..\src\sfx.h" />
     <ClInclude Include="..\src\tgmcpu.h" />
     <ClInclude Include="..\src\types.h" />
     <ClInclude Include="..\src\iappstate.h" />
@@ -112,6 +113,7 @@
     <ClCompile Include="..\src\puzzle.cpp" />
     <ClCompile Include="..\src\puzzlestate.cpp" />
     <ClCompile Include="..\src\random.cpp" />
+    <ClCompile Include="..\src\sfx.cpp" />
     <ClCompile Include="..\src\splash.cpp" />
     <ClCompile Include="..\src\tgmcpu.cpp" />
     <ClCompile Include="..\src\tilemap.cpp" />

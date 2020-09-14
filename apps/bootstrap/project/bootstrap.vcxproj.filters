@@ -56,6 +56,9 @@
     <ClInclude Include="..\src\vread.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\sfx.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\bootstrap.cpp">
@@ -86,6 +89,9 @@
       <Filter>inc</Filter>
     </ClCompile>
     <ClCompile Include="..\src\vread.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\sfx.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
