@@ -57,9 +57,6 @@ bool App::on_create()
         return false;
     }
 
-    // FIXME: I need a way to stop sounds so ambience can start in GamePlayState::on_enter and stop in GamePlayState::on_exit
-    play_sound(SfxId::Ambience);
-
     return true;
 }
 

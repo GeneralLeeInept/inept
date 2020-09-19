@@ -244,6 +244,13 @@ bool GamePlayState::on_enter()
     _pre_start = true;
     _state_transition_timer = 0.0f;
 
+    if (_first_entry)
+    {
+        // FIXME: I need a way to stop sounds so ambience can start in GamePlayState::on_enter and stop in GamePlayState::on_exit
+        _first_entry = false;
+        _app->play_sound(SfxId::Ambience);
+    }
+
     return true;
 }
 

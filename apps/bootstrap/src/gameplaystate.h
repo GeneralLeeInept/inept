@@ -129,6 +129,7 @@ private:
     bool _pre_start;
     float _state_transition_timer;
     float _hud_fade;
+    bool _first_entry = true;
 };
 
 } // namespace Bootstrap
