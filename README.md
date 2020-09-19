@@ -11,3 +11,5 @@ Includes code from 3rd party libraries, see below for licenses.
 Uses the STB single header libraries under the public domain license. See extern/stb/stb.h.
 
 Uses zlib under the zlib license. See extern/zlib/zlib.h.
+
+Uses the OggVorbis software codec source by the Xiph foundation. See extern/ogg/COPYING and extern/vorbis/COPYING.
