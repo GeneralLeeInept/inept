@@ -3,3 +3,9 @@ git subtree add --prefix extern/zlib https://github.com/madler/zlib.git v1.2.11 
 
 Added stb -
 git subtree add --prefix extern/stb https://github.com/nothings/stb.git master --squash
+
+Added ogg -
+git subtree add --prefix extern/ogg https://github.com/xiph/ogg.git v1.3.4 --squash
+
+Added vorbis -
+git subtree add --prefix extern/vorbis https://github.com/xiph/vorbis.git v1.3.7 --squash
