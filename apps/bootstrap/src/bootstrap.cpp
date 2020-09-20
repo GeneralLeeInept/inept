@@ -185,7 +185,7 @@ void App::play_sound(int sfx_id)
 
     if (info && waveform)
     {
-        _audio_engine.play_sound(*waveform, info->fade, info->looping ? gli::Channel::LoopInfinite : 0);
+        _audio_engine.play_sound(*waveform, info->fade, info->looping ? gli::Sound::LoopInfinite : 0);
     }
 }
 

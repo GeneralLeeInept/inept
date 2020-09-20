@@ -16,6 +16,7 @@ public:
 
     size_t capacity() const;
     size_t size() const;
+    size_t free_space() const;
 
     void lock(float*& ptr1, size_t& len1, float*& ptr2, size_t& len2, size_t length);
     void unlock(size_t length);
@@ -31,19 +32,53 @@ private:
 };
 
 
-class WaveForm
+
+class ISampleSource
+{
+public:
+    virtual ~ISampleSource() = default;
+
+    virtual size_t num_channels() const = 0;
+    virtual size_t length() const = 0;
+    virtual size_t read(float* data, size_t position, size_t num_frames, size_t loopcount) const = 0;
+};
+
+
+class WaveForm : public ISampleSource
 {
 public:
     bool load(const std::string& path);
 
-    size_t num_channels() const;
-    size_t length() const;
-    size_t read(float* data, size_t position, size_t num_frames, size_t loopcount) const;
+    size_t num_channels() const override;
+    size_t length() const override;
+    size_t read(float* data, size_t position, size_t num_frames, size_t loopcount) const override;
 
 private:
     size_t _num_channels{};
     size_t _length{};
     std::vector<float> _samples;
+};
+
+
+class OggFile : public ISampleSource
+{
+public:
+    bool open(const std::string& path);
+    void close();
+
+    size_t num_channels() const override;
+    size_t length() const override;
+    size_t read(float* data, size_t position, size_t num_frames, size_t loopcount) const override;
+
+private:
+    struct OggState;
+
+    struct OggStateDeleter
+    {
+        void operator()(OggState*) const;
+    };
+
+    std::unique_ptr<OggState, OggStateDeleter> _ogg_state;
 };
 
 
@@ -60,7 +95,6 @@ public:
 
     virtual float get_fade() const { return _fade; }
     virtual void set_fade(float fade) { _fade = fade; }
-
 protected:
     float _fade{ 1.0f };
 };
@@ -82,12 +116,12 @@ protected:
 };
 
 
-class Channel : public AudioSource
+class Sound : public AudioSource
 {
 public:
     static const size_t LoopInfinite = (size_t)-1;
 
-    Channel(const WaveForm& waveform);
+    Sound(const ISampleSource& sample_source);
 
     void set_loop_count(size_t loopcount);
 
@@ -98,7 +132,7 @@ public:
     size_t read(float* data, size_t num_frames) override;
 
 private:
-    const WaveForm& _waveform;
+    const ISampleSource& _sample_source;
     size_t _position{};
     size_t _loopcount{};
     bool _finished{ false };
@@ -119,7 +153,7 @@ public:
 
     void update();
 
-    void play_sound(const WaveForm& waveform, float fade, size_t loopcount);
+    void play_sound(const ISampleSource& sample_source, float fade, size_t loopcount);
 
 private:
     struct WasapiState;

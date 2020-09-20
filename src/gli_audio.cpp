@@ -4,6 +4,8 @@
 #include "gli_file.h"
 #include "gli_log.h"
 
+#include <vorbis/vorbisfile.h>
+
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
@@ -88,7 +90,7 @@ void AudioEngine::WasapiStateDeleter::operator()(WasapiState* state) const
 
 AudioEngine::WasapiState::~WasapiState()
 {
-    if (output_thread.joinable()) 
+    if (output_thread.joinable())
     {
         stop();
     }
@@ -172,7 +174,8 @@ bool AudioEngine::WasapiState::init()
 
     wasapi_check(audio_client->GetBufferSize(&buffer_size), "WasapiState::start", "IAudioClient::GetBufferSize failed.");
 
-    gliLog(LogLevel::Info, "Audio", "WasapiState::init", "Audio initialized. Output sample rate %uHz, channels %d, buffer size %d.", sample_rate, num_channels, buffer_size);
+    gliLog(LogLevel::Info, "Audio", "WasapiState::init", "Audio initialized. Output sample rate %uHz, channels %d, buffer size %d.", sample_rate,
+           num_channels, buffer_size);
 
     return true;
 }
@@ -249,28 +252,28 @@ void AudioEngine::WasapiState::output_thread_func()
 
                 if (SUCCEEDED(hr))
                 {
-                    #if 1
-                        size_t frames_available = output_buffer.size() / num_channels;
+#if 1
+                    size_t frames_available = output_buffer.size() / num_channels;
 
-                        if (frames_available > frames_required)
-                        {
-                            frames_available = frames_required;
-                        }
+                    if (frames_available > frames_required)
+                    {
+                        frames_available = frames_required;
+                    }
 
-                        if (frames_available)
-                        {
-                            output_buffer.read(buffer, frames_available * num_channels);
-                            render_client->ReleaseBuffer((UINT32)frames_available, 0);
-                        }
-                        else
-                        {
-                            gliLog(LogLevel::Warning, "Audio", "WasapiState::output_thread_func", "Output buffer underrun.");
-                            render_client->ReleaseBuffer(frames_required, AUDCLNT_BUFFERFLAGS_SILENT);
-                        }
-                    #else
-                        _master->read(buffer, frames_required);
-                        render_client->ReleaseBuffer(frames_required, 0);
-                    #endif
+                    if (frames_available)
+                    {
+                        output_buffer.read(buffer, frames_available * num_channels);
+                        render_client->ReleaseBuffer((UINT32)frames_available, 0);
+                    }
+                    else
+                    {
+                        gliLog(LogLevel::Warning, "Audio", "WasapiState::output_thread_func", "Output buffer underrun.");
+                        render_client->ReleaseBuffer(frames_required, AUDCLNT_BUFFERFLAGS_SILENT);
+                    }
+#else
+                    _master->read(buffer, frames_required);
+                    render_client->ReleaseBuffer(frames_required, 0);
+#endif
                 }
                 else
                 {
@@ -364,9 +367,9 @@ void AudioEngine::update()
 }
 
 
-void AudioEngine::play_sound(const WaveForm& waveform, float fade, size_t loopcount)
+void AudioEngine::play_sound(const ISampleSource& sample_source, float fade, size_t loopcount)
 {
-    std::unique_ptr<Channel> channel = std::make_unique<Channel>(waveform);
+    std::unique_ptr<Sound> channel = std::make_unique<Sound>(sample_source);
     channel->set_fade(fade);
     channel->set_loop_count(loopcount);
     _master.add_source(std::move(channel));
@@ -420,6 +423,12 @@ size_t RingBuffer::size() const
     }
 
     return s;
+}
+
+
+size_t RingBuffer::free_space() const
+{
+    return capacity() - size();
 }
 
 
@@ -606,7 +615,7 @@ bool WaveForm::load(const std::string& path)
         for (size_t c = 0; c < _num_channels; ++c)
         {
             int16_t samplei = sample_ptr[c];
-            float sample = (float)samplei / (float)INT16_MAX;// * (samplei < 0 ? convn : convp);
+            float sample = (float)samplei / (float)INT16_MAX; // * (samplei < 0 ? convn : convp);
             _samples.push_back(sample);
         }
 
@@ -632,7 +641,7 @@ size_t WaveForm::length() const
 size_t WaveForm::read(float* buffer, size_t position, size_t num_frames, size_t loopcount) const
 {
     size_t frames_read = 0;
-    size_t end_pos = (loopcount == Channel::LoopInfinite) ? (position + num_frames) : ((loopcount + 1) * _length);
+    size_t end_pos = (loopcount == Sound::LoopInfinite) ? (position + num_frames) : ((loopcount + 1) * _length);
 
     if (position + num_frames > end_pos)
     {
@@ -670,37 +679,37 @@ size_t WaveForm::read(float* buffer, size_t position, size_t num_frames, size_t 
     return frames_read;
 }
 
-Channel::Channel(const WaveForm& waveform)
-    : _waveform(waveform)
+Sound::Sound(const ISampleSource& sample_source)
+    : _sample_source(sample_source)
 {
 }
 
 
-void Channel::set_loop_count(size_t loopcount)
+void Sound::set_loop_count(size_t loopcount)
 {
     _loopcount = loopcount;
 }
 
-size_t Channel::num_channels() const
+size_t Sound::num_channels() const
 {
-    return _waveform.num_channels();
+    return _sample_source.num_channels();
 }
 
-bool Channel::finished() const
+bool Sound::finished() const
 {
     return _finished;
 }
 
-void Channel::reset()
+void Sound::reset()
 {
     _position = 0;
     _finished = false;
 }
 
-size_t Channel::read(float* data, size_t num_frames)
+size_t Sound::read(float* data, size_t num_frames)
 {
-    size_t frames_read = _waveform.read(data, _position, num_frames, _loopcount);
-    _finished = (frames_read < num_frames);
+    size_t frames_read = _sample_source.read(data, _position, num_frames, _loopcount);
+    _finished = (frames_read == 0);//< num_frames);
     _position += frames_read;
     return frames_read;
 }
@@ -727,7 +736,7 @@ size_t SubMix::read(float* data, size_t num_frames)
     memset(data, 0, num_frames * num_channels() * sizeof(float));
     std::vector<float> temp(num_frames * num_channels());
 
-    for (auto itr = _inputs.begin(); itr != _inputs.end(); )
+    for (auto itr = _inputs.begin(); itr != _inputs.end();)
     {
         size_t frames_read = (*itr)->read(&temp[0], num_frames);
 
@@ -778,6 +787,185 @@ size_t SubMix::read(float* data, size_t num_frames)
     }
 
     return num_frames;
+}
+
+
+static const size_t OggBufferLength = 1024;
+static const size_t OggBufferMinFill = 256;
+
+
+struct OggFile::OggState
+{
+    ~OggState() { ov_clear(&vf); }
+
+    bool refill()
+    {
+        size_t space = ring_buffer.free_space() / channels;
+        bool result = true;
+        if (space >= OggBufferMinFill)
+        {
+            size_t total_read = 0;
+
+            while (space >= OggBufferMinFill)
+            {
+                float** pcm;
+                long len = ov_read_float(&vf, &pcm, space / channels, nullptr);
+
+                if (len <= 0)
+                {
+                    break;
+                }
+
+                total_read += len;
+                space -= len;
+
+                float* ptr1;
+                float* ptr2;
+                size_t len1;
+                size_t len2;
+
+                ring_buffer.lock(ptr1, len1, ptr2, len2, len * channels);
+                gliAssert(ptr1);
+                gliAssert(len1 + len2 == len * channels);
+                gliAssert(len1 % channels == 0);
+                gliAssert(len2 % channels == 0);
+
+                // Multiplex data...
+                size_t pos = 0;
+
+                while (len1)
+                {
+                    for (size_t c = 0; c < channels; ++c)
+                    {
+                        ptr1[c] = pcm[c][pos];
+                    }
+
+                    len1 -= channels;
+                    ptr1 += channels;
+                    pos++;
+                }
+
+                while (len2)
+                {
+                    for (size_t c = 0; c < channels; ++c)
+                    {
+                        ptr2[c] = pcm[c][pos];
+                    }
+
+                    len2 -= channels;
+                    ptr2 += channels;
+                    pos++;
+                }
+
+                ring_buffer.unlock(len * channels);
+            }
+
+            result = total_read > 0;
+        }
+
+        return result;
+    }
+
+    operator OggVorbis_File*() { return &vf; }
+    OggVorbis_File vf{};
+    size_t channels{};
+    size_t length{};
+    RingBuffer ring_buffer{};
+};
+
+
+void OggFile::OggStateDeleter::operator()(OggState* ogg_state) const
+{
+    delete ogg_state;
+}
+
+
+bool OggFile::open(const std::string& path)
+{
+    close();
+
+    std::unique_ptr<OggState, OggStateDeleter> ogg_state = std::unique_ptr<OggState, OggStateDeleter>(new OggState());
+
+    int result = ov_fopen(path.c_str(), *ogg_state);
+
+    if (result)
+    {
+        gliLog(LogLevel::Error, "Audio", "OggFile::open", "ov_fopen(%s) failed [%d].", path.c_str(), result);
+        return false;
+    }
+
+    vorbis_info* info = ov_info(*ogg_state, -1);
+
+    if (!info)
+    {
+        gliLog(LogLevel::Error, "Audio", "OggFile::open", "ov_info failed [%d].", result);
+        return false;
+    }
+
+    ogg_state->channels = info->channels;
+    ogg_state->length = ov_pcm_total(*ogg_state, -1);
+
+    if (ogg_state->length <= 0)
+    {
+        gliLog(LogLevel::Error, "Audio", "OggFile::open", "ov_pcm_total failed [%d].", result);
+        return false;
+    }
+
+    ogg_state->ring_buffer.init(ogg_state->channels * 1024, false);
+
+    if (!ogg_state->refill())
+    {
+        gliLog(LogLevel::Error, "Audio", "OggFile::open", "refill failed.", result);
+        return false;
+    }
+
+    _ogg_state = std::move(ogg_state);
+    return true;
+}
+
+
+void OggFile::close()
+{
+    _ogg_state = nullptr;
+}
+
+
+size_t OggFile::num_channels() const
+{
+    size_t channels = 0;
+
+    if (_ogg_state)
+    {
+        channels = _ogg_state->channels;
+    }
+
+    return channels;
+}
+
+
+size_t OggFile::length() const
+{
+    size_t length_pcm = 0;
+
+    if (_ogg_state)
+    {
+        length_pcm = _ogg_state->length;
+    }
+
+    return length_pcm;
+}
+
+size_t OggFile::read(float* data, size_t position, size_t num_frames, size_t loopcount) const
+{
+    size_t size_read = 0;
+
+    if (_ogg_state)
+    {
+        size_read = _ogg_state->ring_buffer.read(data, num_frames * _ogg_state->channels) / _ogg_state->channels;
+        _ogg_state->refill();
+    }
+
+    return size_read;
 }
 
 } // namespace gli

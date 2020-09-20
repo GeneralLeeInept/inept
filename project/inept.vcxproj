@@ -79,7 +79,44 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\extern\ogg\include\ogg\ogg.h" />
+    <ClInclude Include="..\extern\ogg\include\ogg\os_types.h" />
+    <ClInclude Include="..\extern\ogg\src\crctable.h" />
     <ClInclude Include="..\extern\stb\stb_image.h" />
+    <ClInclude Include="..\extern\vorbis\lib\bitrate.h" />
+    <ClInclude Include="..\extern\vorbis\lib\codebook.h" />
+    <ClInclude Include="..\extern\vorbis\lib\codec_internal.h" />
+    <ClInclude Include="..\extern\vorbis\lib\envelope.h" />
+    <ClInclude Include="..\extern\vorbis\lib\lookup.h" />
+    <ClInclude Include="..\extern\vorbis\lib\lookup_data.h" />
+    <ClInclude Include="..\extern\vorbis\lib\lpc.h" />
+    <ClInclude Include="..\extern\vorbis\lib\lsp.h" />
+    <ClInclude Include="..\extern\vorbis\lib\masking.h" />
+    <ClInclude Include="..\extern\vorbis\lib\mdct.h" />
+    <ClInclude Include="..\extern\vorbis\lib\misc.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\psych_11.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\psych_16.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\psych_44.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\psych_8.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\residue_16.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\residue_44.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\residue_44p51.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\residue_44u.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\residue_8.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\setup_11.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\setup_16.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\setup_22.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\setup_32.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\setup_44.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\setup_44p51.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\setup_44u.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\setup_8.h" />
+    <ClInclude Include="..\extern\vorbis\lib\modes\setup_X.h" />
+    <ClInclude Include="..\extern\vorbis\lib\psy.h" />
+    <ClInclude Include="..\extern\vorbis\lib\registry.h" />
+    <ClInclude Include="..\extern\vorbis\lib\scales.h" />
+    <ClInclude Include="..\extern\vorbis\lib\smallft.h" />
+    <ClInclude Include="..\extern\vorbis\lib\window.h" />
     <ClInclude Include="..\extern\zlib\contrib\minizip\crypt.h" />
     <ClInclude Include="..\extern\zlib\contrib\minizip\ioapi.h" />
     <ClInclude Include="..\extern\zlib\contrib\minizip\iowin32.h" />
@@ -110,6 +147,96 @@
     <ClInclude Include="..\src\wglext.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\extern\ogg\src\bitwise.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="..\extern\ogg\src\framing.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\analysis.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\bitrate.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\block.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\codebook.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\envelope.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\floor0.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\floor1.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\info.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244;4267</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\lookup.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\lpc.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\lsp.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\mapping0.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\mdct.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\psy.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\registry.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\res0.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\sharedbook.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\smallft.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\synthesis.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\vorbisenc.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\vorbisfile.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244;4267</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\extern\vorbis\lib\window.c">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
     <ClCompile Include="..\extern\zlib\adler32.c" />
     <ClCompile Include="..\extern\zlib\compress.c" />
     <ClCompile Include="..\extern\zlib\contrib\minizip\ioapi.c">
@@ -144,7 +271,9 @@
     <ClCompile Include="..\extern\zlib\trees.c" />
     <ClCompile Include="..\extern\zlib\uncompr.c" />
     <ClCompile Include="..\extern\zlib\zutil.c" />
-    <ClCompile Include="..\src\gli_audio.cpp" />
+    <ClCompile Include="..\src\gli_audio.cpp">
+      <AdditionalIncludeDirectories>..\extern\ogg\include;..\extern\vorbis\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
     <ClCompile Include="..\src\gli_core.cpp" />
     <ClCompile Include="..\src\gli_debug.cpp" />
     <ClCompile Include="..\src\gli_file.cpp">
