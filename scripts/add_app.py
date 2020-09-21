@@ -6,6 +6,7 @@ import sys
 import uuid
 import xml.etree.ElementTree as Xml
 from pathlib import Path
+import visualstudio.solution as VS
 
 def rmtree(dir : Path):
     for child in dir.iterdir():
@@ -42,17 +43,23 @@ def process_template(context, target_dir, template_dir):
                 print(f"Processing file {child} -> {dest_file}...")
 
                 if str(child.name).startswith('template.vcxproj'):
+                    ns = { 'msbuild' :  'http://schemas.microsoft.com/developer/msbuild/2003' }
+
+                    Xml.register_namespace('', 'http://schemas.microsoft.com/developer/msbuild/2003')
+                    tree = Xml.parse(child)
+
                     if child.suffix == '.vcxproj':
                         context.project_path = dest_file
 
-                    Xml.register_namespace('', "http://schemas.microsoft.com/developer/msbuild/2003")
-                    tree = Xml.parse(child)
+                        guidnode = tree.find('msbuild:PropertyGroup[@Label="Globals"]/msbuild:ProjectGuid', ns)
 
-                    guidnode = tree.find('.//{http://schemas.microsoft.com/developer/msbuild/2003}ProjectGuid')
-                    if guidnode:
+                        if guidnode is None:
+                            raise RuntimeError("Failed to locate ProjectGuid node in template.")
+
                         guidnode.text = context.project_guid
 
                     filenodes = tree.findall('.//*[@Include]')
+
                     for n in filenodes:
                         filename = Path(n.attrib['Include'])
                         if filename.name.startswith('template'):
@@ -87,59 +94,9 @@ def add_project_to_solution(context, target_dir):
 
     try:
         print(f"Adding {context.app_name} to {sln_path}...")
-
-        app_project_re = re.compile(r"Project\(\"{[^}]+}\"\) = \"(?P<project>[^\"]+)\", \"..\\apps\\\1\\[^\"]+\", \"(?P<project_guid>{[^}]+})\"")
-        project_configuration_block_start = re.compile(r"\s*GlobalSection\(ProjectConfigurationPlatforms\) = postSolution")
-        project_configuration_re = re.compile(r"\s*(?P<project_guid>{[^}]+})\.[\S]+ = [\S]+")
-        inserted_project = False
-        added_configuration = False
-        next_project_guid = None
-        in_projectconfiguration_block = False
-
-        with open(sln_path_bak, 'r') as src, open(sln_path, 'w') as dst:
-            for line in src:
-                if not inserted_project:
-                    if line == "Global":
-                        inserted_project = True
-                    else:
-                        m = app_project_re.match(line)
-                        if m:
-                            inserted_project = m.group('project') > context.project_name
-                            next_project_guid = m.group('project_guid')
-
-                    if inserted_project:
-                        if next_project_guid:
-                            print(f"Inserting {context.app_name} project before project {next_project_guid}")
-                        else:
-                            print(f"Inserting {context.app_name} project at end of projects")
-
-                        dst.write(f'Project("{{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}}") = "{context.project_name}", "{os.path.relpath(context.project_path, sln_path.parent)}", "{context.project_guid}"\n')
-                        dst.write('EndProject\n')
-
-                if not added_configuration:
-                    if not in_projectconfiguration_block:
-                        in_projectconfiguration_block = project_configuration_block_start.search(line) is not None
-                        if in_projectconfiguration_block:
-                            print("Entered project configuration block...")
-
-                    if in_projectconfiguration_block:
-                        if line == "\tEndGlobalSection":
-                            added_configuration = True
-                        elif next_project_guid is not None:
-                            m = project_configuration_re.match(line)
-
-                            if m:
-                                added_configuration = m.group('project_guid') == next_project_guid
-
-                        if added_configuration:
-                            dst.write(f'\t\t{context.project_guid}.Debug|x64.ActiveCfg = Debug|x64\n')
-                            dst.write(f'\t\t{context.project_guid}.Debug|x64.Build.0 = Debug|x64\n')
-                            dst.write(f'\t\t{context.project_guid}.Development|x64.ActiveCfg = Development|x64\n')
-                            dst.write(f'\t\t{context.project_guid}.Development|x64.Build.0 = Development|x64\n')
-                            dst.write(f'\t\t{context.project_guid}.Release|x64.ActiveCfg = Release|x64\n')
-                            dst.write(f'\t\t{context.project_guid}.Release|x64.Build.0 = Release|x64\n')
-
-                dst.write(line)
+        solution = VS.parse(sln_path)
+        solution.add_project(context.project_name, os.path.relpath(context.project_path, sln_path.parent), context.project_guid, 'apps')
+        solution.write(sln_path)
     except:
         shutil.copy(sln_path_bak, sln_path)
         raise
@@ -147,9 +104,9 @@ def add_project_to_solution(context, target_dir):
         sln_path_bak.unlink()
 
 
-def process(app_name):
+def process(app_name, add_to_sln):
     inept_root = get_inept_root()
-    template_dir = inept_root / 'apps/template'
+    template_dir = inept_root / 'scripts/app_template'
     target_dir = inept_root / 'apps' / app_name.lower()
     print(f"Template dir: {template_dir}")
     print(f"Target dir: {target_dir}")
@@ -158,7 +115,9 @@ def process(app_name):
     try:
         context = ProcessingContext(app_name)
         process_template(context, target_dir, template_dir)
-        add_project_to_solution(context, target_dir)
+
+        if add_to_sln:
+            add_project_to_solution(context, target_dir)
     except:
         rmtree(target_dir)
         raise
@@ -168,12 +127,14 @@ def process(app_name):
 
 
 if __name__ == "__main__":
+    print (sys.version)
     parser = argparse.ArgumentParser()
     parser.add_argument("name", help="Name of new app to add")
+    parser.add_argument("--no-solution", action='store_false', dest='add_to_sln', help="Do not add the app to the inept solution")
     args = parser.parse_args()
     print(f"Adding app {args.name}...")
 
     try:
-        process(args.name)
+        process(args.name, args.add_to_sln)
     except Exception as err:
         print(f"Error: {err}")
