@@ -1,0 +1,12 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="src" />
+    <Filter Include="inc" />
+    <Filter Include="res" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\oggplayer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

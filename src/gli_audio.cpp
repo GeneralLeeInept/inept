@@ -709,7 +709,7 @@ void Sound::reset()
 size_t Sound::read(float* data, size_t num_frames)
 {
     size_t frames_read = _sample_source.read(data, _position, num_frames, _loopcount);
-    _finished = (frames_read == 0);//< num_frames);
+    _finished = (frames_read < num_frames);
     _position += frames_read;
     return frames_read;
 }
