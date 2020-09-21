@@ -5,7 +5,7 @@ class ${Template} : public gli::App
 public:
     bool on_create() override
     {
-        return false;
+        return true;
     }
 
     void on_destroy() override
@@ -14,7 +14,7 @@ public:
 
     bool on_update(float delta) override
     {
-        return false;
+        return true;
     }
 };
 

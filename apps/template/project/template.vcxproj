@@ -5,6 +5,10 @@
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Development|x64">
+      <Configuration>Development</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
@@ -35,6 +39,16 @@
     <IntDir>$(SolutionDir)_builds\$(ProjectName)\$(Configuration)\obj\</IntDir>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(GliAppVersion)' != ''">
+    <ClCompile>
+      <AdditionalOptions>/D "GLI_APP_VERSION=$(GliAppVersion)" %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(GliShipping)' != ''">
+    <ClCompile>
+      <AdditionalOptions>/D GLI_SHIPPING %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -60,18 +74,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\res\Resource.h" />
-    <ClInclude Include="..\res\targetver.h" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="..\src\template.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="..\res\small.ico" />
-    <Image Include="..\res\template.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="..\res\template.rc" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\project\inept.vcxproj">

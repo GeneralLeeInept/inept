@@ -6,29 +6,8 @@
     <Filter Include="res"/>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\res\Resource.h">
-      <Filter>res</Filter>
-    </ClInclude>
-    <ClInclude Include="..\res\targetver.h">
-      <Filter>res</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="..\src\template.cpp">
       <Filter>src</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="..\res\small.ico">
-      <Filter>res</Filter>
-    </Image>
-    <Image Include="..\res\template.ico">
-      <Filter>res</Filter>
-    </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="..\res\template.rc">
-      <Filter>res</Filter>
-    </ResourceCompile>
   </ItemGroup>
 </Project>
