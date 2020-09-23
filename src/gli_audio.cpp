@@ -809,7 +809,7 @@ struct OggFile::OggState
             while (space >= OggBufferMinFill)
             {
                 float** pcm;
-                long len = ov_read_float(&vf, &pcm, space / channels, nullptr);
+                long len = ov_read_float(&vf, &pcm, (int)(space / channels), nullptr);
 
                 if (len <= 0)
                 {

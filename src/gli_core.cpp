@@ -605,6 +605,11 @@ void App::set_pixel(int x, int y, Pixel p)
 
 void App::draw_line(int x1, int y1, int x2, int y2, uint8_t c)
 {
+    draw_line(x1, y1, x2, y2, m_palette[c]);
+}
+
+void App::draw_line(int x1, int y1, int x2, int y2, Pixel p)
+{
     int delta_x = x2 - x1;
     int delta_y = y2 - y1;
     int step_x = delta_x > 0 ? 1 : (delta_x < 0 ? -1 : 0);
@@ -618,7 +623,7 @@ void App::draw_line(int x1, int y1, int x2, int y2, uint8_t c)
 
         for (int x = x1; x != x2; x += step_x)
         {
-            set_pixel(x, y, c);
+            set_pixel(x, y, p);
 
             error += step_y * delta_y;
 
@@ -637,7 +642,7 @@ void App::draw_line(int x1, int y1, int x2, int y2, uint8_t c)
 
         for (int y = y1; y != y2; y += step_y)
         {
-            set_pixel(x, y, c);
+            set_pixel(x, y, p);
 
             error += step_x * delta_x;
 
