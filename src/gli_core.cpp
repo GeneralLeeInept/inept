@@ -423,6 +423,12 @@ void App::show_mouse(bool show)
 }
 
 
+bool App::mouse_visible()
+{
+    return _hide_cursor == 0;
+}
+
+
 App::ControllerState App::controller_state(int controller)
 {
     ControllerState state{};
@@ -580,6 +586,20 @@ void App::set_pixel(int x, int y, uint8_t p)
 }
 
 
+void App::set_blend_mode(BlendMode src_blend, BlendMode dest_blend, uint8_t constant)
+{
+    m_src_blend = src_blend;
+    m_dest_blend = dest_blend;
+    m_blend_constant = constant;
+}
+
+
+void App::set_blend_op(BlendOp op)
+{
+    m_blend_op = op;
+}
+
+
 void App::clear_screen(Pixel p)
 {
     Pixel* pixel = m_framebuffer;
@@ -598,7 +618,84 @@ void App::set_pixel(int x, int y, Pixel p)
 {
     if (x >= 0 && x < m_screen_width && y >= 0 && y < m_screen_height)
     {
-        m_framebuffer[(y * m_screen_width) + x] = p;
+        if (m_blend_op == None)
+        {
+            m_framebuffer[(y * m_screen_width) + x] = p;
+        }
+        else
+        {
+            Pixel dest = m_framebuffer[(y * m_screen_width) + x];
+
+            auto alpha_factor = [](BlendMode mode, uint8_t src_alpha, uint8_t dest_alpha, uint8_t constant_alpha) -> float {
+                if (mode == BlendMode::Zero)
+                {
+                    return 0.0f;
+                }
+                else if (mode == BlendMode::SrcAlpha)
+                {
+                    return src_alpha / 255.0f;
+                }
+                else if (mode == BlendMode::InvSrcAlpha)
+                {
+                    return 1.0f - (src_alpha / 255.0f);
+                }
+                else if (mode == BlendMode::DestAlpha)
+                {
+                    return dest_alpha / 255.0f;
+                }
+                else if (mode == BlendMode::InvDestAlpha)
+                {
+                    return 1.0f - (dest_alpha / 255.0f);
+                }
+                else if (mode == BlendMode::Constant)
+                {
+                    return constant_alpha;
+                }
+                else
+                {
+                    return 1.0f;
+                }
+            };
+
+            float sa = alpha_factor(m_src_blend, p.a, dest.a, m_blend_constant);
+            float da = alpha_factor(m_dest_blend, p.a, dest.a, m_blend_constant);
+
+            float sr = p.r / 255.0f;
+            float sg = p.g / 255.0f;
+            float sb = p.b / 255.0f;
+            float dr = dest.r / 255.0f;
+            float dg = dest.g / 255.0f;
+            float db = dest.b / 255.0f;
+            float r = sr;
+            float g = sg;
+            float b = sb;
+
+            if (m_blend_op == BlendOp::Add)
+            {
+                r = sr * sa + dr * da;
+                g = sg * sa + dg * da;
+                b = sb * sa + db * da;
+            }
+            else if (m_blend_op == BlendOp::Multiply)
+            {
+                r = sr * sa * dr * da;
+                g = sg * sa * dg * da;
+                b = sb * sa * db * da;
+            }
+            else if (m_blend_op == BlendOp::Subtract)
+            {
+                r = sr * sa - dr * da;
+                g = sg * sa - dg * da;
+                b = sb * sa - db * da;
+            }
+
+            auto comp = [](float f) -> uint8_t {
+                f = (f < 0.0f) ? 0.0f : ((f > 1.0f) ? 1.0f : f);
+                return (uint8_t)std::floor(f * 255.0f + 0.5f);
+            };
+
+            m_framebuffer[(y * m_screen_width) + x] = Pixel(comp(r), comp(g), comp(b), comp(sa));
+        }
     }
 }
 
@@ -607,6 +704,7 @@ void App::draw_line(int x1, int y1, int x2, int y2, uint8_t c)
 {
     draw_line(x1, y1, x2, y2, m_palette[c]);
 }
+
 
 void App::draw_line(int x1, int y1, int x2, int y2, Pixel p)
 {

@@ -95,22 +95,36 @@ static const int FixedScale = 64;
 //        "#......#"
 //        "#......#"
 //        "########";
-
+//
 //static const char* BspMap =
 //        "########"
 //        "#......#"
 //        "#......#"
 //        "#..#...#"
 //        "#......#"
-//        "#......#"
+//        "#....#.#"
 //        "#......#"
 //        "########";
-
+//
 //static const int BspMapWidth = 8;
 //static const int BspMapHeight = 8;
-static const char* BspMap = TestMap;
-static const int BspMapWidth = MapWidth;
-static const int BspMapHeight = MapHeight;
+//static const char* BspMap = TestMap;
+//static const int BspMapWidth = MapWidth;
+//static const int BspMapHeight = MapHeight;
+
+static const char* BspMap =
+        "################"
+        "#..............#"
+        "#....#...#.....#"
+        "#..#........####"
+        "#......#....#..#"
+        "#....#...#.....#"
+        "#...........#..#"
+        "################";
+
+static const int BspMapWidth = 16;
+static const int BspMapHeight = 8;
+
 static const float PI = 3.14159274101257324f;
 
 char readmap(int x, int y)
@@ -639,17 +653,30 @@ public:
         V2f b;
         V2f n;
 
-        static int side(const BspLine& a, const BspLine& b)
+        static int side(const BspLine& split, const V2f& p)
+        {
+            // Return 1 if p is in postive half space, 0 if p lies on split, or -1 if p is in negative half space
+            float d = dot(p, split.n) - dot(split.a, split.n);
+            return (d > 0.0f) ? 1 : ((d < 0.0f) ? -1 : 0);
+        }
+
+        static int side(const BspLine& split, const BspLine& line)
         {
             // Return 1 if b is in a's postive half space, 0 if b intersects a or -1 if b is in a's negative half space
-            float d0 = dot(b.a, a.n) - dot(a.a, a.n);
-            float d1 = dot(b.b, a.n) - dot(a.a, a.n);
+            int sa = side(split, line.a);
+            int sb = side(split, line.b);
 
-            if (d0 >= 0.0f && d1 >= 0.0f)
+            if (sa == 0 && sb == 0)
+            {
+                return dot(split.n, line.n) < 0 ? -1 : 1;
+            }
+
+            if (sa >= 0 && sb >= 0)
             {
                 return 1;
             }
-            else if (d0 <= 0.0f && d1 <= 0.0f)
+
+            if (sa <= 0 && sb <= 0)
             {
                 return -1;
             }
@@ -657,30 +684,30 @@ public:
             return 0;
         }
 
-        static void split(const BspLine& a, const BspLine& b, BspLine& front, BspLine& back)
+        static void split(const BspLine& split, const BspLine& line, BspLine& front, BspLine& back)
         {
-            float d0 = dot(b.a, a.n) - dot(a.a, a.n);
-            float d1 = dot(b.b, a.n) - dot(a.a, a.n);
+            float d0 = dot(line.a, split.n) - dot(split.a, split.n);
+            float d1 = dot(line.b, split.n) - dot(split.a, split.n);
 
             if (d0 > d1)
             {
                 float t = d0 / (d0 - d1);
-                front.a = b.a;
-                front.b = b.a + (b.b - b.a) * t;
-                front.n = b.n;
+                front.a = line.a;
+                front.b = line.a + (line.b - line.a) * t;
+                front.n = line.n;
                 back.a = front.b;
-                back.b = b.b;
-                back.n = b.n;
+                back.b = line.b;
+                back.n = line.n;
             }
             else
             {
                 float t = d1 / (d1 - d0);
-                front.b = b.b;
-                front.a = b.b + (b.a - b.b) * t;
-                front.n = b.n;
+                front.b = line.b;
+                front.a = line.b + (line.a - line.b) * t;
+                front.n = line.n;
                 back.b = front.a;
-                back.a = b.a;
-                back.n = b.n;
+                back.a = line.a;
+                back.n = line.n;
             }
         }
     };
@@ -713,9 +740,16 @@ public:
 
     struct BspTreeBuilder
     {
+        struct BBox
+        {
+            V2f min{ FLT_MAX, FLT_MAX};
+            V2f max{ -FLT_MAX, -FLT_MAX };
+        };
+
         struct Sector
         {
             std::vector<BspLine> lines;
+            BBox bbox;
 
             bool convex()
             {
@@ -733,6 +767,30 @@ public:
                 }
 
                 return true;
+            }
+
+            static void grow_bbox(BBox& box, const V2f& p)
+            {
+                box.min.x = std::min(p.x, box.min.x);
+                box.min.y = std::min(p.y, box.min.y);
+                box.max.x = std::max(p.x, box.max.x);
+                box.max.y = std::max(p.y, box.max.y);
+            }
+
+            static void grow_bbox(BBox& box, const BspLine& l)
+            {
+                grow_bbox(box, l.a);
+                grow_bbox(box, l.b);
+            }
+
+            void calc_bounds()
+            {
+                bbox = BBox();
+
+                for (const BspLine& line : lines)
+                {
+                    grow_bbox(bbox, line);
+                }
             }
         };
 
@@ -756,10 +814,47 @@ public:
                 root.sector->lines.push_back(line);
             }
 
+            root.sector->calc_bounds();
+
             if (!root.sector->convex())
             {
                 process_queue.push_back(&root);
             }
+        }
+
+        struct SplitScoreData
+        {
+            size_t front{};  // lines in front
+            size_t back{};  // lines behind
+            size_t splits{}; // total splits
+            BBox front_bound{};
+            BBox back_bound{};
+        };
+
+        float calc_split_score(const SplitScoreData& data)
+        {
+            static const float balance_weight = 1.0f;
+            static const float split_weight = 50.0f;
+            static const float area_ratio_weight = 1.0f;
+
+            float score = 0.0f;
+
+            // balance
+            size_t balance = (data.front > data.back) ? data.front - data.back : data.back - data.front;
+            score -= balance * balance_weight;
+
+            // splits are bad
+            score -= data.splits * split_weight;
+
+            // bbox ratio
+            V2f front_extent = data.front_bound.max - data.front_bound.min;
+            float front_area = front_extent.x * front_extent.y;
+            V2f back_extent = data.back_bound.max - data.back_bound.min;
+            float back_area = back_extent.x * back_extent.y;
+            float area_ratio = (front_area > back_area) ? (back_area / front_area) : (front_area / back_area);
+            score += area_ratio * area_ratio_weight;
+
+            return score;
         }
 
         void split()
@@ -770,26 +865,24 @@ public:
             }
 
             size_t best_split = (size_t)-1;   // index of the best split candidate
-            size_t best_balance = (size_t)-1; // absolute difference of lines on each side of the best split candidate
-            size_t best_cost = 0;    // number of lines the best split candidate will split
+            float best_score = -FLT_MAX; // higher is better
 
             Node* node = process_queue.front();
             process_queue.pop_front();
             std::unique_ptr<Sector> sector = std::move(node->sector);
             size_t candidate_index = 0;
-
+            
             for (const BspLine& candidate : sector->lines)
             {
-                size_t front = 0;
-                size_t back = 0;
-                size_t split = 0;
                 size_t test_index = 0;
+                SplitScoreData score_data{};
 
                 for (const BspLine& test : sector->lines)
                 {
                     if (test_index == candidate_index)
                     {
-                        front++;
+                        score_data.front++;
+                        Sector::grow_bbox(score_data.front_bound, test);
                     }
                     else
                     {
@@ -797,34 +890,37 @@ public:
 
                         if (side > 0)
                         {
-                            front++;
+                            score_data.front++;
+                            Sector::grow_bbox(score_data.front_bound, test);
                         }
                         else if (side < 0)
                         {
-                            back++;
+                            score_data.back++;
+                            Sector::grow_bbox(score_data.back_bound, test);
                         }
                         else
                         {
-                            front++;
-                            back++;
-                            split++;
+                            score_data.front++;
+                            score_data.back++;
+                            score_data.splits++;
+                            BspLine front;
+                            BspLine back;
+                            BspLine::split(candidate, test, front, back);
+                            Sector::grow_bbox(score_data.front_bound, front);
+                            Sector::grow_bbox(score_data.back_bound, back);
                         }
                     }
 
                     test_index++;
                 }
 
-                if (back)
+                if (score_data.back)
                 {
-                    size_t balance = front > back ? (front - back) : (back - front);
-                    size_t score = balance * (split + 1);
-                    size_t best_score = best_balance * (best_cost + 1);
-
-                    if (score < best_score)
+                    float score = calc_split_score(score_data);
+                    if (score > best_score)
                     {
                         best_split = candidate_index;
-                        best_balance = balance;
-                        best_cost = split;
+                        best_score = score;
                     }
                 }
 
@@ -842,9 +938,7 @@ public:
             node->front = std::make_unique<Node>();
             node->back = std::make_unique<Node>();
             node->front->sector = std::make_unique<Sector>();
-            // FIXME (track best front & back): node->front->sector->lines.reserve(front);
             node->back->sector = std::make_unique<Sector>();
-            // FIXME (track best front & back): node->back->sector->lines.reserve(back);
 
             // Split sector to left & right
             size_t line_index = 0;
@@ -880,6 +974,9 @@ public:
                 line_index++;
             }
 
+            node->front->sector->calc_bounds();
+            node->back->sector->calc_bounds();
+
             if (!node->front->sector->convex())
             {
                 process_queue.push_back(node->front.get());
@@ -906,6 +1003,7 @@ public:
     {
         std::vector<BspLine> lines;
         std::unique_ptr<BspTreeBuilder> builder;
+        BspTreeBuilder::Sector* current_sector;
     } bsp_data;
 
     void add_bsp_line(const V2f& a, const V2f& b)
@@ -969,8 +1067,14 @@ public:
 
         if (bsp_state == BspState::Reset)
         {
+            if (mouse_visible())
+            {
+                show_mouse(false);
+            }
+
             bsp_data.lines.clear();
             bsp_data.builder = std::make_unique<BspTreeBuilder>();
+            bsp_data.current_sector = nullptr;
 
             for (int y = 0; y < BspMapHeight; ++y)
             {
@@ -1008,10 +1112,37 @@ public:
             {
                 bsp_data.builder->split();
             }
+
+            if (bsp_data.builder->complete())
+            {
+                show_mouse(true);
+                bsp_state = BspState::Idle;
+            }
+        }
+        else if (bsp_state == BspState::Idle)
+        {
+            V2f mouse_world_pos = screen_to_world(V2i{mouse_state().x, mouse_state().y}, V2f{BspMapWidth, BspMapHeight} * 0.5f, bsp_tile_scale);
+            BspTreeBuilder::Node* node = &bsp_data.builder->root;
+
+            while (node && !node->sector)
+            {
+                int side = BspLine::side(node->split, mouse_world_pos);
+
+                if (side >= 0)
+                {
+                    node = node->front.get();
+                }
+                else
+                {
+                    node = node->back.get();
+                }
+            }
+
+            bsp_data.current_sector = node ? node->sector.get() : nullptr;
         }
     }
 
-    int bsp_tile_scale = 8;
+    int bsp_tile_scale = 64;
 
     int world_to_screen_x(float x, float ox, int tile_scale) { return (int)std::floor((x - ox) * tile_scale) + screen_width() / 2; }
 
@@ -1022,74 +1153,103 @@ public:
         return V2i{ world_to_screen_x(p.x, o.x, tile_scale), world_to_screen_y(p.y, o.y, tile_scale) };
     }
 
-    void render_bsp_sector(BspTreeBuilder::Sector* sector)
+    V2f screen_to_world(const V2i& p, const V2f& o, int tile_scale)
     {
-        gli::Pixel color = sector->convex() ? gli::Pixel(96, 255, 96) : gli::Pixel(255, 96, 96);
-
-        for (const BspLine& line : sector->lines)
-        {
-            V2i from = world_to_screen(line.a, V2f{ BspMapWidth * 0.5f, BspMapHeight * 0.5f }, bsp_tile_scale);
-            V2i to = world_to_screen(line.b, V2f{ BspMapWidth * 0.5f, BspMapHeight * 0.5f }, bsp_tile_scale);
-            V2i mid = (from + to) / 2;
-            V2i ntick = mid + V2i{ (int)std::floor(line.n.x * 10.0f), (int)std::floor(line.n.y * 10.0f) };
-            draw_line(from.x, from.y, to.x, to.y, color);
-            draw_line(mid.x, mid.y, ntick.x, ntick.y, gli::Pixel(0xFFE0E000));
-            draw_line(from.x - 2, from.y - 2, from.x + 3, from.y + 3, gli::Pixel(0xFF00E0E0));
-            draw_line(from.x - 2, from.y + 2, from.x + 3, from.y - 3, gli::Pixel(0xFF00E0E0));
-        }
+        V2i pn = p - V2i{ screen_width(), screen_height() } / 2;
+        float oo_tile_scale = 1.0f / (float)tile_scale;
+        return V2f{ pn.x * oo_tile_scale + o.x, pn.y * oo_tile_scale + o.y };
     }
 
-    void render_bsp_node(BspTreeBuilder::Node* node, V2i bbox_min, V2i bbox_max)
+    void draw_bsp_line(const BspLine& line, gli::Pixel color)
     {
-        if (node->sector)
+        V2i from = world_to_screen(line.a, V2f{ BspMapWidth * 0.5f, BspMapHeight * 0.5f }, bsp_tile_scale);
+        V2i to = world_to_screen(line.b, V2f{ BspMapWidth * 0.5f, BspMapHeight * 0.5f }, bsp_tile_scale);
+        V2i mid = (from + to) / 2;
+        V2i ntick = mid + V2i{ (int)std::floor(line.n.x * 10.0f), (int)std::floor(line.n.y * 10.0f) };
+        draw_line(from.x, from.y, to.x, to.y, color);
+        draw_line(mid.x, mid.y, ntick.x, ntick.y, color);
+        draw_line(from.x - 2, from.y - 2, from.x + 3, from.y + 3, color);
+        draw_line(from.x - 2, from.y + 2, from.x + 3, from.y - 3, color);
+    }
+
+    void draw_bsp_split(const BspLine& split, const BspTreeBuilder::BBox& bound)
+    {
+        BspLine line = split;
+
+        if (std::abs(split.n.x) > std::abs(split.n.y))
         {
-            render_bsp_sector(node->sector.get());
+            line.a.y = bound.min.y;
+            line.b.y = bound.max.y;
         }
         else
         {
-            V2i bbox_front_min = bbox_min;
-            V2i bbox_front_max = bbox_max;
-            V2i bbox_back_min = bbox_min;
-            V2i bbox_back_max = bbox_max;
+            line.a.x = bound.min.x;
+            line.b.x = bound.max.x;
+        }
+
+        draw_bsp_line(line, gli::Pixel(128, 128, 128));
+    }
+
+    void render_bsp_sector(BspTreeBuilder::Sector* sector, bool highlight)
+    {
+        gli::Pixel color = sector->convex() ? gli::Pixel(64, 128, 64) : gli::Pixel(128, 64, 64);
+
+        if (highlight)
+        {
+            color = gli::Pixel(255, 255, 0);
+        }
+
+        for (const BspLine& line : sector->lines)
+        {
+            draw_bsp_line(line, color);
+        }
+    }
+
+    void render_bsp_node(BspTreeBuilder::Node* node, const BspTreeBuilder::BBox& bbox)
+    {
+        if (node->sector)
+        {
+            render_bsp_sector(node->sector.get(), false);
+        }
+        else
+        {
+            BspTreeBuilder::BBox bbox_front = bbox;
+            BspTreeBuilder::BBox bbox_back = bbox;
+            float split_x = node->split.a.x;
+            float split_y = node->split.a.y;
 
             if (node->split.n.x > 0)
             {
-                bbox_front_min.x = world_to_screen_x(node->split.a.x, BspMapWidth * 0.5f, bsp_tile_scale);
-                bbox_back_max.x = bbox_front_min.x;
+                bbox_front.min.x = split_x;
+                bbox_back.max.x = split_x;
             }
             else if (node->split.n.x < 0)
             {
-                bbox_front_max.x = world_to_screen_x(node->split.a.x, BspMapWidth * 0.5f, bsp_tile_scale);
-                bbox_back_min.x = bbox_front_max.x;
+                bbox_front.max.x = split_x;
+                bbox_back.min.x = split_x;
             }
             else if (node->split.n.y > 0)
             {
-                bbox_front_min.y = world_to_screen_y(node->split.a.y, BspMapHeight * 0.5f, bsp_tile_scale);
-                bbox_back_max.y = bbox_front_min.y;
+                bbox_front.min.y = split_y;
+                bbox_back.max.y = split_y;
             }
             else if (node->split.n.y < 0)
             {
-                bbox_front_max.y = world_to_screen_y(node->split.a.y, BspMapHeight * 0.5f, bsp_tile_scale);
-                bbox_back_min.y = bbox_front_max.y;
+                bbox_front.max.y = split_y;
+                bbox_back.min.y = split_y;
             }
             else
             {
                 gliAssert(!"Illegal split normal");
             }
 
-            render_bsp_node(node->front.get(), bbox_front_min, bbox_front_max);
-            render_bsp_node(node->back.get(), bbox_back_min, bbox_back_max);
+            render_bsp_node(node->front.get(), bbox_front);
+            render_bsp_node(node->back.get(), bbox_back);
 
-            if (std::abs(node->split.n.x) > std::abs(node->split.n.y))
-            {
-                int split_x = world_to_screen_x(node->split.a.x, BspMapWidth * 0.5f, bsp_tile_scale);
-                draw_line(split_x, bbox_min.y, split_x, bbox_max.y, gli::Pixel(0xFFFFFF00));
-            }
-            else
-            {
-                int split_y = world_to_screen_y(node->split.a.y, BspMapHeight * 0.5f, bsp_tile_scale);
-                draw_line(bbox_min.x, split_y, bbox_max.x, split_y, gli::Pixel(0xFFFFFF00));
-            }
+            set_blend_mode(gli::BlendMode::One, gli::BlendMode::One, 0);
+            set_blend_op(gli::BlendOp::Add);
+            draw_bsp_split(node->split, bbox);
+            set_blend_op(gli::BlendOp::None);
         }
     }
 
@@ -1105,16 +1265,22 @@ public:
             {
                 int tx = world_to_screen_x((float)x, BspMapWidth * 0.5f, bsp_tile_scale);
 
-                if (BspMap[x + y * BspMapHeight] == '#')
+                if (BspMap[x + y * BspMapWidth] == '#')
                 {
                     fill_rect(tx, ty, bsp_tile_scale, bsp_tile_scale, 0, gli::Pixel(16, 16, 48), 0);
                 }
             }
         }
 
-        V2i bbox_min{};
-        V2i bbox_max{ screen_width(), screen_height() };
-        render_bsp_node(&bsp_data.builder->root, bbox_min, bbox_max);
+        BspTreeBuilder::BBox bbox;
+        bbox.min = V2f{};
+        bbox.max = V2f{ (float)BspMapWidth, (float)BspMapHeight };
+        render_bsp_node(&bsp_data.builder->root, bbox);
+
+        if (bsp_data.current_sector)
+        {
+            render_bsp_sector(bsp_data.current_sector, true);
+        }
     }
 };
 

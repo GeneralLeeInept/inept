@@ -184,6 +184,25 @@ struct Pixel
     static const uint32_t Clear = 0x00FFFFFF;
 };
 
+enum BlendMode
+{
+    One,
+    Zero,
+    SrcAlpha,
+    InvSrcAlpha,
+    DestAlpha,
+    InvDestAlpha,
+    Constant
+};
+
+enum BlendOp
+{
+    None,
+    Multiply,
+    Add,
+    Subtract
+};
+
 class Sprite;
 
 class App
@@ -230,6 +249,7 @@ public:
     const KeyState& key_state(Key key);
     const MouseState& mouse_state();
     void show_mouse(bool show);
+    bool mouse_visible();
     ControllerState controller_state(int controller);
 
     using KeyEventHandler = std::function<void(KeyEvent&)>;
@@ -241,6 +261,9 @@ public:
 
     void clear_screen(uint8_t c);
     void set_pixel(int x, int y, uint8_t p);
+
+    void set_blend_mode(BlendMode src_blend, BlendMode dest_blend, uint8_t constant);
+    void set_blend_op(BlendOp op);
 
     void clear_screen(Pixel p);
     void set_pixel(int x, int y, Pixel p);
@@ -285,6 +308,10 @@ private:
     int m_window_height;
     Pixel m_fade_color;
     float m_fade;
+    BlendMode m_src_blend = BlendMode::One;
+    BlendMode m_dest_blend = BlendMode::Zero;
+    uint8_t m_blend_constant = 255;
+    BlendOp m_blend_op = BlendOp::None;
 };
 
 } // namespace gli
