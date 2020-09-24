@@ -217,9 +217,10 @@ public:
 
     struct MouseState
     {
-        int x; // Screen coords fixed for scale
+        int x; // Screen coords fixed for pixel scale
         int y;
         KeyState buttons[3]; // 0 = LMB, 1 = MMB, 2 = RMB
+        int wheel; // Scroll wheel
     };
 
     struct ControllerState

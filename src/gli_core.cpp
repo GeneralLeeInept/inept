@@ -83,6 +83,7 @@ std::atomic<bool> _active;
 std::atomic<bool> _mouse_active;
 std::atomic<App::MouseState> _mouse_state;
 std::atomic<bool> _poll_controllers;
+std::atomic<int> _mouse_wheel = 0;
 HMODULE _xinput_dll = NULL;
 XInputGetStateFuncPtr XInputGetState = XInputGetStateStub;
 ControllerState _controller_states[4]{};
@@ -1163,11 +1164,13 @@ void App::engine_loop()
         {
             m_mouse.x = 0;
             m_mouse.y = 0;
+            m_mouse.wheel = 0;
         }
         else
         {
             m_mouse.x = new_mouse_state.x;
             m_mouse.y = new_mouse_state.y;
+            m_mouse.wheel = _mouse_wheel.exchange(0);
 
             static const int VkMouseButtons[3] = { VK_LBUTTON, VK_MBUTTON, VK_RBUTTON };
 
@@ -1280,6 +1283,12 @@ LRESULT CALLBACK App::window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpa
             state.y = int(lparam >> 16) / window_scale;
             _mouse_state.store(state);
             _mouse_active = true;
+            return 0;
+        }
+        case WM_MOUSEWHEEL:
+        {
+            int delta = GET_WHEEL_DELTA_WPARAM(wparam);
+            _mouse_wheel.fetch_add(delta);
             return 0;
         }
         case WM_SYSKEYDOWN:
