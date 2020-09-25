@@ -52,6 +52,17 @@ struct BspTreeBuilder
     Node root;
 
     void init(const std::vector<BspLine>& lines);
+    void split();
+    void build();
+    bool complete();
+
+    struct SplitScoreWeights
+    {
+        float balance_weight{2.0f};
+        float split_weight{1.0f};
+        float area_ratio_weight{1.0f};
+        float orthogonal_bonus{100.0f};
+    };
 
     struct SplitScoreData
     {
@@ -60,12 +71,12 @@ struct BspTreeBuilder
         size_t splits{}; // total splits
         BBox front_bound{};
         BBox back_bound{};
+        bool ortho{};
     };
 
+    SplitScoreWeights split_score_weights{};
+
     float calc_split_score(const SplitScoreData& data);
-    void split();
-    void build();
-    bool complete();
 };
 
 }

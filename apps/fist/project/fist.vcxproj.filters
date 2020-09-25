@@ -11,12 +11,18 @@
     <ClCompile Include="..\src\bsp_tree_builder.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\wad_loader.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\types.h">
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="..\src\bsp_tree_builder.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\wad_loader.h">
       <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>

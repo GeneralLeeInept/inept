@@ -2,9 +2,11 @@
 
 #include "types.h"
 #include "bsp_tree_builder.h"
+#include "wad_loader.h"
 
+#include <algorithm>
 #include <set>
-#include <cstdio>
+#include <fstream>
 
 static const float PI = 3.14159274101257324f;
 
@@ -55,63 +57,169 @@ public:
 
     void save()
     {
-        FILE* fp = fopen(R"(R:\inept\apps\fist\res\map.dat)", "wb");
+        std::ofstream fp("res/map.dat", std::ios::binary);
 
         if (fp)
         {
             size_t num_points = draw_points.size();
-            fwrite(&num_points, sizeof(size_t), 1, fp);
-
-            for (const V2f& p : draw_points)
-            {
-                fwrite(&p, sizeof(V2f), 1, fp);
-            }
+            fp.write((char*)&num_points, 4);
+            fp.write((char*)&draw_points[0], num_points * sizeof(V2f));
 
             size_t num_lines = draw_lines.size();
-            fwrite(&num_lines, sizeof(size_t), 1, fp);
-
-            for (const DrawLine& l : draw_lines)
-            {
-                fwrite(&l, sizeof(DrawLine), 1, fp);
-            }
-
-            fclose(fp);
+            fp.write((char*)&num_lines, 4);
+            fp.write((char*)&draw_lines[0], sizeof(DrawLine));
         }
     }
 
     void load()
     {
-        FILE* fp = fopen(R"(R:\inept\apps\fist\res\map.dat)", "rb");
+        std::ifstream fp("res/map.dat", std::ios::binary);
 
         if (fp)
         {
             size_t num_points;
-            fread(&num_points, sizeof(size_t), 1, fp);
-
+            fp.read((char*)&num_points, 4);
             draw_points.resize(num_points);
-
-            for (V2f& p : draw_points)
-            {
-                fread(&p, sizeof(V2f), 1, fp);
-            }
+            fp.read((char*)&draw_points[0], num_points * sizeof(V2f));
 
             size_t num_lines;
-            fread(&num_lines, sizeof(size_t), 1, fp);
-
+            fp.read((char*)&num_lines, 4);
             draw_lines.resize(num_lines);
-
-            for (DrawLine& l : draw_lines)
-            {
-                fread(&l, sizeof(DrawLine), 1, fp);
-            }
-
-            fclose(fp);
+            fp.read((char*)&draw_lines[0], sizeof(DrawLine));
         }
     }
 
-    bool on_create() override { return true; }
+    std::unordered_map<std::string, std::string> config{};
 
-    void on_destroy() override {}
+    void load_config()
+    {
+        std::ifstream fp("res/config.txt");
+
+        if (fp)
+        {
+            std::string line;
+
+            while(std::getline(fp, line))
+            {
+                std::string key;
+                std::string value;
+                size_t sep = line.find_first_of(':',0);
+                key = line.substr(0, sep);
+                key.erase(std::remove(key.begin(), key.end(), ' '), key.end());
+                size_t vstart = line.find_first_not_of(' ', sep + 1);
+                value = line.substr(vstart, std::string::npos);
+                config[key] = value;
+            }
+        }
+    }
+
+    void save_config()
+    {
+        std::ofstream fp("res/config.txt");
+
+        if (fp)
+        {
+            for (const auto& kvp : config)
+            {
+                fp << kvp.first << " : " << kvp.second << std::endl;
+            }
+        }
+    }
+
+    float configf(const std::string& key, float default_value)
+    {
+        float value = default_value;
+        auto iter = config.find(key);
+
+        if (iter == config.end())
+        {
+            config.insert(std::pair<std::string, std::string>(key, std::to_string(default_value)));
+        }
+        else
+        {
+            value = std::stof(iter->second);
+        }
+
+        return value;
+    }
+
+    const std::string& configs(const std::string& key, const std::string& default_value)
+    {
+        auto iter = config.find(key);
+
+        if (iter == config.end())
+        {
+            config.insert(std::pair<std::string, std::string>(key, default_value));
+            iter = config.find(key);
+        }
+
+        return iter->second;
+    }
+
+    void load_bsp_weights(BspTreeBuilder::SplitScoreWeights& weights)
+    {
+        load_config();
+        weights.balance_weight = configf("bsp.splitscore.balance_weight", weights.balance_weight);
+        weights.split_weight = configf("bsp.splitscore.split_weight", weights.split_weight);
+        weights.area_ratio_weight = configf("bsp.splitscore.area_ratio_weight", weights.area_ratio_weight);
+        weights.orthogonal_bonus = configf("bsp.splitscore.orthogonal_bonus", weights.orthogonal_bonus);
+        save_config();
+    }
+
+    void import()
+    {
+        load_config();
+
+        const std::string& wad_location = configs("import.wadfile", R"(C:\Program Files (x86)\Steam\SteamApps\common\Ultimate Doom\base\DOOM.WAD)");
+        std::unique_ptr<WadFile, WadFileDeleter> wadfile(wad_open(wad_location));
+
+        if (!wadfile)
+        {
+            return;
+        }
+
+        const std::string& map_name = configs("import.map", "E1M1");
+        Wad::Map wadmap;
+
+        if (!wad_load_map(wadfile.get(), map_name.c_str(), wadmap))
+        {
+            return;
+        }
+
+        draw_points.clear();
+        draw_lines.clear();
+        draw_points.reserve(wadmap.vertices.size());
+        draw_lines.reserve(wadmap.linedefs.size());
+
+        // Doom is ~64 units / m
+        const float vertex_scale = 1.0f / 64.0f;
+
+        for (const Wad::Vertex& dv : wadmap.vertices)
+        {
+            V2f v = quantize(V2f{ (float)dv.x, (float)dv.y } * vertex_scale);
+            draw_points.push_back(v);
+        }
+
+        for (const Wad::LineDef& ld : wadmap.linedefs)
+        {
+            add_draw_line(ld.from, ld.to);
+
+            if (ld.sidedefs[1] != 0xffff)
+            {
+                add_draw_line(ld.to, ld.from);
+            }
+        }
+
+        save_config();
+    }
+
+    bool on_create() override
+    {
+        load_config();
+        return true;
+    }
+
+    void on_destroy() override { save_config(); }
 
     bool on_update(float delta) override
     {
@@ -208,6 +316,18 @@ public:
         Rectf drag_rect;
     } editor_data;
 
+    V2f quantize(const V2f& pos)
+    {
+        // quantize to 1/1024th meter
+        int ix = (int)std::floor(std::abs(pos.x) * 1024.0f);
+        int iy = (int)std::floor(std::abs(pos.y) * 1024.0f);
+
+        float qx = (pos.x < 0.0f) ? (ix / -1024.0f) : (ix / 1024.0f);
+        float qy = (pos.y < 0.0f) ? (iy / -1024.0f) : (iy / 1024.0f);
+
+        return V2f{ qx, qy };
+    }
+
     size_t select_draw_point(V2i pos_screen)
     {
         V2f pos_world = screen_to_world(pos_screen, camera_pos);
@@ -236,15 +356,7 @@ public:
         if (existing == None)
         {
             existing = draw_points.size();
-            V2f pos_world = screen_to_world(pos_screen, camera_pos);
-
-            // Quantize to cm
-            int qx = (int)std::floor(pos_world.x * 100.0f);
-            int qy = (int)std::floor(pos_world.y * 100.0f);
-
-            pos_world.x = qx / 100.0f;
-            pos_world.y = qy / 100.0f;
-
+            V2f pos_world = quantize(screen_to_world(pos_screen, camera_pos));
             draw_points.push_back(pos_world);
         }
 
@@ -395,6 +507,12 @@ public:
                     view_state = 0;
                     return;
                 }
+                else if (key_state(gli::Key_I).pressed)
+                {
+                    import();
+                    view_state = 0;
+                    return;
+                }
             }
             else
             {
@@ -440,6 +558,24 @@ public:
             world_scale = std::pow(2.0f, zoom_level);
             V2f new_camera_pos = screen_to_world(mouse_pos, V2f{});
             editor_data.camera_pos = editor_data.camera_pos + prev_camera_pos - new_camera_pos;
+        }
+
+        if (key_state(gli::Key_Home).pressed)
+        {
+            V2f min{ FLT_MAX, FLT_MAX };
+            V2f max{ -FLT_MIN, -FLT_MIN };
+
+            for (const V2f& v : draw_points)
+            {
+                min.x = std::min(v.x, min.x);
+                min.y = std::min(v.y, min.y);
+                max.x = std::max(v.x, max.x);
+                max.y = std::max(v.y, max.y);
+            }
+
+            editor_data.camera_pos = (min + max) * 0.5f;
+            zoom_level = 8.0f;
+            world_scale = std::pow(2.0f, zoom_level);
         }
 
         if (editor_data.mode == EditorStateData::Mode::Select)
@@ -539,14 +675,7 @@ public:
 
                 if (existing == None)
                 {
-                    V2f pos_world = screen_to_world(mouse_pos, camera_pos);
-
-                    // Quantize to cm
-                    int qx = (int)std::floor(pos_world.x * 100.0f);
-                    int qy = (int)std::floor(pos_world.y * 100.0f);
-
-                    editor_data.draw_line_to.x = qx / 100.0f;
-                    editor_data.draw_line_to.y = qy / 100.0f;
+                    editor_data.draw_line_to = quantize(screen_to_world(mouse_pos, camera_pos));
                     editor_data.draw_line_valid = true;
                 }
                 else if (existing != editor_data.draw_from)
@@ -669,6 +798,7 @@ public:
             }
 
             bsp_data.builder->init(bsp_lines);
+            load_bsp_weights(bsp_data.builder->split_score_weights);
 
             view_state = 1;
         }
@@ -703,7 +833,10 @@ public:
             {
                 bsp_data.builder->split();
             }
-
+            else if (key_state(gli::Key_B).released)
+            {
+                bsp_data.builder->build();
+            }
             if (bsp_data.builder->complete())
             {
                 view_state = 2;

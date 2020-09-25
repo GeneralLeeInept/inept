@@ -136,18 +136,14 @@ void BspTreeBuilder::init(const std::vector<BspLine>& lines)
 
 float BspTreeBuilder::calc_split_score(const SplitScoreData& data)
 {
-    static const float balance_weight = 1.0f;
-    static const float split_weight = 50.0f;
-    static const float area_ratio_weight = 1.0f;
-
     float score = 0.0f;
 
     // balance
     size_t balance = (data.front > data.back) ? data.front - data.back : data.back - data.front;
-    score -= balance * balance_weight;
+    score -= balance * split_score_weights.balance_weight;
 
     // splits are bad
-    score -= data.splits * split_weight;
+    score -= data.splits * split_score_weights.split_weight;
 
     // bbox ratio
     V2f front_extent = data.front_bound.max - data.front_bound.min;
@@ -159,7 +155,13 @@ float BspTreeBuilder::calc_split_score(const SplitScoreData& data)
     {
         area_ratio = (front_area > back_area) ? (back_area / front_area) : (front_area / back_area);
     }
-    score += area_ratio * area_ratio_weight;
+    score += area_ratio * split_score_weights.area_ratio_weight;
+
+    // bonus...
+    if (data.ortho)
+    {
+        score += split_score_weights.orthogonal_bonus;
+    }
 
     return score;
 }
@@ -223,7 +225,9 @@ void BspTreeBuilder::split()
 
         if (score_data.back)
         {
+            score_data.ortho = std::abs(candidate.n.x) < 1.0e-6f || std::abs(candidate.n.y) < 1.0e-6f;
             float score = calc_split_score(score_data);
+
             if (score > best_score)
             {
                 best_split = candidate_index;
