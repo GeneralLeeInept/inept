@@ -51,8 +51,8 @@ enum ThingType
 
 struct ThingDef
 {
-    uint16_t xpos;
-    uint16_t ypos;
+    int16_t xpos;
+    int16_t ypos;
     uint16_t angle;
     uint16_t type;
     uint16_t options;

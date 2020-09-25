@@ -29,13 +29,13 @@ static const size_t None = (size_t)-1;
 
 bool App::on_create()
 {
-    load_config();
+    _config.load();
     return true;
 }
 
 void App::on_destroy()
 {
-    save_config();
+    _config.save();
 }
 
 bool App::on_update(float delta)
@@ -91,6 +91,11 @@ bool App::on_update(float delta)
     return true;
 }
 
+Config& App::config()
+{
+    return _config;
+}
+
 int App::world_to_screen_x(float x, float ox)
 {
     return (int)std::floor((x - ox) * world_scale) + screen_width() / 2;
@@ -119,13 +124,15 @@ void App::save()
 
     if (fp)
     {
-        size_t num_points = draw_points.size();
-        fp.write((char*)&num_points, 4);
+        uint32_t num_points = (uint32_t)draw_points.size();
+        fp.write((char*)&num_points, sizeof(uint32_t));
         fp.write((char*)&draw_points[0], num_points * sizeof(V2f));
 
-        size_t num_lines = draw_lines.size();
-        fp.write((char*)&num_lines, 4);
-        fp.write((char*)&draw_lines[0], sizeof(DrawLine));
+        uint32_t num_lines = (uint32_t)draw_lines.size();
+        fp.write((char*)&num_lines, sizeof(uint32_t));
+        fp.write((char*)&draw_lines[0], num_lines * sizeof(DrawLine));
+
+        fp.write((char*)&spawn_position, sizeof(V2f));
     }
 }
 
@@ -135,98 +142,35 @@ void App::load()
 
     if (fp)
     {
-        size_t num_points;
-        fp.read((char*)&num_points, 4);
+        uint32_t num_points;
+        fp.read((char*)&num_points, sizeof(uint32_t));
         draw_points.resize(num_points);
         fp.read((char*)&draw_points[0], num_points * sizeof(V2f));
 
-        size_t num_lines;
-        fp.read((char*)&num_lines, 4);
+        uint32_t num_lines;
+        fp.read((char*)&num_lines, sizeof(uint32_t));
         draw_lines.resize(num_lines);
-        fp.read((char*)&draw_lines[0], sizeof(DrawLine));
+        fp.read((char*)&draw_lines[0], num_lines * sizeof(DrawLine));
+
+        fp.read((char*)&spawn_position, sizeof(V2f));
     }
-}
-
-void App::load_config()
-{
-    std::ifstream fp("res/config.txt");
-
-    if (fp)
-    {
-        std::string line;
-
-        while (std::getline(fp, line))
-        {
-            std::string key;
-            std::string value;
-            size_t sep = line.find_first_of(':', 0);
-            key = line.substr(0, sep);
-            key.erase(std::remove(key.begin(), key.end(), ' '), key.end());
-            size_t vstart = line.find_first_not_of(' ', sep + 1);
-            value = line.substr(vstart, std::string::npos);
-            config[key] = value;
-        }
-    }
-}
-
-void App::save_config()
-{
-    std::ofstream fp("res/config.txt");
-
-    if (fp)
-    {
-        for (const auto& kvp : config)
-        {
-            fp << kvp.first << " : " << kvp.second << std::endl;
-        }
-    }
-}
-
-float App::configf(const std::string& key, float default_value)
-{
-    float value = default_value;
-    auto iter = config.find(key);
-
-    if (iter == config.end())
-    {
-        config.insert(std::pair<std::string, std::string>(key, std::to_string(default_value)));
-    }
-    else
-    {
-        value = std::stof(iter->second);
-    }
-
-    return value;
-}
-
-const std::string& App::configs(const std::string& key, const std::string& default_value)
-{
-    auto iter = config.find(key);
-
-    if (iter == config.end())
-    {
-        config.insert(std::pair<std::string, std::string>(key, default_value));
-        iter = config.find(key);
-    }
-
-    return iter->second;
 }
 
 void App::load_bsp_weights(BspTreeBuilder::SplitScoreWeights& weights)
 {
-    load_config();
-    weights.balance_weight = configf("bsp.splitscore.balance_weight", weights.balance_weight);
-    weights.split_weight = configf("bsp.splitscore.split_weight", weights.split_weight);
-    weights.area_ratio_weight = configf("bsp.splitscore.area_ratio_weight", weights.area_ratio_weight);
-    weights.orthogonal_bonus = configf("bsp.splitscore.orthogonal_bonus", weights.orthogonal_bonus);
-    save_config();
+    _config.load();
+    weights.balance_weight = _config.get("bsp.splitscore.balance_weight", weights.balance_weight);
+    weights.split_weight = _config.get("bsp.splitscore.split_weight", weights.split_weight);
+    weights.area_ratio_weight = _config.get("bsp.splitscore.area_ratio_weight", weights.area_ratio_weight);
+    weights.orthogonal_bonus = _config.get("bsp.splitscore.orthogonal_bonus", weights.orthogonal_bonus);
+    _config.save();
 }
 
 void App::import()
 {
-    load_config();
+    _config.load();
 
-    const std::string& wad_location = configs("import.wadfile", R"(C:\Program Files (x86)\Steam\SteamApps\common\Ultimate Doom\base\DOOM.WAD)");
+    const std::string& wad_location = _config.get("import.wadfile", R"(C:\Program Files (x86)\Steam\SteamApps\common\Ultimate Doom\base\DOOM.WAD)");
     std::unique_ptr<WadFile, WadFileDeleter> wadfile(wad_open(wad_location));
 
     if (!wadfile)
@@ -234,7 +178,7 @@ void App::import()
         return;
     }
 
-    const std::string& map_name = configs("import.map", "E1M1");
+    const std::string& map_name = _config.get("import.map", "E1M1");
     Wad::Map wadmap;
 
     if (!wad_load_map(wadfile.get(), map_name.c_str(), wadmap))
@@ -247,12 +191,12 @@ void App::import()
     draw_points.reserve(wadmap.vertices.size());
     draw_lines.reserve(wadmap.linedefs.size());
 
-    // Doom is ~64 units / m
-    const float vertex_scale = 1.0f / 64.0f;
+    // Doom is ~32 units / m
+    const float pos_scale = 1.0f / 32.0f;
 
     for (const Wad::Vertex& dv : wadmap.vertices)
     {
-        V2f v = quantize(V2f{ (float)dv.x, (float)dv.y } * vertex_scale);
+        V2f v = quantize(V2f{ (float)dv.x, (float)dv.y } * pos_scale, 0);
         draw_points.push_back(v);
     }
 
@@ -266,19 +210,38 @@ void App::import()
         }
     }
 
-    save_config();
+    for (const Wad::ThingDef& thing : wadmap.things)
+    {
+        if (thing.type == Wad::ThingType::Player1Start)
+        {
+            spawn_position = quantize(V2f{ (float)thing.xpos, (float)thing.ypos } * pos_scale, 0);
+        }
+    }
+
+    _config.save();
 }
 
-V2f App::quantize(const V2f& pos)
+V2f App::quantize(const V2f& pos, int grid_snap)
 {
-    // quantize to 1/1024th meter
-    int ix = (int)std::floor(std::abs(pos.x) * 1024.0f);
-    int iy = (int)std::floor(std::abs(pos.y) * 1024.0f);
+    if (grid_snap)
+    {
+        int ix = (int)std::floor(pos.x);
+        int iy = (int)std::floor(pos.y);
+        ix = (ix / grid_snap) * grid_snap;
+        iy = (iy / grid_snap) * grid_snap;
+        return V2f{ (float)ix, (float)iy };
+    }
+    else
+    {
+        // quantize to 1/1024th meter
+        int ix = (int)std::floor(std::abs(pos.x) * 1024.0f);
+        int iy = (int)std::floor(std::abs(pos.y) * 1024.0f);
 
-    float qx = (pos.x < 0.0f) ? (ix / -1024.0f) : (ix / 1024.0f);
-    float qy = (pos.y < 0.0f) ? (iy / -1024.0f) : (iy / 1024.0f);
+        float qx = (pos.x < 0.0f) ? (ix / -1024.0f) : (ix / 1024.0f);
+        float qy = (pos.y < 0.0f) ? (iy / -1024.0f) : (iy / 1024.0f);
 
-    return V2f{ qx, qy };
+        return V2f{ qx, qy };
+    }
 }
 
 size_t App::select_draw_point(V2i pos_screen)
@@ -302,14 +265,14 @@ size_t App::select_draw_point(V2i pos_screen)
     return found;
 }
 
-size_t App::add_draw_point(V2i pos_screen)
+size_t App::add_draw_point(V2i pos_screen, int grid_snap)
 {
     size_t existing = select_draw_point(pos_screen);
 
     if (existing == None)
     {
         existing = draw_points.size();
-        V2f pos_world = quantize(screen_to_world(pos_screen, camera_pos));
+        V2f pos_world = quantize(screen_to_world(pos_screen, camera_pos), grid_snap);
         draw_points.push_back(pos_world);
     }
 
@@ -479,6 +442,10 @@ void App::update_editor(float delta)
             {
                 editor_data.mode = EditorStateData::Mode::Draw;
             }
+            else if (key_state(gli::Key_P).pressed)
+            {
+                editor_data.mode = EditorStateData::Mode::PlaceSpawn;
+            }
         }
     }
 
@@ -574,8 +541,7 @@ void App::update_editor(float delta)
             delete_selection();
         }
     }
-
-    if (editor_data.mode == EditorStateData::Mode::DragAdd || editor_data.mode == EditorStateData::Mode::DragRemove)
+    else if (editor_data.mode == EditorStateData::Mode::DragAdd || editor_data.mode == EditorStateData::Mode::DragRemove)
     {
         editor_data.drag_rect.extents = screen_to_world(mouse_pos, editor_data.camera_pos);
 
@@ -593,18 +559,42 @@ void App::update_editor(float delta)
             }
         }
     }
-
-    if (editor_data.mode == EditorStateData::Mode::Draw)
+    else if (editor_data.mode == EditorStateData::Mode::Draw)
     {
         if (mouse_state().buttons[gli::MouseButton::Left].pressed)
         {
-            editor_data.draw_from = add_draw_point(mouse_pos);
+            bool ctrl = (key_state(gli::Key_LeftControl).down || key_state(gli::Key_RightControl).down);
+            bool alt = (key_state(gli::Key_LeftAlt).down || key_state(gli::Key_RightAlt).down);
+            int grid_snap = 0;
+
+            if (ctrl)
+            {
+                grid_snap = 1;
+            }
+            else if (alt)
+            {
+                grid_snap = 5;
+            }
+
+            editor_data.draw_from = add_draw_point(mouse_pos, grid_snap);
             editor_data.mode = EditorStateData::Mode::DrawLine;
         }
     }
-
-    if (editor_data.mode == EditorStateData::Mode::DrawLine)
+    else if (editor_data.mode == EditorStateData::Mode::DrawLine)
     {
+        bool ctrl = (key_state(gli::Key_LeftControl).down || key_state(gli::Key_RightControl).down);
+        bool alt = (key_state(gli::Key_LeftAlt).down || key_state(gli::Key_RightAlt).down);
+        int grid_snap = 0;
+
+        if (ctrl)
+        {
+            grid_snap = 1;
+        }
+        else if (alt)
+        {
+            grid_snap = 5;
+        }
+
         if (mouse_state().buttons[gli::MouseButton::Right].pressed)
         {
             editor_data.draw_from = None;
@@ -612,7 +602,7 @@ void App::update_editor(float delta)
         }
         else if (mouse_state().buttons[gli::MouseButton::Left].pressed)
         {
-            size_t to = add_draw_point(mouse_pos);
+            size_t to = add_draw_point(mouse_pos, grid_snap);
 
             if (to != editor_data.draw_from)
             {
@@ -626,21 +616,42 @@ void App::update_editor(float delta)
 
             if (existing == None)
             {
-                editor_data.draw_line_to = quantize(screen_to_world(mouse_pos, camera_pos));
-                editor_data.draw_line_valid = true;
+                editor_data.draw_line_to = quantize(screen_to_world(mouse_pos, camera_pos), grid_snap);
             }
-            else if (existing != editor_data.draw_from)
+            else
             {
-                editor_data.draw_line_valid = true;
                 editor_data.draw_line_to = draw_points[existing];
             }
 
+            V2f v = editor_data.draw_line_to - draw_points[editor_data.draw_from];
+            editor_data.draw_line_valid = (length_sq(v) > 0.0f);
+
             if (editor_data.draw_line_valid)
             {
-                V2f v = normalize(editor_data.draw_line_to - draw_points[editor_data.draw_from]);
+                v = normalize(v);
                 editor_data.draw_line_n.x = v.y;
                 editor_data.draw_line_n.y = -v.x;
             }
+        }
+    }
+    else if (editor_data.mode == EditorStateData::PlaceSpawn)
+    {
+        bool ctrl = (key_state(gli::Key_LeftControl).down || key_state(gli::Key_RightControl).down);
+        bool alt = (key_state(gli::Key_LeftAlt).down || key_state(gli::Key_RightAlt).down);
+        int grid_snap = 0;
+
+        if (ctrl)
+        {
+            grid_snap = 1;
+        }
+        else if (alt)
+        {
+            grid_snap = 5;
+        }
+
+        if (mouse_state().buttons[gli::MouseButton::Left].down)
+        {
+            spawn_position = quantize(screen_to_world(mouse_pos, editor_data.camera_pos), grid_snap);
         }
     }
 }
@@ -669,6 +680,41 @@ void App::draw_editor_line(const DrawLine& line, gli::Pixel color)
     draw_vertex(draw_points[line.to], color);
 }
 
+void App::draw_circle(const V2i& p, int r, gli::Pixel color)
+{
+    int x = 0;
+    int y = r;
+    int d = 3 - 2 * r;
+
+    auto plot = [&]() {
+        set_pixel(p.x + x, p.y + y, color);
+        set_pixel(p.x - x, p.y + y, color);
+        set_pixel(p.x + x, p.y - y, color);
+        set_pixel(p.x - x, p.y - y, color);
+        set_pixel(p.x + y, p.y + x, color);
+        set_pixel(p.x - y, p.y + x, color);
+        set_pixel(p.x + y, p.y - x, color);
+        set_pixel(p.x - y, p.y - x, color);
+    };
+
+    plot();
+
+    while (y >= x++)
+    {
+        if (d > 0)
+        {
+            y--;
+            d = d + 4 * (x - y) + 10;
+        }
+        else
+        {
+            d = d + 4 * x + 6;
+        }
+
+        plot();
+    }
+}
+
 void App::render_editor(float delta)
 {
     clear_screen(gli::Pixel(80, 80, 80));
@@ -679,6 +725,8 @@ void App::render_editor(float delta)
     {
         draw_editor_line(line, gli::Pixel(0xE2, 0xE2, 0xE2));
     }
+
+    draw_circle(world_to_screen(spawn_position, camera_pos), (int)std::floor(0.5f * world_scale + 0.5f), gli::Pixel(16, 16, 128));
 
     if (editor_data.mode == EditorStateData::Mode::Select || editor_data.mode == EditorStateData::Mode::DragAdd ||
         editor_data.mode == EditorStateData::Mode::DragRemove || editor_data.mode == EditorStateData::Mode::Move)

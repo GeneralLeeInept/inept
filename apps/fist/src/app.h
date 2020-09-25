@@ -4,11 +4,11 @@
 
 #include "types.h"
 #include "bsp_tree_builder.h"
+#include "config.h"
 
 #include <deque>
 #include <set>
 #include <string>
-#include <unordered_map>
 
 namespace fist
 {
@@ -31,11 +31,7 @@ public:
     void on_destroy() override;
     bool on_update(float delta) override;
 
-    // Config (TODO: Config manager)
-    void load_config();
-    void save_config();
-    float configf(const std::string& key, float default_value);
-    const std::string& configs(const std::string& key, const std::string& default_value);
+    Config& config();
 
     // Editor / BSP?
     int world_to_screen_x(float x, float ox);
@@ -51,13 +47,12 @@ private:
     using StateStack = std::deque<AppState*>;
     StateStack _app_states;
 
+    Config _config{};
+
     V2f camera_pos{};
     float facing = 0.0f;
     int view = View::Editor;
     int view_state = 0;
-
-    // Config
-    std::unordered_map<std::string, std::string> config{};
 
     // BSP Builder
     void load_bsp_weights(BspTreeBuilder::SplitScoreWeights& weights);
@@ -71,6 +66,7 @@ private:
 
     // Editor
     std::vector<V2f> draw_points;
+    V2f spawn_position{};
 
     struct DrawLine
     {
@@ -90,7 +86,8 @@ private:
             DragRemove,
             Move,
             Draw,
-            DrawLine
+            DrawLine,
+            PlaceSpawn
         };
 
         using Selection = std::set<size_t>;
@@ -109,9 +106,9 @@ private:
     } editor_data;
 
     // Editor
-    V2f quantize(const V2f& pos);
+    V2f quantize(const V2f& pos, int grid_snap);
     size_t select_draw_point(V2i pos_screen);
-    size_t add_draw_point(V2i pos_screen);
+    size_t add_draw_point(V2i pos_screen, int grid_snap);
     void add_draw_line(size_t from, size_t to);
     void delete_selection();
     void select_rect(const Rectf& rect, bool add);
@@ -123,6 +120,7 @@ private:
 
     // Editor
     void draw_editor_line(const DrawLine& line, gli::Pixel color);
+    void draw_circle(const V2i& p, int r, gli::Pixel color);
     void render_editor(float delta);
 
     // BSP
