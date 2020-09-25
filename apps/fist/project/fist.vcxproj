@@ -73,6 +73,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\app.cpp" />
     <ClCompile Include="..\src\bsp_tree_builder.cpp" />
     <ClCompile Include="..\src\fist.cpp" />
     <ClCompile Include="..\src\wad_loader.cpp" />
@@ -83,6 +84,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\src\app.h" />
+    <ClInclude Include="..\src\appstate.h" />
     <ClInclude Include="..\src\bsp_tree_builder.h" />
     <ClInclude Include="..\src\types.h" />
     <ClInclude Include="..\src\wad_loader.h" />

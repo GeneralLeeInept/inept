@@ -126,6 +126,13 @@ bool wad_load_map(WadFile* wad, const Wad::Name& mapname, Wad::Map& map)
         return false;
     }
 
+    LumpInfo things{};
+    
+    if (!_lump_info(wad, "THINGS", map_info.index, things))
+    {
+        return false;
+    }
+
     LumpInfo linedefs{};
 
     if (!_lump_info(wad, "LINEDEFS", map_info.index, linedefs))
@@ -139,6 +146,10 @@ bool wad_load_map(WadFile* wad, const Wad::Name& mapname, Wad::Map& map)
     {
         return false;
     }
+
+    size_t num_things = things.size / sizeof(Wad::ThingDef);
+    map.things.resize(num_things);
+    memcpy(&map.things[0], &wad->data[things.offset], num_things * sizeof(Wad::ThingDef));
 
     size_t num_linedefs = linedefs.size / sizeof(Wad::LineDef);
     map.linedefs.resize(num_linedefs);

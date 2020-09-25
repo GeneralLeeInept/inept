@@ -44,6 +44,11 @@ inline bool operator==(const Name& left, const Name& right)
     return (left.i[0] == right.i[0] && left.i[1] == right.i[1]);
 }
 
+enum ThingType
+{
+    Player1Start = 1,
+};
+
 struct ThingDef
 {
     uint16_t xpos;
