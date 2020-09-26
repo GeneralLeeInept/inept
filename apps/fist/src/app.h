@@ -141,6 +141,9 @@ private:
     // Play
     void update_simulation(float delta);
     void render_top_down(float delta);
+    void draw_line_3d(V2f from, V2f to);
+    void draw_bsp_sector_view(BspTreeBuilder::Sector* sector);
+    void draw_bsp_node_view(BspTreeBuilder::Node* node);
     void render_3D(float delta);
 };
 

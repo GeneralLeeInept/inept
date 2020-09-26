@@ -66,6 +66,10 @@ inline V2f operator/(const V2f& a, const V2f& b)
     return { a.x / b.x, a.y / b.y };
 }
 
+inline V2f operator-(const V2f& a)
+{
+    return { -a.x, -a.y };
+}
 
 inline float length_sq(const V2f& v)
 {

@@ -202,11 +202,16 @@ void App::import()
 
     for (const Wad::LineDef& ld : wadmap.linedefs)
     {
-        add_draw_line(ld.from, ld.to);
+        //add_draw_line(ld.from, ld.to);
 
-        if (ld.sidedefs[1] != 0xffff)
+        //if (ld.sidedefs[1] != 0xffff)
+        //{
+        //    add_draw_line(ld.to, ld.from);
+        //}
+
+        if (ld.sidedefs[1] == 0xffff)
         {
-            add_draw_line(ld.to, ld.from);
+            add_draw_line(ld.from, ld.to);
         }
     }
 
@@ -246,7 +251,7 @@ V2f App::quantize(const V2f& pos, int grid_snap)
 
 size_t App::select_draw_point(V2i pos_screen)
 {
-    V2f pos_world = screen_to_world(pos_screen, camera_pos);
+    V2f pos_world = screen_to_world(pos_screen, editor_data.camera_pos);
     float search_radius = 5.0f / world_scale;
     float search_radius_sq = (search_radius * search_radius);
     float nearest = FLT_MAX;
@@ -272,7 +277,7 @@ size_t App::add_draw_point(V2i pos_screen, int grid_snap)
     if (existing == None)
     {
         existing = draw_points.size();
-        V2f pos_world = quantize(screen_to_world(pos_screen, camera_pos), grid_snap);
+        V2f pos_world = quantize(screen_to_world(pos_screen, editor_data.camera_pos), grid_snap);
         draw_points.push_back(pos_world);
     }
 
@@ -616,7 +621,7 @@ void App::update_editor(float delta)
 
             if (existing == None)
             {
-                editor_data.draw_line_to = quantize(screen_to_world(mouse_pos, camera_pos), grid_snap);
+                editor_data.draw_line_to = quantize(screen_to_world(mouse_pos, editor_data.camera_pos), grid_snap);
             }
             else
             {
@@ -658,15 +663,15 @@ void App::update_editor(float delta)
 
 void App::draw_vertex(const V2f& p, gli::Pixel color)
 {
-    V2i screen_p = world_to_screen(p, camera_pos);
+    V2i screen_p = world_to_screen(p, editor_data.camera_pos);
     draw_line(screen_p.x - 2, screen_p.y - 2, screen_p.x + 3, screen_p.y + 3, color);
     draw_line(screen_p.x - 2, screen_p.y + 2, screen_p.x + 3, screen_p.y - 3, color);
 }
 
 void App::draw_line_with_normal(const V2f& from, const V2f& to, const V2f& n, gli::Pixel color)
 {
-    V2i start = world_to_screen(from, camera_pos);
-    V2i end = world_to_screen(to, camera_pos);
+    V2i start = world_to_screen(from, editor_data.camera_pos);
+    V2i end = world_to_screen(to, editor_data.camera_pos);
     V2i mid = (start + end) / 2;
     V2i ntick = mid + V2i{ (int)std::floor(n.x * 10.0f), (int)std::floor(n.y * 10.0f) };
     draw_line(start.x, start.y, end.x, end.y, color);
@@ -719,14 +724,12 @@ void App::render_editor(float delta)
 {
     clear_screen(gli::Pixel(80, 80, 80));
 
-    camera_pos = editor_data.camera_pos;
-
     for (const DrawLine& line : draw_lines)
     {
         draw_editor_line(line, gli::Pixel(0xE2, 0xE2, 0xE2));
     }
 
-    draw_circle(world_to_screen(spawn_position, camera_pos), (int)std::floor(0.5f * world_scale + 0.5f), gli::Pixel(16, 16, 128));
+    draw_circle(world_to_screen(spawn_position, editor_data.camera_pos), (int)std::floor(0.5f * world_scale + 0.5f), gli::Pixel(16, 16, 128));
 
     if (editor_data.mode == EditorStateData::Mode::Select || editor_data.mode == EditorStateData::Mode::DragAdd ||
         editor_data.mode == EditorStateData::Mode::DragRemove || editor_data.mode == EditorStateData::Mode::Move)
@@ -740,8 +743,8 @@ void App::render_editor(float delta)
     {
         set_blend_mode(gli::BlendMode::One, gli::BlendMode::One, 0);
         set_blend_op(gli::BlendOp::Add);
-        V2i screen_corner1 = world_to_screen(editor_data.drag_rect.origin, camera_pos);
-        V2i screen_corner2 = world_to_screen(editor_data.drag_rect.extents, camera_pos);
+        V2i screen_corner1 = world_to_screen(editor_data.drag_rect.origin, editor_data.camera_pos);
+        V2i screen_corner2 = world_to_screen(editor_data.drag_rect.extents, editor_data.camera_pos);
 
         if (screen_corner1.x > screen_corner2.x)
         {
@@ -861,8 +864,8 @@ void App::update_bsp(float delta)
 
 void App::draw_bsp_line(const BspLine& line, gli::Pixel color)
 {
-    V2i from = world_to_screen(line.a, camera_pos);
-    V2i to = world_to_screen(line.b, camera_pos);
+    V2i from = world_to_screen(line.a, editor_data.camera_pos);
+    V2i to = world_to_screen(line.b, editor_data.camera_pos);
     V2i mid = (from + to) / 2;
     V2i ntick = mid + V2i{ (int)std::floor(line.n.x * 10.0f), (int)std::floor(line.n.y * 10.0f) };
     draw_line(from.x, from.y, to.x, to.y, color);
@@ -899,14 +902,14 @@ void App::draw_bsp_split(BspTreeBuilder::Node* node)
     BspLine discard;
     BspLine screen_edge;
 
-    screen_edge.a = screen_to_world(V2i{}, camera_pos);
+    screen_edge.a = screen_to_world(V2i{}, editor_data.camera_pos);
     screen_edge.n = V2f{ 1.0f, 0.0f };
     BspLine::split(screen_edge, line, line, discard);
 
     screen_edge.n = V2f{ 0.0f, 1.0f };
     BspLine::split(screen_edge, line, line, discard);
 
-    screen_edge.a = screen_to_world(V2i{ screen_width(), screen_height() }, camera_pos);
+    screen_edge.a = screen_to_world(V2i{ screen_width(), screen_height() }, editor_data.camera_pos);
     screen_edge.n = V2f{ -1.0f, 0.0f };
     BspLine::split(screen_edge, line, line, discard);
 
@@ -953,8 +956,6 @@ void App::render_bsp(float delta)
 {
     clear_screen(gli::Pixel(0, 0, 32));
 
-    camera_pos = editor_data.camera_pos;
-
     for (const DrawLine& line : draw_lines)
     {
         draw_editor_line(line, gli::Pixel(16, 16, 32));
@@ -970,6 +971,13 @@ void App::render_bsp(float delta)
 
 void App::update_simulation(float delta)
 {
+    if (view_state == 0)
+    {
+        camera_pos = spawn_position;
+        facing = 0.0f;
+        view_state = 1;
+    }
+
     const float move_speed = 1.4f;
     const float turn_speed = PI;
     V2f move{};
@@ -977,32 +985,32 @@ void App::update_simulation(float delta)
 
     if (key_state(gli::Key_W).down)
     {
-        move.x += 1.0f;
+        move.y += 1.0f;
     }
 
     if (key_state(gli::Key_S).down)
     {
-        move.x -= 1.0f;
+        move.y -= 1.0f;
     }
 
     if (key_state(gli::Key_A).down)
     {
-        move.y -= 1.0f;
+        move.x -= 1.0f;
     }
 
     if (key_state(gli::Key_D).down)
     {
-        move.y += 1.0f;
+        move.x += 1.0f;
     }
 
     if (key_state(gli::Key_Left).down)
     {
-        delta_facing -= 1.0f;
+        delta_facing += 1.0f;
     }
 
     if (key_state(gli::Key_Right).down)
     {
-        delta_facing += 1.0f;
+        delta_facing -= 1.0f;
     }
 
     facing = facing + delta_facing * turn_speed * delta;
@@ -1028,9 +1036,232 @@ void App::render_top_down(float delta)
     clear_screen(gli::Pixel(0, 128, 128));
 }
 
+// 3D drawing vars
+
+// Coord system: Right handed, +Y forward, +X right
+//              X Y
+// Identity = | 1 0 |
+//            | 0 1 |
+// Facings: 0 degrees = +Y, 90 = -X, 180 = -Y, 270 = +X
+
+// Column major 2d matrix
+struct Mat2
+{
+    V2f x { 1.0f, 0.0f };
+    V2f y { 0.0f, 1.0f };
+};
+
+V2f operator*(const Mat2& m, const V2f& v)
+{
+    V2f result;
+    result.x = dot(V2f{ m.x.x, m.y.x }, v);
+    result.y = dot(V2f{ m.x.y, m.y.y }, v);
+    return result;
+}
+
+// Column major 2d transform
+struct Transform2D
+{
+    Mat2 m{};
+    V2f p{};
+};
+
+V2f operator*(const Transform2D& t, const V2f& p)
+{
+    return t.m * p + t.p;
+}
+
+Mat2 transpose(const Mat2& m)
+{
+    Mat2 t;
+    t.x.x = m.x.x;
+    t.x.y = m.y.x;
+    t.y.x = m.x.y;
+    t.y.y = m.y.y;
+    return t;
+}
+
+Transform2D inverse(const Transform2D& t)
+{
+    Mat2 m = transpose(t.m);
+    V2f p = -(m * t.p);
+    return { m, p };
+}
+
+Transform2D from_camera(const V2f& p, float facing)
+{
+    Transform2D t;
+    float cos_facing = std::cos(facing);
+    float sin_facing = std::sin(facing);
+
+    // Right
+    t.m.x.x = cos_facing;
+    t.m.x.y = sin_facing;
+
+    // Forward
+    t.m.y.x = -sin_facing;
+    t.m.y.y = cos_facing;
+
+    t.p = p;
+    return t;
+}
+
+int solid_columns[1280]{}; // 1 column per screen width
+int solid_value = 1;
+float fov_y{};
+float screen_aspect{};
+float view_distance{};
+Transform2D world_view{};
+
+void App::draw_line_3d(V2f from, V2f to)
+{
+    // Project to viewport x
+    float ooay = 1.0f / from.y;
+    float ooby = 1.0f / to.y;
+    float x1 = view_distance * from.x * ooay;
+    float x2 = view_distance * to.x * ooby;
+
+    if (x2 < x1)
+    {
+        std::swap(x1, x2);
+        std::swap(ooay, ooby);
+    }
+    // Draw columns (use solid_column as a depth buffer)
+    int ix1 = (int)std::floor((x1 / screen_aspect) * screen_width() * 0.5f + screen_width() * 0.5f + 0.5f);
+    int ix2 = (int)std::floor((x2 / screen_aspect) * screen_width() * 0.5f + screen_width() * 0.5f + 0.5f);
+    float h1 = view_distance * ooay;
+    float h2 = view_distance * ooby;
+    float dhdx = (h2 - h1) / (float)(ix2 - ix1);
+    float dooydx = (ooby - ooay) / (float)(ix2 - ix1);
+
+    if (ix2 > screen_width())
+    {
+        ix2 = screen_width();
+    }
+
+    float ooy = ooay;
+    float h = h1;
+
+    for (int c = ix1; c < ix2; ++c)
+    {
+        if (c < 0 || solid_columns[c] == solid_value)
+        {
+            // Left-clip / depth buffer reject
+            ooy += dooydx;
+            h += dhdx;
+            continue;
+        }
+
+        // Project height (2m walls, height centered at eye)
+        int y1 = screen_height() / 2 - (int)std::floor(h * screen_height() * 0.5f);
+        int y2 = screen_height() / 2 + (int)std::floor(h * screen_height() * 0.5f);
+
+        float d = 1.0f / ooy;
+        uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - view_distance) / (20.0f - view_distance), 0.0f, 1.0f)));
+        draw_line(c, y1, c, y2, gli::Pixel(fade, fade, fade));
+        ooy += dooydx;
+        h += dhdx;
+
+        // add to depth buffer
+        solid_columns[c] = solid_value;
+    }
+}
+
+void App::draw_bsp_sector_view(BspTreeBuilder::Sector* sector)
+{
+    // Project and draw lines in sector
+    for (const auto& line : sector->lines)
+    {
+        V2f v = line.a - camera_pos;
+
+        if (dot(v, line.n) > 0.0f)
+        {
+            // Line is facing away from viewer
+            continue;
+        }
+
+        // Transform endpoints to view space
+        V2f a = world_view * line.a;
+        V2f b = world_view * line.b;
+
+        // Near clip
+        static const float near_clip = 0.1f;
+        if (a.y < near_clip)
+        {
+            if (b.y <= near_clip)
+            {
+                continue;
+            }
+
+            a.x = a.x + (near_clip - a.y) * (b.x - a.x) / (b.y - a.y);
+            a.y = near_clip;
+        }
+        else if ((b.y < near_clip) && (a.y > near_clip))
+        {
+            b.x = b.x + (near_clip - b.y) * (a.x - b.x) / (a.y - b.y);
+            b.y = near_clip;
+        }
+
+        draw_line_3d(a, b);
+    }
+}
+
+void App::draw_bsp_node_view(BspTreeBuilder::Node* node)
+{
+    if (node->sector)
+    {
+        draw_bsp_sector_view(node->sector.get());
+    }
+    else
+    {
+        int s = BspLine::side(node->split, camera_pos);
+
+        // TODO: Node vis culling
+        if (s >= 0)
+        {
+            if (node->front.get())
+            {
+                draw_bsp_node_view(node->front.get());
+            }
+            if (node->back.get())
+            {
+                draw_bsp_node_view(node->back.get());
+            }
+        }
+        else
+        {
+            if (node->back.get())
+            {
+                draw_bsp_node_view(node->back.get());
+            }
+            if (node->front.get())
+            {
+                draw_bsp_node_view(node->front.get());
+            }
+        }
+    }
+}
+
 void App::render_3D(float delta)
 {
     clear_screen(gli::Pixel(128, 0, 128));
+
+    // View setup - could be done at init but doing it here is easier right now (and would allow screen to be resized when I decide that's the most
+    // important thing in my life)
+    fov_y = deg_to_rad(90.0f);
+    screen_aspect = (float)screen_width() / (float)screen_height();
+    view_distance = std::tanf(fov_y * 0.5f);
+#if 1
+    // View matrix
+    world_view = inverse(from_camera(camera_pos, facing));
+    draw_bsp_node_view(&bsp_data.builder->root);
+#else
+    world_view = Transform2D{};
+    draw_line_3d({-1.0f, 4.0f}, { 1.0f, 10.0f});
+#endif
+
+    // Save clearing the solid_columns..
+    solid_value = 1 - solid_value;
 }
 
 } // namespace fist
