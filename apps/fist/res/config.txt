@@ -2,5 +2,6 @@ bsp.splitscore.balance_weight : 1.000000
 bsp.splitscore.split_weight : 10.000000
 bsp.splitscore.area_ratio_weight : 1.500000
 bsp.splitscore.orthogonal_bonus : 100.000000
-import.map : E1M1
+import.map : E1M3
 import.wadfile : C:\Program Files (x86)\Steam\SteamApps\common\Ultimate Doom\base\DOOM.WAD
+fovy : 110.000000

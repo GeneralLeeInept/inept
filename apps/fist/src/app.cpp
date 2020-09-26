@@ -969,12 +969,35 @@ void App::render_bsp(float delta)
     }
 }
 
+float fov_y{};
+
 void App::update_simulation(float delta)
 {
     if (view_state == 0)
     {
+        bsp_data.builder = std::make_unique<BspTreeBuilder>();
+        bsp_data.current_sector = nullptr;
+
+        std::vector<BspLine> bsp_lines;
+
+        for (const DrawLine& draw_line : draw_lines)
+        {
+            BspLine line;
+            line.a = draw_points[draw_line.from];
+            line.b = draw_points[draw_line.to];
+            line.n = draw_line.n;
+            bsp_lines.push_back(line);
+        }
+
+        bsp_data.builder->init(bsp_lines);
+        load_bsp_weights(bsp_data.builder->split_score_weights);
+        bsp_data.builder->build();
+
         camera_pos = spawn_position;
         facing = 0.0f;
+
+        fov_y = deg_to_rad(_config.get("fovy", 90.0f));
+
         view_state = 1;
     }
 
@@ -1108,7 +1131,6 @@ Transform2D from_camera(const V2f& p, float facing)
 
 int solid_columns[1280]{}; // 1 column per screen width
 int solid_value = 1;
-float fov_y{};
 float screen_aspect{};
 float view_distance{};
 Transform2D world_view{};
@@ -1126,6 +1148,7 @@ void App::draw_line_3d(V2f from, V2f to)
         std::swap(x1, x2);
         std::swap(ooay, ooby);
     }
+
     // Draw columns (use solid_column as a depth buffer)
     int ix1 = (int)std::floor((x1 / screen_aspect) * screen_width() * 0.5f + screen_width() * 0.5f + 0.5f);
     int ix2 = (int)std::floor((x2 / screen_aspect) * screen_width() * 0.5f + screen_width() * 0.5f + 0.5f);
@@ -1158,7 +1181,7 @@ void App::draw_line_3d(V2f from, V2f to)
 
         float d = 1.0f / ooy;
         uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - view_distance) / (20.0f - view_distance), 0.0f, 1.0f)));
-        draw_line(c, y1, c, y2, gli::Pixel(fade, fade, fade));
+        draw_line(c, y1, c, y2, gli::Pixel(16, fade, 16));
         ooy += dooydx;
         h += dhdx;
 
@@ -1244,21 +1267,16 @@ void App::draw_bsp_node_view(BspTreeBuilder::Node* node)
 
 void App::render_3D(float delta)
 {
-    clear_screen(gli::Pixel(128, 0, 128));
+    clear_screen(gli::Pixel(16, 0, 16));
 
     // View setup - could be done at init but doing it here is easier right now (and would allow screen to be resized when I decide that's the most
     // important thing in my life)
-    fov_y = deg_to_rad(90.0f);
     screen_aspect = (float)screen_width() / (float)screen_height();
     view_distance = std::tanf(fov_y * 0.5f);
-#if 1
+
     // View matrix
     world_view = inverse(from_camera(camera_pos, facing));
     draw_bsp_node_view(&bsp_data.builder->root);
-#else
-    world_view = Transform2D{};
-    draw_line_3d({-1.0f, 4.0f}, { 1.0f, 10.0f});
-#endif
 
     // Save clearing the solid_columns..
     solid_value = 1 - solid_value;
