@@ -1,7 +1,11 @@
 #pragma once
 
+#include <cfloat>
 #include <cmath>
 #include <cstdint>
+
+namespace fist
+{
 
 struct V2f
 {
@@ -30,95 +34,40 @@ struct Recti
     V2i extents;
 };
 
-
-inline V2f operator+(const V2f& a, const V2f& b)
+struct BoundingBox
 {
-    return { a.x + b.x, a.y + b.y };
-}
+    V2f mins{ FLT_MAX, FLT_MAX };
+    V2f maxs{ -FLT_MAX, -FLT_MAX };
 
+    float area() const;
 
-inline V2f operator-(const V2f& a, const V2f& b)
-{
-    return { a.x - b.x, a.y - b.y };
-}
+    // Expand to include p
+    void grow(const V2f& p);
 
+    // Get the union of a & b
+    static BoundingBox merge(const BoundingBox& a, const BoundingBox& b);
 
-inline V2f operator*(const V2f& v, float s)
-{
-    return { v.x * s, v.y * s };
-}
+    // Get the intersection of a & b
+    static BoundingBox intersection(const BoundingBox& a, const BoundingBox& b);
+};
 
+V2f operator+(const V2f& a, const V2f& b);
+V2f operator-(const V2f& a, const V2f& b);
+V2f operator*(const V2f& v, float s);
+V2f operator/(const V2f& v, float s);
+V2f operator*(const V2f& a, const V2f& b);
+V2f operator/(const V2f& a, const V2f& b);
+V2f operator-(const V2f& a);
+bool operator==(const V2f& a, const V2f& b);
+float length_sq(const V2f& v);
+float length(const V2f& v);
+V2f normalize(const V2f& v);
+float dot(const V2f& a, const V2f& b);
+float cross(const V2f& a, const V2f& b);
+V2i operator+(const V2i& a, const V2i& b);
+V2i operator-(const V2i& a, const V2i& b);
+V2i operator*(const V2i& v, int s);
+V2i operator/(const V2i& v, int s);
+float clamp(float t, float min, float max);
 
-inline V2f operator/(const V2f& v, float s)
-{
-    return { v.x / s, v.y / s };
-}
-
-
-inline V2f operator*(const V2f& a, const V2f& b)
-{
-    return { a.x * b.x, a.y * b.y };
-}
-
-
-inline V2f operator/(const V2f& a, const V2f& b)
-{
-    return { a.x / b.x, a.y / b.y };
-}
-
-inline V2f operator-(const V2f& a)
-{
-    return { -a.x, -a.y };
-}
-
-inline float length_sq(const V2f& v)
-{
-    return (v.x * v.x) + (v.y * v.y);
-}
-
-
-inline float length(const V2f& v)
-{
-    return std::sqrt(length_sq(v));
-}
-
-
-inline V2f normalize(const V2f& v)
-{
-    return v * (1.0f / length(v));
-}
-
-
-inline float dot(const V2f& a, const V2f& b)
-{
-    return (a.x * b.x) + (a.y * b.y);
-}
-
-
-inline V2i operator+(const V2i& a, const V2i& b)
-{
-    return { a.x + b.x, a.y + b.y };
-}
-
-
-inline V2i operator-(const V2i& a, const V2i& b)
-{
-    return { a.x - b.x, a.y - b.y };
-}
-
-
-inline V2i operator*(const V2i& v, int s)
-{
-    return { v.x * s, v.y * s };
-}
-
-
-inline V2i operator/(const V2i& v, int s)
-{
-    return { v.x / s, v.y / s };
-}
-
-inline float clamp(float t, float min, float max)
-{
-    return t < min ? min : (t > max ? max : t);
-}
+} // namespace fist

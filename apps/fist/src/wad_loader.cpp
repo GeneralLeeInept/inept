@@ -140,6 +140,20 @@ bool wad_load_map(WadFile* wad, const Wad::Name& mapname, Wad::Map& map)
         return false;
     }
 
+    LumpInfo sidedefs{};
+
+    if (!_lump_info(wad, "SIDEDEFS", map_info.index, sidedefs))
+    {
+        return false;
+    }
+
+    LumpInfo sectors{};
+
+    if (!_lump_info(wad, "SECTORS", map_info.index, sectors))
+    {
+        return false;
+    }
+
     LumpInfo vertexes{};
 
     if (!_lump_info(wad, "VERTEXES", map_info.index, vertexes))
@@ -158,6 +172,14 @@ bool wad_load_map(WadFile* wad, const Wad::Name& mapname, Wad::Map& map)
     size_t num_vertexes = vertexes.size / sizeof(Wad::Vertex);
     map.vertices.resize(num_vertexes);
     memcpy(&map.vertices[0], &wad->data[vertexes.offset], num_vertexes * sizeof(Wad::Vertex));
+
+    size_t num_sidedefs = sidedefs.size / sizeof(Wad::SideDef);
+    map.sidedefs.resize(num_sidedefs);
+    memcpy(&map.sidedefs[0], &wad->data[sidedefs.offset], num_sidedefs * sizeof(Wad::SideDef));
+
+    size_t num_sectors = sectors.size / sizeof(Wad::Sector);
+    map.sectors.resize(num_sectors);
+    memcpy(&map.sectors[0], &wad->data[sectors.offset], num_sectors * sizeof(Wad::Sector));
 
     return true;
 }

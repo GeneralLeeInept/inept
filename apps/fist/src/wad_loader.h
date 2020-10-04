@@ -49,6 +49,7 @@ enum ThingType
     Player1Start = 1,
 };
 
+#pragma pack(push, 1)
 struct ThingDef
 {
     int16_t xpos;
@@ -70,12 +71,12 @@ struct LineDef
 
 struct SideDef
 {
-    uint16_t xoffset;
-    uint16_t yoffset;
+    int16_t xoffset;
+    int16_t yoffset;
     Name texupper;
     Name texmid;
     Name texlower;
-    uint16_t sector;
+    int16_t sector;
 };
 
 struct Vertex
@@ -90,10 +91,11 @@ struct Sector
     int16_t ceiling;
     Name texfloor;
     Name texceiling;
-    uint16_t light;
-    uint16_t special;
-    uint16_t tag;
+    int16_t light;
+    int16_t special;
+    int16_t tag;
 };
+#pragma pack(pop)
 
 struct Map
 {

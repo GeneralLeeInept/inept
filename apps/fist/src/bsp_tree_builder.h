@@ -9,11 +9,20 @@
 namespace fist
 {
 
+namespace Wad
+{
+struct Map;
+}
+
+struct Map;
+
 struct BspLine
 {
-    V2f a;
-    V2f b;
-    V2f n;
+    V2f from;
+    V2f to;
+    V2f normal;
+    size_t linedef;
+    bool front;
 
     static int side(const BspLine& split, const V2f& p);
     static int side(const BspLine& split, const BspLine& line);
@@ -22,20 +31,12 @@ struct BspLine
 
 struct BspTreeBuilder
 {
-    struct BBox
-    {
-        V2f min{ FLT_MAX, FLT_MAX };
-        V2f max{ -FLT_MAX, -FLT_MAX };
-    };
-
     struct Sector
     {
         std::vector<BspLine> lines;
-        BBox bbox;
+        BoundingBox bounds;
 
         bool convex();
-        static void grow_bbox(BBox& box, const V2f& p);
-        static void grow_bbox(BBox& box, const BspLine& l);
         void calc_bounds();
     };
 
@@ -52,9 +53,12 @@ struct BspTreeBuilder
     Node root;
 
     void init(const std::vector<BspLine>& lines);
+    void init(const Wad::Map& wad_map);
     void split();
     void build();
     bool complete();
+
+    static void cook(const Wad::Map& wad_map, fist::Map& map);
 
     struct SplitScoreWeights
     {
@@ -69,8 +73,8 @@ struct BspTreeBuilder
         size_t front{};  // lines in front
         size_t back{};   // lines behind
         size_t splits{}; // total splits
-        BBox front_bound{};
-        BBox back_bound{};
+        BoundingBox front_bound{};
+        BoundingBox back_bound{};
         bool ortho{};
     };
 

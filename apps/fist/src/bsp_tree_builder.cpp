@@ -1,8 +1,10 @@
 #include "bsp_tree_builder.h"
 
+#include "bsp.h"
 #include "types.h"
-#include "gli.h"
+#include "wad_loader.h"
 
+#include <gli.h>
 #include <algorithm>
 
 namespace fist
@@ -12,19 +14,19 @@ int BspLine::side(const BspLine& split, const V2f& p)
 {
     // Return 1 if p is in postive half space, 0 if p lies on split, or -1 if p is in negative half space
     const float epsilon = 1.0e-3f;
-    float d = dot(p, split.n) - dot(split.a, split.n);
+    float d = dot(p, split.normal) - dot(split.from, split.normal);
     return (std::abs(d) <= epsilon) ? 0 : ((d > 0.0f) ? 1 : -1);
 }
 
 int BspLine::side(const BspLine& split, const BspLine& line)
 {
     // Return 1 if b is in a's postive half space, 0 if b intersects a or -1 if b is in a's negative half space
-    int sa = side(split, line.a);
-    int sb = side(split, line.b);
+    int sa = side(split, line.from);
+    int sb = side(split, line.to);
 
     if (sa == 0 && sb == 0)
     {
-        return dot(split.n, line.n) < 0 ? -1 : 1;
+        return dot(split.normal, line.normal) < 0 ? -1 : 1;
     }
 
     if (sa >= 0 && sb >= 0)
@@ -42,8 +44,8 @@ int BspLine::side(const BspLine& split, const BspLine& line)
 
 bool BspLine::split(const BspLine& split, const BspLine& line, BspLine& front, BspLine& back)
 {
-    float d0 = dot(line.a, split.n) - dot(split.a, split.n);
-    float d1 = dot(line.b, split.n) - dot(split.a, split.n);
+    float d0 = dot(line.from, split.normal) - dot(split.from, split.normal);
+    float d1 = dot(line.to, split.normal) - dot(split.from, split.normal);
 
     if ((d0 >= 0.0f && d1 >= 0.0f) || (d0 <= 0.0f && d1 <= 0.0f))
     {
@@ -53,23 +55,26 @@ bool BspLine::split(const BspLine& split, const BspLine& line, BspLine& front, B
     if (d0 > d1)
     {
         float t = d0 / (d0 - d1);
-        front.a = line.a;
-        front.b = line.a + (line.b - line.a) * t;
-        front.n = line.n;
-        back.a = front.b;
-        back.b = line.b;
-        back.n = line.n;
+        front.from = line.from;
+        front.to = line.from + (line.to - line.from) * t;
+        front.normal = line.normal;
+        back.from = front.to;
+        back.to = line.to;
+        back.normal = line.normal;
     }
     else
     {
         float t = d1 / (d1 - d0);
-        front.b = line.b;
-        front.a = line.b + (line.a - line.b) * t;
-        front.n = line.n;
-        back.b = front.a;
-        back.a = line.a;
-        back.n = line.n;
+        front.to = line.to;
+        front.from = line.to + (line.from - line.to) * t;
+        front.normal = line.normal;
+        back.to = front.from;
+        back.from = line.from;
+        back.normal = line.normal;
     }
+
+    front.linedef = line.linedef;
+    back.linedef = line.linedef;
 
     return true;
 }
@@ -92,27 +97,14 @@ bool BspTreeBuilder::Sector::convex()
     return true;
 }
 
-void BspTreeBuilder::Sector::grow_bbox(BBox& box, const V2f& p)
-{
-    box.min.x = std::min(p.x, box.min.x);
-    box.min.y = std::min(p.y, box.min.y);
-    box.max.x = std::max(p.x, box.max.x);
-    box.max.y = std::max(p.y, box.max.y);
-}
-
-void BspTreeBuilder::Sector::grow_bbox(BBox& box, const BspLine& l)
-{
-    grow_bbox(box, l.a);
-    grow_bbox(box, l.b);
-}
-
 void BspTreeBuilder::Sector::calc_bounds()
 {
-    bbox = BBox();
+    bounds = BoundingBox();
 
     for (const BspLine& line : lines)
     {
-        grow_bbox(bbox, line);
+        bounds.grow(line.from);
+        bounds.grow(line.to);
     }
 }
 
@@ -134,6 +126,65 @@ void BspTreeBuilder::init(const std::vector<BspLine>& lines)
     }
 }
 
+V2f quantize(const V2f& pos)
+{
+    // Doom is ~32 units / m
+    const float pos_scale = 1.0f / 32.0f;
+
+    // quantize to 1/1024th meter
+    int ix = (int)std::floor(std::abs(pos.x * pos_scale) * 1024.0f);
+    int iy = (int)std::floor(std::abs(pos.y * pos_scale) * 1024.0f);
+
+    float qx = (pos.x < 0.0f) ? (ix / -1024.0f) : (ix / 1024.0f);
+    float qy = (pos.y < 0.0f) ? (iy / -1024.0f) : (iy / 1024.0f);
+
+    return V2f{ qx, qy };
+}
+
+V2f calculate_normal(const V2f& from, const V2f& to)
+{
+    V2f v = normalize(to - from);
+    return { v.y, -v.x };
+}
+
+void BspTreeBuilder::init(const Wad::Map& wad_map)
+{
+    std::vector<V2f> vertices;
+    vertices.reserve(wad_map.vertices.size());
+
+    for (const Wad::Vertex& v : wad_map.vertices)
+    {
+        vertices.push_back(quantize(V2f{ (float)v.x, (float)v.y }));
+    }
+
+    std::vector<BspLine> lines;
+    for (size_t li = 0; li < wad_map.linedefs.size(); ++li)
+    {
+        const Wad::LineDef& ld = wad_map.linedefs[li];
+
+        BspLine bsp_line{};
+        bsp_line.from = vertices[ld.from];
+        bsp_line.to = vertices[ld.to];
+        bsp_line.normal = calculate_normal(bsp_line.from, bsp_line.to);
+        bsp_line.linedef = li;
+        bsp_line.front = true;
+        lines.push_back(bsp_line);
+
+        if (ld.sidedefs[1] != 0xffff)
+        {
+            BspLine bsp_line{};
+            bsp_line.from = vertices[ld.to];
+            bsp_line.to = vertices[ld.from];
+            bsp_line.normal = calculate_normal(bsp_line.from, bsp_line.to);
+            bsp_line.linedef = li;
+            bsp_line.front = false;
+            lines.push_back(bsp_line);
+        }
+    }
+
+    init(lines);
+}
+
 float BspTreeBuilder::calc_split_score(const SplitScoreData& data)
 {
     float score = 0.0f;
@@ -146,18 +197,18 @@ float BspTreeBuilder::calc_split_score(const SplitScoreData& data)
     score -= data.splits * split_score_weights.split_weight;
 
     // bbox ratio
-    V2f front_extent = data.front_bound.max - data.front_bound.min;
-    float front_area = front_extent.x * front_extent.y;
-    V2f back_extent = data.back_bound.max - data.back_bound.min;
-    float back_area = back_extent.x * back_extent.y;
+    float front_area = data.front_bound.area();
+    float back_area = data.back_bound.area();
     float area_ratio = 1.0f;
+
     if (front_area != back_area)
     {
         area_ratio = (front_area > back_area) ? (back_area / front_area) : (front_area / back_area);
     }
+
     score += area_ratio * split_score_weights.area_ratio_weight;
 
-    // bonus...
+    // orthogonal bonus
     if (data.ortho)
     {
         score += split_score_weights.orthogonal_bonus;
@@ -191,7 +242,8 @@ void BspTreeBuilder::split()
             if (test_index == candidate_index)
             {
                 score_data.front++;
-                Sector::grow_bbox(score_data.front_bound, test);
+                score_data.front_bound.grow(test.from);
+                score_data.front_bound.grow(test.to);
             }
             else
             {
@@ -200,12 +252,14 @@ void BspTreeBuilder::split()
                 if (side > 0)
                 {
                     score_data.front++;
-                    Sector::grow_bbox(score_data.front_bound, test);
+                    score_data.front_bound.grow(test.from);
+                    score_data.front_bound.grow(test.to);
                 }
                 else if (side < 0)
                 {
                     score_data.back++;
-                    Sector::grow_bbox(score_data.back_bound, test);
+                    score_data.back_bound.grow(test.from);
+                    score_data.back_bound.grow(test.to);
                 }
                 else
                 {
@@ -215,8 +269,10 @@ void BspTreeBuilder::split()
                     BspLine front;
                     BspLine back;
                     BspLine::split(candidate, test, front, back);
-                    Sector::grow_bbox(score_data.front_bound, front);
-                    Sector::grow_bbox(score_data.back_bound, back);
+                    score_data.front_bound.grow(front.from);
+                    score_data.front_bound.grow(front.to);
+                    score_data.front_bound.grow(back.from);
+                    score_data.front_bound.grow(back.to);
                 }
             }
 
@@ -225,7 +281,7 @@ void BspTreeBuilder::split()
 
         if (score_data.back)
         {
-            score_data.ortho = std::abs(candidate.n.x) < 1.0e-6f || std::abs(candidate.n.y) < 1.0e-6f;
+            score_data.ortho = std::abs(candidate.normal.x) < 1.0e-6f || std::abs(candidate.normal.y) < 1.0e-6f;
             float score = calc_split_score(score_data);
 
             if (score > best_score)
@@ -312,6 +368,171 @@ void BspTreeBuilder::build()
 bool BspTreeBuilder::complete()
 {
     return process_queue.empty();
+}
+
+uint32_t add_vertex(const V2f& v, std::vector<V2f>& vertices)
+{
+    size_t result = (size_t)-1;
+
+    for (auto it = vertices.begin(); it != vertices.end(); ++it)
+    {
+        if (*it == v)
+        {
+            result = it - vertices.begin();
+            break;
+        }
+    }
+
+    if (result == (size_t)-1)
+    {
+        result = vertices.size();
+        vertices.push_back(v);
+    }
+
+    gliAssert(result <= UINT32_MAX);
+    return (uint32_t)result;
+}
+
+uint32_t add_vertex(const Wad::Vertex& vertex, std::vector<V2f>& vertices)
+{
+    V2f v = quantize(V2f{ (float)vertex.x, (float)vertex.y });
+    return add_vertex(v, vertices);
+}
+
+void count_the_things(const BspTreeBuilder::Node* builder_node, fist::Map& map)
+{
+    if (builder_node->sector)
+    {
+        map.num_subsectors++;
+        map.num_linesegs += (uint32_t)builder_node->sector->lines.size();
+    }
+    else
+    {
+        map.num_nodes++;
+        count_the_things(builder_node->front.get(), map);
+        count_the_things(builder_node->back.get(), map);
+    }
+}
+
+void count_the_things(const BspTreeBuilder& builder, fist::Map& map)
+{
+    map.num_linesegs = 0;
+    map.num_subsectors = 0;
+    map.num_nodes = 0;
+    count_the_things(&builder.root, map);
+}
+
+uint32_t add_sub_sector(const BspTreeBuilder::Sector* builder_sector, fist::Map& map, std::vector<V2f>& vertices)
+{
+    uint32_t index = map.num_subsectors++;
+    SubSector* subsector = &map.subsectors[index];
+    subsector->first_seg = map.num_linesegs;
+
+    for (const BspLine& line : builder_sector->lines)
+    {
+        LineSeg* lineseg = &map.linesegs[map.num_linesegs++];
+        lineseg->from = add_vertex(line.from, vertices);
+        lineseg->to = add_vertex(line.to, vertices);
+        lineseg->side = line.front ? 0 : 1;
+        lineseg->line_def = (uint32_t)line.linedef;
+    }
+
+    subsector->num_segs = map.num_linesegs - subsector->first_seg;
+
+    return index;
+}
+
+uint32_t add_node(const BspTreeBuilder::Node* builder_node, fist::Map& map, std::vector<V2f>& vertices)
+{
+    uint32_t index = 0xffffffff;
+
+    if (builder_node &&builder_node->sector)
+    {
+        index = SubSectorBit | add_sub_sector(builder_node->sector.get(), map, vertices);
+    }
+    else if (builder_node)
+    {
+        index = map.num_nodes++;
+        fist::Node* node = &map.nodes[index];
+        node->split_normal = builder_node->split.normal;
+        node->split_distance = dot(builder_node->split.normal, builder_node->split.from);
+        node->right_child = add_node(builder_node->front.get(), map, vertices);
+        node->left_child = add_node(builder_node->back.get(), map, vertices);
+    }
+
+    return index;
+}
+
+void gather_the_things(const BspTreeBuilder& builder, fist::Map& map, std::vector<V2f>& vertices)
+{
+    map.num_linesegs = 0;
+    map.num_subsectors = 0;
+    map.num_nodes = 0;
+    add_node(&builder.root, map, vertices);
+}
+
+// FIXME: This won't work if the map consists of a single convex sector because the builder won't generate a root node in that case.
+void BspTreeBuilder::cook(const Wad::Map& wad_map, fist::Map& map)
+{
+    BspTreeBuilder builder;
+    builder.init(wad_map);
+    builder.build();
+
+    std::vector<V2f> vertices{};
+
+    map.num_linedefs = (uint32_t)wad_map.linedefs.size();
+    map.linedefs = new LineDef[map.num_linedefs];
+    LineDef* linedef =  map.linedefs;
+
+    for (const Wad::LineDef& src : wad_map.linedefs)
+    {
+        linedef->from = add_vertex(wad_map.vertices[src.from], vertices);
+        linedef->to = add_vertex(wad_map.vertices[src.to], vertices);
+        linedef->sidedefs[0] = src.sidedefs[0];
+        linedef->sidedefs[1] = (src.sidedefs[1] == 0xffff) ? 0xffffffff : src.sidedefs[1];
+        linedef++;
+    }
+
+    map.num_sidedefs = (uint32_t)wad_map.sidedefs.size();
+    map.sidedefs = new SideDef[map.num_sidedefs];
+    SideDef* sidedef = map.sidedefs;
+
+    for (const Wad::SideDef& src : wad_map.sidedefs)
+    {
+        // TODO: Textures
+        sidedef->sector = src.sector;
+        sidedef++;
+    }
+
+    map.num_sectors = (uint32_t)wad_map.sectors.size();
+    map.sectors = new fist::Sector[map.num_sectors];
+    fist::Sector* sector = map.sectors;
+
+    for (const Wad::Sector& src : wad_map.sectors)
+    {
+        // TODO: Textures
+        sector->ceiling_height = src.ceiling / 32.0f;
+        sector->floor_height = src.floor / 32.0f;
+        sector->light_level = src.light / 255.0f;
+        sector++;
+    }
+
+    count_the_things(builder, map);
+
+    map.linesegs = new LineSeg[map.num_linesegs];
+    map.subsectors = new SubSector[map.num_subsectors];
+    map.nodes = new fist::Node[map.num_nodes];
+
+    gather_the_things(builder, map, vertices);
+
+    map.num_vertices = (uint32_t)vertices.size();
+    map.vertices = new V2f[map.num_vertices];
+    V2f* vertex = map.vertices;
+
+    for (V2f& src : vertices)
+    {
+        *vertex++ = src;
+    }
 }
 
 } // namespace fist

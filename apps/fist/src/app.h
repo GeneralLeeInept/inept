@@ -70,7 +70,7 @@ private:
 
     struct DrawLine
     {
-        V2f n;
+        V2f normal;
         size_t from;
         size_t to;
     };

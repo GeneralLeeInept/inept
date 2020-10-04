@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include "types.h"
+#include "bsp.h"
 #include "bsp_tree_builder.h"
 #include "wad_loader.h"
 
@@ -202,16 +203,11 @@ void App::import()
 
     for (const Wad::LineDef& ld : wadmap.linedefs)
     {
-        //add_draw_line(ld.from, ld.to);
+        add_draw_line(ld.from, ld.to);
 
-        //if (ld.sidedefs[1] != 0xffff)
-        //{
-        //    add_draw_line(ld.to, ld.from);
-        //}
-
-        if (ld.sidedefs[1] == 0xffff)
+        if (ld.sidedefs[1] != 0xffff)
         {
-            add_draw_line(ld.from, ld.to);
+            add_draw_line(ld.to, ld.from);
         }
     }
 
@@ -222,6 +218,9 @@ void App::import()
             spawn_position = quantize(V2f{ (float)thing.xpos, (float)thing.ypos } * pos_scale, 0);
         }
     }
+
+    fist::Map fist_map{};
+    BspTreeBuilder::cook(wadmap, fist_map);
 
     _config.save();
 }
@@ -299,8 +298,8 @@ void App::add_draw_line(size_t from, size_t to)
     line.to = to;
 
     V2f v = normalize(draw_points[to] - draw_points[from]);
-    line.n.x = v.y;
-    line.n.y = -v.x;
+    line.normal.x = v.y;
+    line.normal.y = -v.x;
 
     draw_lines.push_back(line);
 }
@@ -539,6 +538,7 @@ void App::update_editor(float delta)
 
                 editor_data.mode = EditorStateData::Mode::DragAdd;
                 editor_data.drag_rect.origin = screen_to_world(mouse_pos, editor_data.camera_pos);
+                editor_data.drag_rect.extents = editor_data.drag_rect.origin;
             }
         }
         else if (key_state(gli::Key_Delete).pressed)
@@ -680,7 +680,7 @@ void App::draw_line_with_normal(const V2f& from, const V2f& to, const V2f& n, gl
 
 void App::draw_editor_line(const DrawLine& line, gli::Pixel color)
 {
-    draw_line_with_normal(draw_points[line.from], draw_points[line.to], line.n, color);
+    draw_line_with_normal(draw_points[line.from], draw_points[line.to], line.normal, color);
     draw_vertex(draw_points[line.from], color);
     draw_vertex(draw_points[line.to], color);
 }
@@ -787,9 +787,9 @@ void App::update_bsp(float delta)
         for (const DrawLine& draw_line : draw_lines)
         {
             BspLine line;
-            line.a = draw_points[draw_line.from];
-            line.b = draw_points[draw_line.to];
-            line.n = draw_line.n;
+            line.from = draw_points[draw_line.from];
+            line.to = draw_points[draw_line.to];
+            line.normal = draw_line.normal;
             bsp_lines.push_back(line);
         }
 
@@ -864,10 +864,10 @@ void App::update_bsp(float delta)
 
 void App::draw_bsp_line(const BspLine& line, gli::Pixel color)
 {
-    V2i from = world_to_screen(line.a, editor_data.camera_pos);
-    V2i to = world_to_screen(line.b, editor_data.camera_pos);
+    V2i from = world_to_screen(line.from, editor_data.camera_pos);
+    V2i to = world_to_screen(line.to, editor_data.camera_pos);
     V2i mid = (from + to) / 2;
-    V2i ntick = mid + V2i{ (int)std::floor(line.n.x * 10.0f), (int)std::floor(line.n.y * 10.0f) };
+    V2i ntick = mid + V2i{ (int)std::floor(line.normal.x * 10.0f), (int)std::floor(line.normal.y * 10.0f) };
     draw_line(from.x, from.y, to.x, to.y, color);
     draw_line(mid.x, mid.y, ntick.x, ntick.y, color);
     draw_line(from.x - 2, from.y - 2, from.x + 3, from.y + 3, color);
@@ -876,7 +876,7 @@ void App::draw_bsp_line(const BspLine& line, gli::Pixel color)
 
 void App::clip_line(BspTreeBuilder::Node* node, BspLine& line)
 {
-    while (node->parent && length_sq(line.b - line.a) > 0.0f)
+    while (node->parent && length_sq(line.to - line.from) > 0.0f)
     {
         BspLine front;
         BspLine back;
@@ -893,27 +893,27 @@ void App::clip_line(BspTreeBuilder::Node* node, BspLine& line)
 void App::draw_bsp_split(BspTreeBuilder::Node* node)
 {
     BspLine line = node->split;
-    V2f v = normalize(line.b - line.a);
-    V2f o = line.a;
-    line.a = o - v * 10000.0f;
-    line.b = o + v * 10000.0f;
+    V2f v = normalize(line.to - line.from);
+    V2f o = line.from;
+    line.from = o - v * 10000.0f;
+    line.to = o + v * 10000.0f;
     clip_line(node, line);
 
     BspLine discard;
     BspLine screen_edge;
 
-    screen_edge.a = screen_to_world(V2i{}, editor_data.camera_pos);
-    screen_edge.n = V2f{ 1.0f, 0.0f };
+    screen_edge.from = screen_to_world(V2i{}, editor_data.camera_pos);
+    screen_edge.normal = V2f{ 1.0f, 0.0f };
     BspLine::split(screen_edge, line, line, discard);
 
-    screen_edge.n = V2f{ 0.0f, 1.0f };
+    screen_edge.normal = V2f{ 0.0f, 1.0f };
     BspLine::split(screen_edge, line, line, discard);
 
-    screen_edge.a = screen_to_world(V2i{ screen_width(), screen_height() }, editor_data.camera_pos);
-    screen_edge.n = V2f{ -1.0f, 0.0f };
+    screen_edge.from = screen_to_world(V2i{ screen_width(), screen_height() }, editor_data.camera_pos);
+    screen_edge.normal = V2f{ -1.0f, 0.0f };
     BspLine::split(screen_edge, line, line, discard);
 
-    screen_edge.n = V2f{ 0.0f, -1.0f };
+    screen_edge.normal = V2f{ 0.0f, -1.0f };
     BspLine::split(screen_edge, line, line, discard);
 
     draw_bsp_line(line, gli::Pixel(128, 128, 128));
@@ -983,9 +983,9 @@ void App::update_simulation(float delta)
         for (const DrawLine& draw_line : draw_lines)
         {
             BspLine line;
-            line.a = draw_points[draw_line.from];
-            line.b = draw_points[draw_line.to];
-            line.n = draw_line.n;
+            line.from = draw_points[draw_line.from];
+            line.to = draw_points[draw_line.to];
+            line.normal = draw_line.normal;
             bsp_lines.push_back(line);
         }
 
@@ -1195,17 +1195,17 @@ void App::draw_bsp_sector_view(BspTreeBuilder::Sector* sector)
     // Project and draw lines in sector
     for (const auto& line : sector->lines)
     {
-        V2f v = line.a - camera_pos;
+        V2f v = line.from - camera_pos;
 
-        if (dot(v, line.n) > 0.0f)
+        if (dot(v, line.normal) > 0.0f)
         {
             // Line is facing away from viewer
             continue;
         }
 
         // Transform endpoints to view space
-        V2f a = world_view * line.a;
-        V2f b = world_view * line.b;
+        V2f a = world_view * line.from;
+        V2f b = world_view * line.to;
 
         // Near clip
         static const float near_clip = 0.1f;

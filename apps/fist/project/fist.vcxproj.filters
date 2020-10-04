@@ -20,6 +20,12 @@
     <ClCompile Include="..\src\config.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\bsp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\types.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\types.h">
@@ -38,6 +44,9 @@
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="..\src\config.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\bsp.h">
       <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>
