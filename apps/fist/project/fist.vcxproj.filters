@@ -26,6 +26,9 @@
     <ClCompile Include="..\src\types.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\prototype_state.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\types.h">
@@ -47,6 +50,9 @@
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="..\src\bsp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\prototype_state.h">
       <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>
