@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include "appstate.h"
+#include "game_state.h"
 #include "prototype_state.h"
 
 namespace fist
@@ -10,7 +11,8 @@ bool App::on_create()
 {
     _config.load();
 
-    PrototypeState* state = new PrototypeState;
+    GameState* state = new GameState;
+    //PrototypeState* state = new PrototypeState;
     state->on_init(this);
     state->on_pushed();
     _app_states.push_front(state);

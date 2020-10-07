@@ -34,7 +34,7 @@ BoundingBox BoundingBox::merge(const BoundingBox& a, const BoundingBox& b)
     return result;
 }
 
-    // Get the intersection of a & b
+// Get the intersection of a & b
 BoundingBox BoundingBox::intersection(const BoundingBox& a, const BoundingBox& b)
 {
     BoundingBox result;
@@ -139,11 +139,6 @@ V2i operator*(const V2i& v, int s)
 V2i operator/(const V2i& v, int s)
 {
     return { v.x / s, v.y / s };
-}
-
-float clamp(float t, float min, float max)
-{
-    return t < min ? min : (t > max ? max : t);
 }
 
 } // namespace fist

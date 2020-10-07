@@ -3,12 +3,9 @@
 #include <gli_core.h>
 
 #include "types.h"
-#include "bsp_tree_builder.h"
 #include "config.h"
 
 #include <deque>
-#include <set>
-#include <string>
 
 namespace fist
 {

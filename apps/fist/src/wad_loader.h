@@ -26,6 +26,7 @@ struct Name
     {
         char c[8]{};
         uint32_t i[2];
+        uint64_t i64;
     };
 
     Name& operator=(const char* str)

@@ -53,10 +53,8 @@ struct Node
 {
     V2f split_normal;
     float split_distance;
-    BoundingBox right_bounds;
-    BoundingBox left_bounds;
-    uint32_t right_child; // Bit 31 set if child is a sub-sector
-    uint32_t left_child;  // (uint32_t)-1 for none
+    BoundingBox bounds[2];
+    uint32_t child[2]; // (uint32_t)-1 for none / bit 31 set if child is a sub-sector
 };
 
 struct Map

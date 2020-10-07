@@ -78,6 +78,7 @@
     <ClCompile Include="..\src\bsp_tree_builder.cpp" />
     <ClCompile Include="..\src\config.cpp" />
     <ClCompile Include="..\src\fist.cpp" />
+    <ClCompile Include="..\src\game_state.cpp" />
     <ClCompile Include="..\src\prototype_state.cpp" />
     <ClCompile Include="..\src\types.cpp" />
     <ClCompile Include="..\src\wad_loader.cpp" />
@@ -93,6 +94,7 @@
     <ClInclude Include="..\src\bsp.h" />
     <ClInclude Include="..\src\bsp_tree_builder.h" />
     <ClInclude Include="..\src\config.h" />
+    <ClInclude Include="..\src\game_state.h" />
     <ClInclude Include="..\src\prototype_state.h" />
     <ClInclude Include="..\src\types.h" />
     <ClInclude Include="..\src\wad_loader.h" />

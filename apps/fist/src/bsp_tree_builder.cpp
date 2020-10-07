@@ -422,7 +422,7 @@ void count_the_things(const BspTreeBuilder& builder, fist::Map& map)
     count_the_things(&builder.root, map);
 }
 
-uint32_t add_sub_sector(const BspTreeBuilder::Sector* builder_sector, fist::Map& map, std::vector<V2f>& vertices)
+uint32_t add_subsector(const BspTreeBuilder::Sector* builder_sector, fist::Map& map, std::vector<V2f>& vertices)
 {
     uint32_t index = map.num_subsectors++;
     SubSector* subsector = &map.subsectors[index];
@@ -446,9 +446,9 @@ uint32_t add_node(const BspTreeBuilder::Node* builder_node, fist::Map& map, std:
 {
     uint32_t index = 0xffffffff;
 
-    if (builder_node &&builder_node->sector)
+    if (builder_node && builder_node->sector)
     {
-        index = SubSectorBit | add_sub_sector(builder_node->sector.get(), map, vertices);
+        index = SubSectorBit | add_subsector(builder_node->sector.get(), map, vertices);
     }
     else if (builder_node)
     {
@@ -456,8 +456,8 @@ uint32_t add_node(const BspTreeBuilder::Node* builder_node, fist::Map& map, std:
         fist::Node* node = &map.nodes[index];
         node->split_normal = builder_node->split.normal;
         node->split_distance = dot(builder_node->split.normal, builder_node->split.from);
-        node->right_child = add_node(builder_node->front.get(), map, vertices);
-        node->left_child = add_node(builder_node->back.get(), map, vertices);
+        node->child[0] = add_node(builder_node->front.get(), map, vertices);
+        node->child[1] = add_node(builder_node->back.get(), map, vertices);
     }
 
     return index;
@@ -499,7 +499,9 @@ void BspTreeBuilder::cook(const Wad::Map& wad_map, fist::Map& map)
 
     for (const Wad::SideDef& src : wad_map.sidedefs)
     {
-        // TODO: Textures
+        sidedef->textures[0] = src.texmid.i64;
+        sidedef->textures[1] = src.texupper.i64;
+        sidedef->textures[2] = src.texlower.i64;
         sidedef->sector = src.sector;
         sidedef++;
     }
@@ -510,7 +512,8 @@ void BspTreeBuilder::cook(const Wad::Map& wad_map, fist::Map& map)
 
     for (const Wad::Sector& src : wad_map.sectors)
     {
-        // TODO: Textures
+        sector->ceiling_texture = src.texceiling.i64;
+        sector->floor_texture = src.texfloor.i64;
         sector->ceiling_height = src.ceiling / 32.0f;
         sector->floor_height = src.floor / 32.0f;
         sector->light_level = src.light / 255.0f;

@@ -2,6 +2,7 @@
 
 #include "app.h"
 #include "bsp.h"
+#include "bsp_tree_builder.h"
 #include "wad_loader.h"
 
 #include <algorithm>
@@ -10,20 +11,7 @@
 namespace fist
 {
 
-static const float PI = 3.14159274101257324f;
 static const size_t None = (size_t)-1;
-
-float deg_to_rad(float deg)
-{
-    static const float conv = PI / 180.0f;
-    return deg * conv;
-}
-
-float rad_to_deg(float rad)
-{
-    static const float conv = 180.0f / PI;
-    return rad * conv;
-}
 
 void PrototypeState::on_init(App* app)
 {
@@ -173,35 +161,29 @@ void PrototypeState::import()
         return;
     }
 
+    fist::Map fistmap;
+    BspTreeBuilder::cook(wadmap, fistmap);
+
     draw_points.clear();
     draw_lines.clear();
-    draw_points.reserve(wadmap.vertices.size());
-    draw_lines.reserve(wadmap.linedefs.size());
+    draw_points.reserve(fistmap.num_vertices);
+    draw_lines.reserve(fistmap.num_linesegs);
 
-    // Doom is ~32 units / m
-    const float pos_scale = 1.0f / 32.0f;
-
-    for (const Wad::Vertex& dv : wadmap.vertices)
+    for (uint32_t i =  0; i < fistmap.num_vertices; ++i)
     {
-        V2f v = quantize(V2f{ (float)dv.x, (float)dv.y } * pos_scale, 0);
-        draw_points.push_back(v);
+        draw_points.push_back(fistmap.vertices[i]);
     }
 
-    for (const Wad::LineDef& ld : wadmap.linedefs)
+    for (uint32_t i = 0; i < fistmap.num_linesegs; ++i)
     {
-        add_draw_line(ld.from, ld.to);
-
-        if (ld.sidedefs[1] != 0xffff)
-        {
-            add_draw_line(ld.to, ld.from);
-        }
+        add_draw_line(fistmap.linesegs[i].from, fistmap.linesegs[i].to);
     }
 
     for (const Wad::ThingDef& thing : wadmap.things)
     {
         if (thing.type == Wad::ThingType::Player1Start)
         {
-            spawn_position = quantize(V2f{ (float)thing.xpos, (float)thing.ypos } * pos_scale, 0);
+            spawn_position = quantize(V2f{ (float)thing.xpos, (float)thing.ypos } / 32.0f, 0);
         }
     }
 
@@ -1057,7 +1039,7 @@ struct Mat2
     V2f y{ 0.0f, 1.0f };
 };
 
-V2f operator*(const Mat2& m, const V2f& v)
+static V2f operator*(const Mat2& m, const V2f& v)
 {
     V2f result;
     result.x = dot(V2f{ m.x.x, m.y.x }, v);
@@ -1072,12 +1054,12 @@ struct Transform2D
     V2f p{};
 };
 
-V2f operator*(const Transform2D& t, const V2f& p)
+static V2f operator*(const Transform2D& t, const V2f& p)
 {
     return t.m * p + t.p;
 }
 
-Mat2 transpose(const Mat2& m)
+static Mat2 transpose(const Mat2& m)
 {
     Mat2 t;
     t.x.x = m.x.x;
@@ -1087,14 +1069,14 @@ Mat2 transpose(const Mat2& m)
     return t;
 }
 
-Transform2D inverse(const Transform2D& t)
+static Transform2D inverse(const Transform2D& t)
 {
     Mat2 m = transpose(t.m);
     V2f p = -(m * t.p);
     return { m, p };
 }
 
-Transform2D from_camera(const V2f& p, float facing)
+static Transform2D from_camera(const V2f& p, float facing)
 {
     Transform2D t;
     float cos_facing = std::cos(facing);
