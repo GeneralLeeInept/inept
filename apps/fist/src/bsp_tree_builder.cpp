@@ -439,6 +439,10 @@ uint32_t add_subsector(const BspTreeBuilder::Sector* builder_sector, fist::Map& 
 
     subsector->num_segs = map.num_linesegs - subsector->first_seg;
 
+    LineSeg* lineseg = &map.linesegs[subsector->first_seg];
+    LineDef* linedef = &map.linedefs[lineseg->line_def];
+    SideDef* sidedef = &map.sidedefs[linedef->sidedefs[lineseg->side]];
+    subsector->sector = sidedef->sector;
     return index;
 }
 

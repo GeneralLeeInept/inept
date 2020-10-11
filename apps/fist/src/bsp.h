@@ -45,6 +45,7 @@ struct LineSeg
 
 struct SubSector
 {
+    uint32_t sector;
     uint32_t first_seg;
     uint32_t num_segs;
 };

@@ -16,7 +16,7 @@ bool App::on_create()
     state->on_init(this);
     state->on_pushed();
     _app_states.push_front(state);
-    
+
     return true;
 }
 

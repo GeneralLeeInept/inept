@@ -72,6 +72,7 @@ static Transform2D from_camera(const V2f& p, float facing)
 void GameState::on_init(App* app)
 {
     _app = app;
+    load_configs();
 }
 
 void GameState::on_pushed()
@@ -80,10 +81,6 @@ void GameState::on_pushed()
     const std::string& wad_location =
             _app->config().get("game.wadfile", R"(C:\Program Files (x86)\Steam\SteamApps\common\Ultimate Doom\base\DOOM.WAD)");
     const std::string& map_name = _app->config().get("game.map", "E1M1");
-    _fov_y = _app->config().get("render.fovy", 90.0f);
-    _view_distance = std::tanf(_fov_y * 0.5f);
-
-    _app->config().save();
 
     std::unique_ptr<WadFile, WadFileDeleter> wadfile(wad_open(wad_location));
     gliAssert(wadfile);
@@ -106,14 +103,28 @@ void GameState::on_pushed()
     }
 
     _player.pos = _spawn_point;
+
+    const Sector* sector = sector_from_point(_player.pos.p);
+
+    if (sector)
+    {
+        _player.pos.h = sector->floor_height + _eye_height;
+    }
+    else
+    {
+        _player.pos.h = _eye_height;
+    }
 }
 
 void GameState::on_update(float delta)
 {
-    const float move_speed = 1.4f;
-    const float turn_speed = PI;
     V2f move{};
     float delta_facing = 0.0f;
+
+    if (_app->key_state(gli::Key_F5).pressed)
+    {
+        load_configs();
+    }
 
     if (_app->key_state(gli::Key_W).down)
     {
@@ -145,7 +156,7 @@ void GameState::on_update(float delta)
         delta_facing -= 1.0f;
     }
 
-    _player.pos.f = _player.pos.f + delta_facing * turn_speed * delta;
+    _player.pos.f = _player.pos.f + delta_facing * deg_to_rad(_turn_speed) * delta;
 
     while (_player.pos.f < 0.0f)
     {
@@ -158,10 +169,28 @@ void GameState::on_update(float delta)
     }
 
     Transform2D t = from_camera(_player.pos.p, _player.pos.f);
-    move = t.m * move * move_speed * delta;
+    move = t.m * move * _move_speed * delta;
     _player.pos.p = _player.pos.p + move;
 
+    // Get height based on sector
+    const Sector* sector = sector_from_point(_player.pos.p);
+
+    if (sector)
+    {
+        _player.pos.h = sector->floor_height + _eye_height;
+    }
+
     render(delta);
+}
+
+void GameState::load_configs()
+{
+    _app->config().load();
+    _fov_y = _app->config().get("render.fovy", 90.0f);
+    _view_distance = std::tanf(_fov_y * 0.5f);
+    _eye_height = _app->config().get("game.eye_height", 1.5f);
+    _move_speed = _app->config().get("game.move_speed", 5.0f);
+    _turn_speed = _app->config().get("game.turn_speed", 360.0f);
 }
 
 V2f GameState::doom_to_world(int16_t x, int16_t y)
@@ -235,10 +264,14 @@ void GameState::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
 {
     LineDef* linedef = &_map->linedefs[lineseg->line_def];
 
+    // TODO: Skip two-sided linedefs for now
     if (linedef->sidedefs[1] != (uint32_t)-1)
     {
         return;
     }
+
+    SideDef* sidedef = &_map->sidedefs[linedef->sidedefs[lineseg->side]];
+    Sector *sector = &_map->sectors[sidedef->sector];
 
     V2f v = _map->vertices[lineseg->from] - viewer.p;
     V2f l = _map->vertices[lineseg->to] - _map->vertices[lineseg->from];
@@ -287,9 +320,12 @@ void GameState::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
     // Draw columns (use solid_column as a depth buffer)
     int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
     int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
-    float h1 = _view_distance * ooay;
-    float h2 = _view_distance * ooby;
-    float dhdx = (h2 - h1) / (float)(ix2 - ix1);
+    float ceil1 = ((sector->ceiling_height - viewer.h) * _view_distance * ooay);
+    float ceil2 = ((sector->ceiling_height - viewer.h) * _view_distance * ooby);
+    float floor1 = ((sector->floor_height - viewer.h) * _view_distance * ooay);
+    float floor2 = ((sector->floor_height - viewer.h) * _view_distance * ooby);
+    float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
+    float dfdx = (floor2 - floor1) / (float)(ix2 - ix1);
     float dooydx = (ooby - ooay) / (float)(ix2 - ix1);
 
     if (ix2 > _app->screen_width())
@@ -298,31 +334,64 @@ void GameState::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
     }
 
     float ooy = ooay;
-    float h = h1;
+    float hc = ceil1;
+    float hf = floor1;
+
+    if (ix1 < 0)
+    {
+        ooy += (-ix1) * dooydx;
+        hc += (-ix1) * dcdx;
+        hf += (-ix1) * dfdx;
+        ix1 = 0;
+    }
+
 
     for (int c = ix1; c < ix2; ++c)
     {
-        if (c < 0 || solid_columns[c] == solid_value)
+        if (solid_columns[c] == solid_value)
         {
-            // Left-clip / depth buffer reject
+            // depth buffer reject
             ooy += dooydx;
-            h += dhdx;
+            hc += dcdx;
+            hf += dfdx;
             continue;
         }
 
-        // Project height (2m walls, height centered at eye)
-        int y1 = _app->screen_height() / 2 - (int)std::floor(h * _app->screen_height() * 0.5f);
-        int y2 = _app->screen_height() / 2 + (int)std::floor(h * _app->screen_height() * 0.5f);
+        // Project wall column
+        int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
+        int fi = _app->screen_height() / 2 - (int)std::floor(hf * _app->screen_height() * 0.5f);
 
         float d = 1.0f / ooy;
         uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - _view_distance) / (20.0f - _view_distance), 0.0f, 1.0f)));
-        _app->draw_line(c, y1, c, y2, gli::Pixel(fade, fade, fade));
+        _app->draw_line(c, ci, c, fi, gli::Pixel(fade, fade, fade));
         ooy += dooydx;
-        h += dhdx;
+        hc += dcdx;
+        hf += dfdx;
 
         // add to depth buffer
         solid_columns[c] = solid_value;
     }
+}
+
+const fist::Sector* GameState::sector_from_point(const V2f& p)
+{
+    uint32_t index = 0;
+    const fist::Sector* sector = nullptr;
+
+    while ((index & SubSectorBit) == 0)
+    {
+        int nearest = side(p, _map->nodes[index].split_normal, _map->nodes[index].split_distance);
+        index = _map->nodes[index].child[nearest];
+    }
+
+    if (index != (uint32_t)-1)
+    {
+        uint32_t ssindex = index & ~SubSectorBit;
+        fist::SubSector* subsector = &_map->subsectors[ssindex];
+        sector = &_map->sectors[subsector->sector];
+    }
+
+    return sector;
 }
 
 } // namespace fist
