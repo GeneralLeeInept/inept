@@ -191,6 +191,7 @@ void GameState::load_configs()
     _eye_height = _app->config().get("game.eye_height", 1.5f);
     _move_speed = _app->config().get("game.move_speed", 5.0f);
     _turn_speed = _app->config().get("game.turn_speed", 360.0f);
+    _max_fade_dist = _app->config().get("render.fade_dist", 50.0f);
 }
 
 V2f GameState::doom_to_world(int16_t x, int16_t y)
@@ -212,13 +213,22 @@ void GameState::render(float delta)
 }
 
 static Transform2D world_view;
-static int solid_columns[1280]{}; // 1 column per screen width
+static int solid_columns[1280]{}; // FIXME: column per screen width
 static int solid_value = 1;
+static int floor_height[1280]{}; // current floor height per screen column
+static int ceiling_height[1280]{}; // current ceiling height per screen column
 
 void GameState::draw_3d(const ThingPos& viewer)
 {
     // View matrix
     world_view = inverse(from_camera(viewer.p, viewer.f));
+    
+    for (int i = 0; i < 1280; ++i)
+    {
+        floor_height[i] = _app->screen_height();
+        ceiling_height[i] = 0;
+    }
+
     draw_node(viewer, 0);
     solid_value = 1 - solid_value;
 }
@@ -264,12 +274,19 @@ void GameState::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
 {
     LineDef* linedef = &_map->linedefs[lineseg->line_def];
 
-    // TODO: Skip two-sided linedefs for now
-    if (linedef->sidedefs[1] != (uint32_t)-1)
+    if (linedef->sidedefs[1] == (uint32_t)-1)
     {
-        return;
+        draw_solid_seg(viewer, lineseg);
     }
+    else
+    {
+        draw_non_solid_seg(viewer, lineseg);
+    }
+}
 
+void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
+{
+    LineDef* linedef = &_map->linedefs[lineseg->line_def];
     SideDef* sidedef = &_map->sidedefs[linedef->sidedefs[lineseg->side]];
     Sector *sector = &_map->sectors[sidedef->sector];
 
@@ -361,15 +378,327 @@ void GameState::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
         int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
         int fi = _app->screen_height() / 2 - (int)std::floor(hf * _app->screen_height() * 0.5f);
 
-        float d = 1.0f / ooy;
-        uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - _view_distance) / (20.0f - _view_distance), 0.0f, 1.0f)));
-        _app->draw_line(c, ci, c, fi, gli::Pixel(fade, fade, fade));
+        if (ci > floor_height[c] || fi < ceiling_height[c])
+        {
+            // Height clipped
+            solid_columns[c] = solid_value;
+            ooy += dooydx;
+            hc += dcdx;
+            hf += dfdx;
+            continue;
+        }
+
+        if (ci < ceiling_height[c])
+        {
+            ci = ceiling_height[c];
+        }
+
+        if (fi > floor_height[c])
+        {
+            fi = floor_height[c];
+        }
+
+        if (fi > ci)
+        {
+            float d = 1.0f / ooy;
+            uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
+            _app->draw_line(c, ci, c, fi, gli::Pixel(0, 0, fade));
+        }
+
         ooy += dooydx;
         hc += dcdx;
         hf += dfdx;
 
         // add to depth buffer
         solid_columns[c] = solid_value;
+    }
+}
+
+void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
+{
+    LineDef* linedef = &_map->linedefs[lineseg->line_def];
+    SideDef* front_sidedef = &_map->sidedefs[linedef->sidedefs[lineseg->side]];
+    SideDef* back_sidedef = &_map->sidedefs[linedef->sidedefs[1 - lineseg->side]];
+    Sector* front_sector = &_map->sectors[front_sidedef->sector];
+    Sector* back_sector = &_map->sectors[back_sidedef->sector];
+
+    V2f v = _map->vertices[lineseg->from] - viewer.p;
+    V2f l = _map->vertices[lineseg->to] - _map->vertices[lineseg->from];
+    V2f n = { l.y, -l.x };
+    bool front_facing = (dot(v, n) <= 0.0f);
+
+    // Transform endpoints to view space
+    V2f from = world_view * _map->vertices[lineseg->from];
+    V2f to = world_view * _map->vertices[lineseg->to];
+
+    // Near clip
+    static const float near_clip = 0.1f;
+    if (from.y < near_clip)
+    {
+        if (to.y <= near_clip)
+        {
+            return;
+        }
+
+        from.x = from.x + (near_clip - from.y) * (to.x - from.x) / (to.y - from.y);
+        from.y = near_clip;
+    }
+    else if ((to.y < near_clip) && (from.y > near_clip))
+    {
+        to.x = to.x + (near_clip - to.y) * (from.x - to.x) / (from.y - to.y);
+        to.y = near_clip;
+    }
+
+    // Project to viewport x
+    float ooay = 1.0f / from.y;
+    float ooby = 1.0f / to.y;
+    float x1 = _view_distance * from.x * ooay;
+    float x2 = _view_distance * to.x * ooby;
+
+    if (x2 < x1)
+    {
+        std::swap(x1, x2);
+        std::swap(ooay, ooby);
+    }
+
+    if (back_sector->ceiling_height < front_sector->ceiling_height)
+    {
+        // Draw upper columns
+        int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        float ceil1 = ((front_sector->ceiling_height - viewer.h) * _view_distance * ooay);
+        float ceil2 = ((front_sector->ceiling_height - viewer.h) * _view_distance * ooby);
+        float floor1 = ((back_sector->ceiling_height - viewer.h) * _view_distance * ooay);
+        float floor2 = ((back_sector->ceiling_height - viewer.h) * _view_distance * ooby);
+        float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
+        float dfdx = (floor2 - floor1) / (float)(ix2 - ix1);
+        float dooydx = (ooby - ooay) / (float)(ix2 - ix1);
+
+        if (ix2 > _app->screen_width())
+        {
+            ix2 = _app->screen_width();
+        }
+
+        float ooy = ooay;
+        float hc = ceil1;
+        float hf = floor1;
+
+        if (ix1 < 0)
+        {
+            ooy += (-ix1) * dooydx;
+            hc += (-ix1) * dcdx;
+            hf += (-ix1) * dfdx;
+            ix1 = 0;
+        }
+
+
+        for (int c = ix1; c < ix2; ++c)
+        {
+            if (solid_columns[c] == solid_value)
+            {
+                // depth buffer reject
+                ooy += dooydx;
+                hc += dcdx;
+                hf += dfdx;
+                continue;
+            }
+
+            // Project wall column
+            int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
+            int fi = _app->screen_height() / 2 - (int)std::floor(hf * _app->screen_height() * 0.5f);
+
+            if (ci > floor_height[c] || fi < ceiling_height[c])
+            {
+                // Height clipped
+                ooy += dooydx;
+                hc += dcdx;
+                hf += dfdx;
+                continue;
+            }
+
+            if (ci < ceiling_height[c])
+            {
+                ci = ceiling_height[c];
+            }
+
+            if (fi > floor_height[c])
+            {
+                fi = floor_height[c];
+            }
+
+            if (fi > ci)
+            {
+                float d = 1.0f / ooy;
+                uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
+                _app->draw_line(c, ci, c, fi, gli::Pixel(fade, 0, 0));
+                ceiling_height[c] = fi;
+            }
+
+            ooy += dooydx;
+            hc += dcdx;
+            hf += dfdx;
+        }
+    }
+    else
+    {
+        // Just update column ceiling heights
+        int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        float ceil1 = ((front_sector->ceiling_height - viewer.h) * _view_distance * ooay);
+        float ceil2 = ((front_sector->ceiling_height - viewer.h) * _view_distance * ooby);
+        float hc = ceil1;
+        float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
+
+        if (ix1 < 0)
+        {
+            hc += (-ix1) * dcdx;
+            ix1 = 0;
+        }
+
+        if (ix2 > _app->screen_width())
+        {
+            ix2 = _app->screen_width();
+        }
+
+        for (int c = ix1; c < ix2; ++c)
+        {
+            if (solid_columns[c] == solid_value)
+            {
+                // depth buffer reject
+                hc += dcdx;
+                continue;
+            }
+
+            // Project wall column
+            int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
+
+            if (ci > ceiling_height[c])
+            {
+                ceiling_height[c] = ci;
+            }
+
+            hc += dcdx;
+        }
+    }
+
+    if (front_facing && (back_sector->floor_height > front_sector->floor_height))
+    {
+        // Draw lower columns
+        int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        float ceil1 = ((back_sector->floor_height - viewer.h) * _view_distance * ooay);
+        float ceil2 = ((back_sector->floor_height - viewer.h) * _view_distance * ooby);
+        float floor1 = ((front_sector->floor_height - viewer.h) * _view_distance * ooay);
+        float floor2 = ((front_sector->floor_height - viewer.h) * _view_distance * ooby);
+        float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
+        float dfdx = (floor2 - floor1) / (float)(ix2 - ix1);
+        float dooydx = (ooby - ooay) / (float)(ix2 - ix1);
+
+        if (ix2 > _app->screen_width())
+        {
+            ix2 = _app->screen_width();
+        }
+
+        float ooy = ooay;
+        float hc = ceil1;
+        float hf = floor1;
+
+        if (ix1 < 0)
+        {
+            ooy += (-ix1) * dooydx;
+            hc += (-ix1) * dcdx;
+            hf += (-ix1) * dfdx;
+            ix1 = 0;
+        }
+
+
+        for (int c = ix1; c < ix2; ++c)
+        {
+            if (solid_columns[c] == solid_value)
+            {
+                // depth buffer reject
+                ooy += dooydx;
+                hc += dcdx;
+                hf += dfdx;
+                continue;
+            }
+
+            // Project wall column
+            int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
+            int fi = _app->screen_height() / 2 - (int)std::floor(hf * _app->screen_height() * 0.5f);
+
+            if (ci > floor_height[c] || fi < ceiling_height[c])
+            {
+                // Height clipped
+                ooy += dooydx;
+                hc += dcdx;
+                hf += dfdx;
+                continue;
+            }
+
+            if (ci < ceiling_height[c])
+            {
+                ci = ceiling_height[c];
+            }
+
+            if (fi > floor_height[c])
+            {
+                fi = floor_height[c];
+            }
+
+            if (fi > ci)
+            {
+                float d = 1.0f / ooy;
+                uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
+                _app->draw_line(c, ci, c, fi, gli::Pixel(0, fade, 0));
+                floor_height[c] = ci;
+            }
+
+            ooy += dooydx;
+            hc += dcdx;
+            hf += dfdx;
+        }
+    }
+    else
+    {
+        // Just update column floor heights
+        int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        float ceil1 = ((front_sector->floor_height - viewer.h) * _view_distance * ooay);
+        float ceil2 = ((front_sector->floor_height - viewer.h) * _view_distance * ooby);
+        float hc = ceil1;
+        float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
+
+        if (ix1 < 0)
+        {
+            hc += (-ix1) * dcdx;
+            ix1 = 0;
+        }
+
+        if (ix2 > _app->screen_width())
+        {
+            ix2 = _app->screen_width();
+        }
+
+        for (int c = ix1; c < ix2; ++c)
+        {
+            if (solid_columns[c] == solid_value)
+            {
+                // depth buffer reject
+                hc += dcdx;
+                continue;
+            }
+
+            // Project wall column
+            int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
+
+            if (ci < floor_height[c])
+            {
+                floor_height[c] = ci;
+            }
+
+            hc += dcdx;
+        }
     }
 }
 

@@ -1,7 +1,9 @@
 #include "config.h"
 
+#include <algorithm>
 #include <fstream>
 #include <string>
+#include <vector>
 
 namespace fist
 {
@@ -34,9 +36,15 @@ void Config::save()
 
     if (fp)
     {
-        for (const auto& kvp : _data)
+        std::vector<std::string> keys;
+        keys.reserve(_data.size());
+        std::transform(std::begin(_data), std::end(_data), std::back_inserter(keys),
+                       [](const decltype(_data)::value_type& pair) { return pair.first; });
+        std::sort(std::begin(keys), std::end(keys));
+
+        for (const std::string& key : keys)
         {
-            fp << kvp.first << " : " << kvp.second << std::endl;
+            fp << key << " : " << _data[key] << std::endl;
         }
     }
 }

@@ -39,6 +39,7 @@ private:
     float _eye_height{};
     float _move_speed{};
     float _turn_speed{};
+    float _max_fade_dist{};
 
     void load_configs();
     V2f doom_to_world(int16_t x, int16_t y);
@@ -48,6 +49,8 @@ private:
     void draw_node(const ThingPos& viewer, uint32_t index);
     void draw_subsector(const ThingPos& viewer, uint32_t index);
     void draw_line(const ThingPos& viewer, const LineSeg* lineseg);
+    void draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg);
+    void draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg);
     const Sector* sector_from_point(const V2f& p);
 };
 

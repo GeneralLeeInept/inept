@@ -75,6 +75,8 @@ bool BspLine::split(const BspLine& split, const BspLine& line, BspLine& front, B
 
     front.linedef = line.linedef;
     back.linedef = line.linedef;
+    front.front = line.front;
+    back.front = line.front;
 
     return true;
 }
