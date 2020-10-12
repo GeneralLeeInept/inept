@@ -117,7 +117,7 @@ void draw_plane(size_t plane, gli::App* app, gli::Pixel color)
         int span_start = vp->min_x;
         int span_end = 0;
 
-        while (span_start < vp->max_x)
+        while (span_start <= vp->max_x)
         {
             for (; span_start <= vp->max_x; ++span_start)
             {
@@ -342,20 +342,18 @@ int GameState::side(const V2f& p, const V2f& split_normal, float split_distance)
 }
 
 static float clearcolor_timer = 0.0f;
-static int clearcolor_index = 0;
-static gli::Pixel clearcolors[2] = { gli::Pixel(255, 0, 255), gli::Pixel(255, 255, 0) };
 
 void GameState::render(float delta)
 {
-    clearcolor_timer -= delta;
+    clearcolor_timer += delta;
 
-    if (clearcolor_timer <= 0.0f)
+    while (clearcolor_timer > 5.0f)
     {
-        clearcolor_index = 1 - clearcolor_index;
-        clearcolor_timer += 0.25f;
+        clearcolor_timer -= 5.0f;
     }
 
-    _app->clear_screen(clearcolors[clearcolor_index]);
+    uint8_t clearintensity = (uint8_t)std::floor(64.0f + 25.6f * clearcolor_timer);
+    _app->clear_screen(gli::Pixel(clearintensity, 0, clearintensity));
     _screen_aspect = (float)_app->screen_width() / (float)_app->screen_height();
     draw_3d(_player.pos);
 }
@@ -384,7 +382,8 @@ void GameState::draw_3d(const ThingPos& viewer)
     {
         float norm_height = clamp(visplanes[p].height / 10.0f, -1.0f, 1.0f);
         uint8_t color = (uint8_t)std::floor(128.0f + norm_height * 127.0f);
-        draw_plane(p, _app, gli::Pixel(color, color, color));
+        bool ceiling = visplanes[p].height < viewer.h;
+        draw_plane(p, _app, gli::Pixel(ceiling ? 0 : color, color >> 1, ceiling ? color : 0));
     }
 
     solid_value = 1 - solid_value;
@@ -539,15 +538,17 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
         int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
         int fi = _app->screen_height() / 2 - (int)std::floor(hf * _app->screen_height() * 0.5f);
 
-        if (ci >= floor_height[c] || fi < ceiling_height[c])
+        if (ci >= floor_height[c] || fi <= ceiling_height[c])
         {
             if (ci >= floor_height[c])
             {
                 ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, floor_height[c]);
+                ceiling_height[c] = floor_height[c];
             }
             else
             {
-                floor_plane = check_plane(floor_plane, c, ci - 1, ceiling_height[c]);
+                floor_plane = check_plane(floor_plane, c, ceiling_height[c] - 1, floor_height[c]);
+                floor_height[c] = ceiling_height[c];
             }
 
             // Height clipped
@@ -638,10 +639,15 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
         // Draw upper columns
         int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
         int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
-        float ceil1 = ((front_sector->ceiling_height - viewer.h) * _view_distance * ooay);
-        float ceil2 = ((front_sector->ceiling_height - viewer.h) * _view_distance * ooby);
-        float floor1 = ((back_sector->ceiling_height - viewer.h) * _view_distance * ooay);
-        float floor2 = ((back_sector->ceiling_height - viewer.h) * _view_distance * ooby);
+
+        float top_height = front_sector->ceiling_height;
+        float ceil1 = ((top_height - viewer.h) * _view_distance * ooay);
+        float ceil2 = ((top_height - viewer.h) * _view_distance * ooby);
+
+        float bottom_height = std::max(back_sector->ceiling_height, front_sector->floor_height);
+        float floor1 = ((bottom_height - viewer.h) * _view_distance * ooay);
+        float floor2 = ((bottom_height - viewer.h) * _view_distance * ooby);
+
         float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
         float dfdx = (floor2 - floor1) / (float)(ix2 - ix1);
         float dooydx = (ooby - ooay) / (float)(ix2 - ix1);
@@ -679,7 +685,19 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
             int fi = _app->screen_height() / 2 - (int)std::floor(hf * _app->screen_height() * 0.5f);
 
-            if (ci > floor_height[c] || fi < ceiling_height[c])
+            if (ci >= floor_height[c])
+            {
+                // Height clipped
+                ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, floor_height[c]);
+                ceiling_height[c] = floor_height[c];
+                solid_columns[c] = solid_value;
+                ooy += dooydx;
+                hc += dcdx;
+                hf += dfdx;
+                continue;
+            }
+
+            if (fi < ceiling_height[c])
             {
                 // Height clipped
                 ooy += dooydx;
@@ -750,8 +768,11 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             // Project wall column
             int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
 
-            if (ci > floor_height[c])
+            if (ci >= floor_height[c])
             {
+                ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, floor_height[c]);
+                ceiling_height[c] = floor_height[c];
+                solid_columns[c] = solid_value;
                 hc += dcdx;
                 continue;
             }
@@ -776,10 +797,15 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
         // Draw lower columns
         int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
         int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
-        float ceil1 = ((back_sector->floor_height - viewer.h) * _view_distance * ooay);
-        float ceil2 = ((back_sector->floor_height - viewer.h) * _view_distance * ooby);
-        float floor1 = ((front_sector->floor_height - viewer.h) * _view_distance * ooay);
-        float floor2 = ((front_sector->floor_height - viewer.h) * _view_distance * ooby);
+
+        float top_height = std::min(front_sector->ceiling_height, back_sector->floor_height);
+        float ceil1 = ((top_height - viewer.h) * _view_distance * ooay);
+        float ceil2 = ((top_height - viewer.h) * _view_distance * ooby);
+
+        float bottom_height = front_sector->floor_height;
+        float floor1 = ((bottom_height - viewer.h) * _view_distance * ooay);
+        float floor2 = ((bottom_height - viewer.h) * _view_distance * ooby);
+
         float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
         float dfdx = (floor2 - floor1) / (float)(ix2 - ix1);
         float dooydx = (ooby - ooay) / (float)(ix2 - ix1);
@@ -817,7 +843,17 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
             int fi = _app->screen_height() / 2 - (int)std::floor(hf * _app->screen_height() * 0.5f);
 
-            if (ci > floor_height[c] || fi < ceiling_height[c])
+            if (fi <= ceiling_height[c])
+            {
+                floor_plane = check_plane(floor_plane, c, ceiling_height[c] - 1, floor_height[c]);
+                solid_columns[c] = solid_value;
+                ooy += dooydx;
+                hc += dcdx;
+                hf += dfdx;
+                continue;
+            }
+
+            if (ci > floor_height[c])
             {
                 // Height clipped
                 ooy += dooydx;
@@ -888,9 +924,11 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             // Project wall column
             int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
 
-            if (ci < ceiling_height[c])
+            if (ci <= ceiling_height[c])
             {
-                //solid_columns[c] = solid_value;
+                floor_plane = check_plane(floor_plane, c, ceiling_height[c] - 1, floor_height[c]);
+                floor_height[c] = ci;
+                solid_columns[c] = solid_value;
                 hc += dcdx;
                 continue;
             }
