@@ -6,8 +6,144 @@
 
 #include <gli.h>
 
+#define SCREEN_WIDTH 1280
+#define SCREEN_HEIGHT 720
+
 namespace fist
 {
+
+struct VisPlane
+{
+    uint64_t texture;
+    float height;
+    float light;
+    int min_y, max_y;
+    int min_x, max_x;
+    int top[SCREEN_WIDTH];
+    int bottom[SCREEN_WIDTH];
+};
+
+VisPlane* visplanes = nullptr;
+size_t max_visplanes = 0;
+size_t num_visplanes = 0;
+size_t ceiling_plane;
+size_t floor_plane;
+
+size_t find_plane(uint64_t texture, float height, float light)
+{
+    size_t plane = 0;
+
+    for (; plane < num_visplanes; ++plane)
+    {
+        if (visplanes[plane].texture == texture && visplanes[plane].height == height && visplanes[plane].light == light)
+        {
+            break;
+        }
+    }
+
+    if (plane == num_visplanes)
+    {
+        if (plane == max_visplanes)
+        {
+            size_t new_max_visplanes = max_visplanes ? (max_visplanes << 1) : 16;
+            visplanes = (VisPlane*)realloc(visplanes, new_max_visplanes * sizeof(VisPlane));
+            gliAssert(visplanes);
+            max_visplanes = new_max_visplanes;
+        }
+
+        visplanes[plane].texture = texture;
+        visplanes[plane].height = height;
+        visplanes[plane].light = light;
+        visplanes[plane].min_y = SCREEN_HEIGHT;
+        visplanes[plane].max_y = 0;
+        visplanes[plane].min_x = SCREEN_WIDTH;
+        visplanes[plane].max_x = 0;
+        memset(visplanes[plane].top, 0, sizeof(visplanes[plane].top));
+        memset(visplanes[plane].bottom, 0xff, sizeof(visplanes[plane].bottom));
+        num_visplanes++;
+    }
+
+    return plane;
+}
+
+size_t check_plane(size_t plane, int x, int top, int bottom)
+{
+    if (bottom <= top)
+    {
+        return plane;
+    }
+
+    if (visplanes[plane].top[x] > 0 || visplanes[plane].bottom[x] != -1)
+    {
+        size_t new_plane = num_visplanes;
+
+        if (new_plane == max_visplanes)
+        {
+            size_t new_max_visplanes = max_visplanes ? (max_visplanes << 1) : 16;
+            visplanes = (VisPlane*)realloc(visplanes, new_max_visplanes * sizeof(VisPlane));
+            gliAssert(visplanes);
+            max_visplanes = new_max_visplanes;
+        }
+
+        visplanes[new_plane].texture = visplanes[plane].texture;
+        visplanes[new_plane].height = visplanes[plane].height;
+        visplanes[new_plane].light = visplanes[plane].light;
+        visplanes[new_plane].min_y = SCREEN_HEIGHT;
+        visplanes[new_plane].max_y = 0;
+        visplanes[new_plane].min_x = SCREEN_WIDTH;
+        visplanes[new_plane].max_x = 0;
+        memset(visplanes[new_plane].top, 0, sizeof(visplanes[new_plane].top));
+        memset(visplanes[new_plane].bottom, 0xff, sizeof(visplanes[new_plane].bottom));
+        num_visplanes++;
+        plane = new_plane;
+    }
+
+    visplanes[plane].min_y = std::min(visplanes[plane].min_y, top);
+    visplanes[plane].max_y = std::max(visplanes[plane].max_y, bottom);
+    visplanes[plane].min_x = std::min(visplanes[plane].min_x, x);
+    visplanes[plane].max_x = std::max(visplanes[plane].max_x, x);
+    visplanes[plane].top[x] = top;
+    visplanes[plane].bottom[x] = bottom;
+
+    return plane;
+}
+
+void draw_plane(size_t plane, gli::App* app, gli::Pixel color)
+{
+    VisPlane* vp = &visplanes[plane];
+
+    for (int y = vp->min_y; y < vp->max_y; ++y)
+    {
+        int span_start = vp->min_x;
+        int span_end = 0;
+
+        while (span_start < vp->max_x)
+        {
+            for (; span_start <= vp->max_x; ++span_start)
+            {
+                if (vp->top[span_start] <= y && vp->bottom[span_start] >= y)
+                {
+                    break;
+                }
+            }
+
+            for (span_end = span_start; span_end <= vp->max_x; ++span_end)
+            {
+                if (vp->top[span_end] >= y || vp->bottom[span_end] <= y)
+                {
+                    break;
+                }
+            }
+
+            if (span_end > span_start)
+            {
+                app->draw_line(span_start, y, span_end + 1, y, color);
+            }
+
+            span_start = span_end + 1;
+        }
+    }
+}
 
 struct Mat2
 {
@@ -205,31 +341,52 @@ int GameState::side(const V2f& p, const V2f& split_normal, float split_distance)
     return (pd >= split_distance) ? 0 : 1;
 }
 
+static float clearcolor_timer = 0.0f;
+static int clearcolor_index = 0;
+static gli::Pixel clearcolors[2] = { gli::Pixel(255, 0, 255), gli::Pixel(255, 255, 0) };
+
 void GameState::render(float delta)
 {
-    _app->clear_screen(gli::Pixel(128, 0, 128));
+    clearcolor_timer -= delta;
+
+    if (clearcolor_timer <= 0.0f)
+    {
+        clearcolor_index = 1 - clearcolor_index;
+        clearcolor_timer += 0.25f;
+    }
+
+    _app->clear_screen(clearcolors[clearcolor_index]);
     _screen_aspect = (float)_app->screen_width() / (float)_app->screen_height();
     draw_3d(_player.pos);
 }
 
 static Transform2D world_view;
-static int solid_columns[1280]{}; // FIXME: column per screen width
+static int solid_columns[SCREEN_WIDTH]{}; // FIXME: column per screen width
 static int solid_value = 1;
-static int floor_height[1280]{}; // current floor height per screen column
-static int ceiling_height[1280]{}; // current ceiling height per screen column
+static int floor_height[SCREEN_WIDTH]{}; // current floor height per screen column
+static int ceiling_height[SCREEN_WIDTH]{}; // current ceiling height per screen column
 
 void GameState::draw_3d(const ThingPos& viewer)
 {
     // View matrix
     world_view = inverse(from_camera(viewer.p, viewer.f));
     
-    for (int i = 0; i < 1280; ++i)
+    for (int i = 0; i < SCREEN_WIDTH; ++i)
     {
         floor_height[i] = _app->screen_height();
         ceiling_height[i] = 0;
     }
 
+    num_visplanes = 0;
     draw_node(viewer, 0);
+
+    for (size_t p = 0; p < num_visplanes; ++p)
+    {
+        float norm_height = clamp(visplanes[p].height / 10.0f, -1.0f, 1.0f);
+        uint8_t color = (uint8_t)std::floor(128.0f + norm_height * 127.0f);
+        draw_plane(p, _app, gli::Pixel(color, color, color));
+    }
+
     solid_value = 1 - solid_value;
 }
 
@@ -263,6 +420,10 @@ void GameState::draw_subsector(const ThingPos& viewer, uint32_t index)
 {
     SubSector* ss = &_map->subsectors[index];
     LineSeg* ls = &_map->linesegs[ss->first_seg];
+    Sector* sector = &_map->sectors[ss->sector];
+
+    ceiling_plane = find_plane(sector->ceiling_texture, sector->ceiling_height, sector->light_level);
+    floor_plane = find_plane(sector->floor_texture, sector->floor_height, sector->light_level);
 
     for (uint32_t i = 0; i < ss->num_segs; ++i, ++ls)
     {
@@ -378,8 +539,17 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
         int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
         int fi = _app->screen_height() / 2 - (int)std::floor(hf * _app->screen_height() * 0.5f);
 
-        if (ci > floor_height[c] || fi < ceiling_height[c])
+        if (ci >= floor_height[c] || fi < ceiling_height[c])
         {
+            if (ci >= floor_height[c])
+            {
+                ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, floor_height[c]);
+            }
+            else
+            {
+                floor_plane = check_plane(floor_plane, c, ci - 1, ceiling_height[c]);
+            }
+
             // Height clipped
             solid_columns[c] = solid_value;
             ooy += dooydx;
@@ -400,6 +570,8 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
 
         if (fi > ci)
         {
+            ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, ci);
+            floor_plane = check_plane(floor_plane, c, fi - 1, floor_height[c]);
             float d = 1.0f / ooy;
             uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
             _app->draw_line(c, ci, c, fi, gli::Pixel(0, 0, fade));
@@ -528,6 +700,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
 
             if (fi > ci)
             {
+                ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, ci);
                 float d = 1.0f / ooy;
                 uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
                 _app->draw_line(c, ci, c, fi, gli::Pixel(fade, 0, 0));
@@ -537,6 +710,11 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             ooy += dooydx;
             hc += dcdx;
             hf += dfdx;
+
+            if (ceiling_height[c] >= floor_height[c])
+            {
+                solid_columns[c] = solid_value;
+            }
         }
     }
     else
@@ -572,12 +750,24 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             // Project wall column
             int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
 
+            if (ci > floor_height[c])
+            {
+                hc += dcdx;
+                continue;
+            }
+
             if (ci > ceiling_height[c])
             {
+                ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, ci);
                 ceiling_height[c] = ci;
             }
 
             hc += dcdx;
+
+            if (ceiling_height[c] >= floor_height[c])
+            {
+                solid_columns[c] = solid_value;
+            }
         }
     }
 
@@ -648,6 +838,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
 
             if (fi > ci)
             {
+                floor_plane = check_plane(floor_plane, c, fi - 1, floor_height[c]);
                 float d = 1.0f / ooy;
                 uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
                 _app->draw_line(c, ci, c, fi, gli::Pixel(0, fade, 0));
@@ -657,6 +848,11 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             ooy += dooydx;
             hc += dcdx;
             hf += dfdx;
+
+            if (ceiling_height[c] >= floor_height[c])
+            {
+                solid_columns[c] = solid_value;
+            }
         }
     }
     else
@@ -692,12 +888,25 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             // Project wall column
             int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
 
+            if (ci < ceiling_height[c])
+            {
+                //solid_columns[c] = solid_value;
+                hc += dcdx;
+                continue;
+            }
+
             if (ci < floor_height[c])
             {
+                floor_plane = check_plane(floor_plane, c, ci - 1, floor_height[c]);
                 floor_height[c] = ci;
             }
 
             hc += dcdx;
+
+            if (ceiling_height[c] >= floor_height[c])
+            {
+                solid_columns[c] = solid_value;
+            }
         }
     }
 }
