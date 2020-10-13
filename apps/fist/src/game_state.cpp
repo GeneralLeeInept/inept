@@ -359,8 +359,86 @@ void GameState::render(float delta)
 }
 
 static Transform2D world_view;
-static int solid_columns[SCREEN_WIDTH]{}; // FIXME: column per screen width
-static int solid_value = 1;
+
+struct SolidColumns
+{
+    int min;
+    int max;
+    SolidColumns* next;
+};
+
+static SolidColumns solid_columns[SCREEN_WIDTH];
+static int num_solid_columns = 0;
+
+void mark_solid(int min, int max)
+{
+    SolidColumns* prev = nullptr;
+    SolidColumns* solid = &solid_columns[0];
+
+    while (solid)
+    {
+        if (min - 1 > solid->max)
+        {
+            // Strictly after
+            prev = solid;
+            solid = solid->next;
+            continue;
+        }
+
+        if (max + 1 < solid->min)
+        {
+            // Strictly before
+            SolidColumns* new_solid = &solid_columns[num_solid_columns++];
+            new_solid->min = min;
+            new_solid->max = max;
+            new_solid->next = solid;
+
+            if (prev)
+            {
+                prev->next = new_solid;
+            }
+
+            break;
+        }
+
+        // Touching / overlapping, expand existing
+        solid->min = std::min(solid->min, min);
+        solid->max = std::max(solid->max, max);
+
+        // Merge right
+        SolidColumns* next = solid->next;
+
+        while (next && (max + 1) >= next->min)
+        {
+            solid->max = std::max(solid->max, next->max);
+            solid->next = next->next;
+            next = solid->next;
+        }
+
+        break;
+    }
+}
+
+bool check_solid(int c)
+{
+    SolidColumns* solid = &solid_columns[0];
+
+    while (solid)
+    {
+        if (solid->min <= c && solid->max >= c)
+        {
+            return true;
+        }
+        solid = solid->next;
+    }
+    return false;
+}
+
+bool all_solid()
+{
+    return solid_columns[0].min = INT32_MIN && solid_columns[0].max == INT32_MAX;
+}
+
 static int floor_height[SCREEN_WIDTH]{}; // current floor height per screen column
 static int ceiling_height[SCREEN_WIDTH]{}; // current ceiling height per screen column
 
@@ -376,6 +454,14 @@ void GameState::draw_3d(const ThingPos& viewer)
     }
 
     num_visplanes = 0;
+    num_solid_columns = 2;
+    solid_columns[0].min = INT32_MIN;
+    solid_columns[0].max = -1;
+    solid_columns[0].next = &solid_columns[1];
+    solid_columns[1].min = SCREEN_WIDTH;
+    solid_columns[1].max = INT32_MAX;
+    solid_columns[1].next = nullptr;
+
     draw_node(viewer, 0);
 
     for (size_t p = 0; p < num_visplanes; ++p)
@@ -385,8 +471,6 @@ void GameState::draw_3d(const ThingPos& viewer)
         bool ceiling = visplanes[p].height < viewer.h;
         draw_plane(p, _app, gli::Pixel(ceiling ? 0 : color, color >> 1, ceiling ? color : 0));
     }
-
-    solid_value = 1 - solid_value;
 }
 
 void GameState::draw_node(const ThingPos& viewer, uint32_t index)
@@ -403,16 +487,90 @@ void GameState::draw_node(const ThingPos& viewer, uint32_t index)
     {
         int nearest = side(viewer.p, _map->nodes[index].split_normal, _map->nodes[index].split_distance);
 
-        if (_map->nodes[index].child[nearest] != (uint32_t)-1)
+        if (!all_solid() && !cull_node(viewer, index, nearest))
         {
             draw_node(viewer, _map->nodes[index].child[nearest]);
         }
 
-        if (_map->nodes[index].child[1 - nearest] != (uint32_t)-1) 
+        if (!all_solid() && !cull_node(viewer, index, 1 - nearest)) 
         {
             draw_node(viewer, _map->nodes[index].child[1 - nearest]);
         }
     }
+}
+
+bool GameState::cull_node(const ThingPos& viewer, uint32_t index, int child)
+{
+    if (_map->nodes[index].child[child] == (uint32_t)-1)
+    {
+        return false;
+    }
+
+    // Check if child's bounding box overlaps view region
+    const BoundingBox& bbox = _map->nodes[index].bounds[child];
+    V2f view_corners[4]{};
+
+    view_corners[0] = world_view * bbox.mins;
+    view_corners[1] = world_view * bbox.maxs;
+    view_corners[2] = world_view * V2f{ bbox.mins.x, bbox.maxs.y };
+    view_corners[3] = world_view * V2f{ bbox.maxs.x, bbox.mins.y };
+
+    struct Split
+    {
+        V2f n;
+        float d;
+    };
+
+    Split near_clip{};
+    near_clip.n = V2f{ 0.0f, 1.0f };
+    near_clip.d = 0.0f;
+    bool culled = true;
+
+    for (int i = 0; culled && i < 4; ++i)
+    {
+        culled = dot(near_clip.n, view_corners[i]) < near_clip.d;
+    }
+
+    if (culled)
+    {
+        return true;
+    }
+
+    float fov_x = deg_to_rad(_fov_y * _screen_aspect);
+    float cf = std::cos(fov_x * 0.5f);
+    float sf = std::sin(fov_x * 0.5f);
+
+    Split left_clip{};
+    left_clip.n = V2f{ cf, sf };
+    left_clip.d = 0.0f;
+    culled = true;
+
+    for (int i = 0; culled && i < 4; ++i)
+    {
+        culled = dot(left_clip.n, view_corners[i]) < left_clip.d;
+    }
+
+    if (culled)
+    {
+        return true;
+    }
+
+    Split right_clip{};
+    right_clip.n = V2f{ -cf, sf };
+    right_clip.d = 0.0f;
+    culled = true;
+
+    for (int i = 0; culled && i < 4; ++i)
+    {
+        culled = dot(right_clip.n, view_corners[i]) < right_clip.d;
+    }
+
+    if (culled)
+    {
+        return true;
+    }
+
+    return false;
 }
 
 void GameState::draw_subsector(const ThingPos& viewer, uint32_t index)
@@ -525,7 +683,7 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
 
     for (int c = ix1; c < ix2; ++c)
     {
-        if (solid_columns[c] == solid_value)
+        if (check_solid(c))
         {
             // depth buffer reject
             ooy += dooydx;
@@ -552,7 +710,6 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
             }
 
             // Height clipped
-            solid_columns[c] = solid_value;
             ooy += dooydx;
             hc += dcdx;
             hf += dfdx;
@@ -581,10 +738,9 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
         ooy += dooydx;
         hc += dcdx;
         hf += dfdx;
-
-        // add to depth buffer
-        solid_columns[c] = solid_value;
     }
+
+    mark_solid(ix1, ix2 - 1);
 }
 
 void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
@@ -672,7 +828,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
 
         for (int c = ix1; c < ix2; ++c)
         {
-            if (solid_columns[c] == solid_value)
+            if (check_solid(c))
             {
                 // depth buffer reject
                 ooy += dooydx;
@@ -690,7 +846,6 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
                 // Height clipped
                 ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, floor_height[c]);
                 ceiling_height[c] = floor_height[c];
-                solid_columns[c] = solid_value;
                 ooy += dooydx;
                 hc += dcdx;
                 hf += dfdx;
@@ -728,11 +883,6 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             ooy += dooydx;
             hc += dcdx;
             hf += dfdx;
-
-            if (ceiling_height[c] >= floor_height[c])
-            {
-                solid_columns[c] = solid_value;
-            }
         }
     }
     else
@@ -758,7 +908,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
 
         for (int c = ix1; c < ix2; ++c)
         {
-            if (solid_columns[c] == solid_value)
+            if (check_solid(c))
             {
                 // depth buffer reject
                 hc += dcdx;
@@ -772,7 +922,6 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             {
                 ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, floor_height[c]);
                 ceiling_height[c] = floor_height[c];
-                solid_columns[c] = solid_value;
                 hc += dcdx;
                 continue;
             }
@@ -784,11 +933,6 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             }
 
             hc += dcdx;
-
-            if (ceiling_height[c] >= floor_height[c])
-            {
-                solid_columns[c] = solid_value;
-            }
         }
     }
 
@@ -830,7 +974,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
 
         for (int c = ix1; c < ix2; ++c)
         {
-            if (solid_columns[c] == solid_value)
+            if (check_solid(c))
             {
                 // depth buffer reject
                 ooy += dooydx;
@@ -846,7 +990,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             if (fi <= ceiling_height[c])
             {
                 floor_plane = check_plane(floor_plane, c, ceiling_height[c] - 1, floor_height[c]);
-                solid_columns[c] = solid_value;
+                floor_height[c] = ceiling_height[c];
                 ooy += dooydx;
                 hc += dcdx;
                 hf += dfdx;
@@ -884,11 +1028,6 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             ooy += dooydx;
             hc += dcdx;
             hf += dfdx;
-
-            if (ceiling_height[c] >= floor_height[c])
-            {
-                solid_columns[c] = solid_value;
-            }
         }
     }
     else
@@ -914,7 +1053,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
 
         for (int c = ix1; c < ix2; ++c)
         {
-            if (solid_columns[c] == solid_value)
+            if (check_solid(c))
             {
                 // depth buffer reject
                 hc += dcdx;
@@ -928,7 +1067,6 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             {
                 floor_plane = check_plane(floor_plane, c, ceiling_height[c] - 1, floor_height[c]);
                 floor_height[c] = ci;
-                solid_columns[c] = solid_value;
                 hc += dcdx;
                 continue;
             }
@@ -940,11 +1078,6 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             }
 
             hc += dcdx;
-
-            if (ceiling_height[c] >= floor_height[c])
-            {
-                solid_columns[c] = solid_value;
-            }
         }
     }
 }

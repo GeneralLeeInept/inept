@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <fstream>
 
+#if 0
 namespace fist
 {
 
@@ -1094,11 +1095,11 @@ static Transform2D from_camera(const V2f& p, float facing)
     return t;
 }
 
-int solid_columns[1280]{}; // 1 column per screen width
-int solid_value = 1;
-float screen_aspect{};
-float view_distance{};
-Transform2D world_view{};
+static int solid_columns[1280]{}; // 1 column per screen width
+static int solid_value = 1;
+static float screen_aspect{};
+static float view_distance{};
+static Transform2D world_view{};
 
 void PrototypeState::draw_line_3d(V2f from, V2f to)
 {
@@ -1248,3 +1249,4 @@ void PrototypeState::render_3D(float delta)
 }
 
 } // namespace fist
+#endif

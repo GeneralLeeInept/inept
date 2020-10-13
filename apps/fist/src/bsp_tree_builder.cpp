@@ -110,6 +110,21 @@ void BspTreeBuilder::Sector::calc_bounds()
     }
 }
 
+void BspTreeBuilder::Node::calc_bounds()
+{
+    if (sector)
+    {
+        sector->calc_bounds();
+        bounds = sector->bounds;
+    }
+    else
+    {
+        front->calc_bounds();
+        back->calc_bounds();
+        bounds = BoundingBox::merge(front->bounds, back->bounds);
+    }
+}
+
 void BspTreeBuilder::init(const std::vector<BspLine>& lines)
 {
     root.parent = nullptr;
@@ -365,6 +380,7 @@ void BspTreeBuilder::build()
     {
         split();
     }
+    
 }
 
 bool BspTreeBuilder::complete()
@@ -464,6 +480,8 @@ uint32_t add_node(const BspTreeBuilder::Node* builder_node, fist::Map& map, std:
         node->split_distance = dot(builder_node->split.normal, builder_node->split.from);
         node->child[0] = add_node(builder_node->front.get(), map, vertices);
         node->child[1] = add_node(builder_node->back.get(), map, vertices);
+        node->bounds[0] = builder_node->front->bounds;
+        node->bounds[1] = builder_node->back->bounds;
     }
 
     return index;
@@ -483,6 +501,7 @@ void BspTreeBuilder::cook(const Wad::Map& wad_map, fist::Map& map)
     BspTreeBuilder builder;
     builder.init(wad_map);
     builder.build();
+    builder.root.calc_bounds();
 
     std::vector<V2f> vertices{};
 

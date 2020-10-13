@@ -47,6 +47,7 @@ private:
     void render(float delta);
     void draw_3d(const ThingPos& viewer);
     void draw_node(const ThingPos& viewer, uint32_t index);
+    bool cull_node(const ThingPos& viewer, uint32_t index, int child);
     void draw_subsector(const ThingPos& viewer, uint32_t index);
     void draw_line(const ThingPos& viewer, const LineSeg* lineseg);
     void draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg);

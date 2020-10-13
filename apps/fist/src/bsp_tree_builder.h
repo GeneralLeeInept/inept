@@ -47,6 +47,9 @@ struct BspTreeBuilder
         std::unique_ptr<Node> front;
         std::unique_ptr<Node> back;
         std::unique_ptr<Sector> sector;
+        BoundingBox bounds;
+
+        void calc_bounds();
     };
 
     std::deque<Node*> process_queue; // non-convex leaf nodes
