@@ -68,7 +68,7 @@ size_t find_plane(uint64_t texture, float height, float light)
 
 size_t check_plane(size_t plane, int x, int top, int bottom)
 {
-    if (bottom <= top)
+    if (bottom <= top || plane == -1)
     {
         return plane;
     }
@@ -137,7 +137,7 @@ void draw_plane(size_t plane, gli::App* app, gli::Pixel color)
 
             if (span_end > span_start)
             {
-                app->draw_line(span_start, y, span_end + 1, y, color);
+                app->draw_line(span_start, y, span_end, y, color);
             }
 
             span_start = span_end + 1;
@@ -439,14 +439,14 @@ bool all_solid()
     return solid_columns[0].min = INT32_MIN && solid_columns[0].max == INT32_MAX;
 }
 
-static int floor_height[SCREEN_WIDTH]{}; // current floor height per screen column
+static int floor_height[SCREEN_WIDTH]{};   // current floor height per screen column
 static int ceiling_height[SCREEN_WIDTH]{}; // current ceiling height per screen column
 
 void GameState::draw_3d(const ThingPos& viewer)
 {
     // View matrix
     world_view = inverse(from_camera(viewer.p, viewer.f));
-    
+
     for (int i = 0; i < SCREEN_WIDTH; ++i)
     {
         floor_height[i] = _app->screen_height();
@@ -492,7 +492,7 @@ void GameState::draw_node(const ThingPos& viewer, uint32_t index)
             draw_node(viewer, _map->nodes[index].child[nearest]);
         }
 
-        if (!all_solid() && !cull_node(viewer, index, 1 - nearest)) 
+        if (!all_solid() && !cull_node(viewer, index, 1 - nearest))
         {
             draw_node(viewer, _map->nodes[index].child[1 - nearest]);
         }
@@ -579,8 +579,23 @@ void GameState::draw_subsector(const ThingPos& viewer, uint32_t index)
     LineSeg* ls = &_map->linesegs[ss->first_seg];
     Sector* sector = &_map->sectors[ss->sector];
 
-    ceiling_plane = find_plane(sector->ceiling_texture, sector->ceiling_height, sector->light_level);
-    floor_plane = find_plane(sector->floor_texture, sector->floor_height, sector->light_level);
+    if (sector->ceiling_height > viewer.h)
+    {
+        ceiling_plane = find_plane(sector->ceiling_texture, sector->ceiling_height, sector->light_level);
+    }
+    else
+    {
+        ceiling_plane = -1;
+    }
+
+    if (sector->floor_height < viewer.h)
+    {
+        floor_plane = find_plane(sector->floor_texture, sector->floor_height, sector->light_level);
+    }
+    else
+    {
+        floor_plane = -1;
+    }
 
     for (uint32_t i = 0; i < ss->num_segs; ++i, ++ls)
     {
@@ -606,7 +621,7 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
 {
     LineDef* linedef = &_map->linedefs[lineseg->line_def];
     SideDef* sidedef = &_map->sidedefs[linedef->sidedefs[lineseg->side]];
-    Sector *sector = &_map->sectors[sidedef->sector];
+    Sector* sector = &_map->sectors[sidedef->sector];
 
     V2f v = _map->vertices[lineseg->from] - viewer.p;
     V2f l = _map->vertices[lineseg->to] - _map->vertices[lineseg->from];
@@ -653,24 +668,26 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
     }
 
     // Draw columns (use solid_column as a depth buffer)
-    int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
-    int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+    float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width()* 0.5f;
+    float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width()* 0.5f;
+    int ix1 = (int)std::floor(fx1 + 0.5f);
+    int ix2 = (int)std::floor(fx2 + 0.5f);
     float ceil1 = ((sector->ceiling_height - viewer.h) * _view_distance * ooay);
     float ceil2 = ((sector->ceiling_height - viewer.h) * _view_distance * ooby);
     float floor1 = ((sector->floor_height - viewer.h) * _view_distance * ooay);
     float floor2 = ((sector->floor_height - viewer.h) * _view_distance * ooby);
-    float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
-    float dfdx = (floor2 - floor1) / (float)(ix2 - ix1);
-    float dooydx = (ooby - ooay) / (float)(ix2 - ix1);
+    float dcdx = (ceil2 - ceil1) / (fx2 - fx1);
+    float dfdx = (floor2 - floor1) / (fx2 - fx1);
+    float dooydx = (ooby - ooay) / (fx2 - fx1);
+    float dx = 0.5f + (float)ix1 - fx1;
+    float ooy = ooay + dooydx * dx;
+    float hc = ceil1 + dcdx * dx;
+    float hf = floor1 + dfdx * dx;
 
     if (ix2 > _app->screen_width())
     {
         ix2 = _app->screen_width();
     }
-
-    float ooy = ooay;
-    float hc = ceil1;
-    float hf = floor1;
 
     if (ix1 < 0)
     {
@@ -680,6 +697,9 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
         ix1 = 0;
     }
 
+    uint8_t fade_offset = (_map->vertices[lineseg->from].x == _map->vertices[lineseg->to].x) ?
+                                  20 :
+                                  ((_map->vertices[lineseg->from].y == _map->vertices[lineseg->to].y) ? 10 : 0);
 
     for (int c = ix1; c < ix2; ++c)
     {
@@ -731,7 +751,8 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
             ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, ci);
             floor_plane = check_plane(floor_plane, c, fi - 1, floor_height[c]);
             float d = 1.0f / ooy;
-            uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
+            uint8_t fade =
+                    fade_offset + (uint8_t)std::floor(235.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
             _app->draw_line(c, ci, c, fi, gli::Pixel(0, 0, fade));
         }
 
@@ -790,11 +811,17 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
         std::swap(ooay, ooby);
     }
 
+    uint8_t fade_offset = (_map->vertices[lineseg->from].x == _map->vertices[lineseg->to].x) ?
+                                  20 :
+                                  ((_map->vertices[lineseg->from].y == _map->vertices[lineseg->to].y) ? 10 : 0);
+
     if (back_sector->ceiling_height < front_sector->ceiling_height)
     {
         // Draw upper columns
-        int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
-        int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        int ix1 = (int)std::floor(fx1 + 0.5f);
+        int ix2 = (int)std::floor(fx2 + 0.5f);
 
         float top_height = front_sector->ceiling_height;
         float ceil1 = ((top_height - viewer.h) * _view_distance * ooay);
@@ -804,18 +831,18 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
         float floor1 = ((bottom_height - viewer.h) * _view_distance * ooay);
         float floor2 = ((bottom_height - viewer.h) * _view_distance * ooby);
 
-        float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
-        float dfdx = (floor2 - floor1) / (float)(ix2 - ix1);
-        float dooydx = (ooby - ooay) / (float)(ix2 - ix1);
+        float dcdx = (ceil2 - ceil1) / (fx2 - fx1);
+        float dfdx = (floor2 - floor1) / (fx2 - fx1);
+        float dooydx = (ooby - ooay) / (fx2 - fx1);
+        float dx = 0.5f + (float)ix1 - fx1;
+        float ooy = ooay + dooydx * dx;
+        float hc = ceil1 + dcdx * dx;
+        float hf = floor1 + dfdx * dx;
 
         if (ix2 > _app->screen_width())
         {
             ix2 = _app->screen_width();
         }
-
-        float ooy = ooay;
-        float hc = ceil1;
-        float hf = floor1;
 
         if (ix1 < 0)
         {
@@ -875,7 +902,8 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             {
                 ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, ci);
                 float d = 1.0f / ooy;
-                uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
+                uint8_t fade = fade_offset +
+                               (uint8_t)std::floor(235.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
                 _app->draw_line(c, ci, c, fi, gli::Pixel(fade, 0, 0));
                 ceiling_height[c] = fi;
             }
@@ -888,12 +916,15 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
     else
     {
         // Just update column ceiling heights
-        int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
-        int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        int ix1 = (int)std::floor(fx1 + 0.5f);
+        int ix2 = (int)std::floor(fx2 + 0.5f);
         float ceil1 = ((front_sector->ceiling_height - viewer.h) * _view_distance * ooay);
         float ceil2 = ((front_sector->ceiling_height - viewer.h) * _view_distance * ooby);
-        float hc = ceil1;
-        float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
+        float dcdx = (ceil2 - ceil1) / (fx2 - fx1);
+        float dx = 0.5f + (float)ix1 - fx1;
+        float hc = ceil1 + dcdx * dx;
 
         if (ix1 < 0)
         {
@@ -939,8 +970,10 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
     if (front_facing && (back_sector->floor_height > front_sector->floor_height))
     {
         // Draw lower columns
-        int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
-        int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        int ix1 = (int)std::floor(fx1 + 0.5f);
+        int ix2 = (int)std::floor(fx2 + 0.5f);
 
         float top_height = std::min(front_sector->ceiling_height, back_sector->floor_height);
         float ceil1 = ((top_height - viewer.h) * _view_distance * ooay);
@@ -950,18 +983,18 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
         float floor1 = ((bottom_height - viewer.h) * _view_distance * ooay);
         float floor2 = ((bottom_height - viewer.h) * _view_distance * ooby);
 
-        float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
-        float dfdx = (floor2 - floor1) / (float)(ix2 - ix1);
-        float dooydx = (ooby - ooay) / (float)(ix2 - ix1);
+        float dcdx = (ceil2 - ceil1) / (fx2 - fx1);
+        float dfdx = (floor2 - floor1) / (fx2 - fx1);
+        float dooydx = (ooby - ooay) / (fx2 - fx1);
+        float dx = 0.5f + (float)ix1 - fx1;
+        float ooy = ooay + dooydx * dx;
+        float hc = ceil1 + dcdx * dx;
+        float hf = floor1 + dfdx * dx;
 
         if (ix2 > _app->screen_width())
         {
             ix2 = _app->screen_width();
         }
-
-        float ooy = ooay;
-        float hc = ceil1;
-        float hf = floor1;
 
         if (ix1 < 0)
         {
@@ -1020,7 +1053,8 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             {
                 floor_plane = check_plane(floor_plane, c, fi - 1, floor_height[c]);
                 float d = 1.0f / ooy;
-                uint8_t fade = (uint8_t)std::floor(255.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
+                uint8_t fade = fade_offset +
+                               (uint8_t)std::floor(235.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
                 _app->draw_line(c, ci, c, fi, gli::Pixel(0, fade, 0));
                 floor_height[c] = ci;
             }
@@ -1033,12 +1067,15 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
     else
     {
         // Just update column floor heights
-        int ix1 = (int)std::floor((x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
-        int ix2 = (int)std::floor((x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f + 0.5f);
+        float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        int ix1 = (int)std::floor(fx1 + 0.5f);
+        int ix2 = (int)std::floor(fx2 + 0.5f);
         float ceil1 = ((front_sector->floor_height - viewer.h) * _view_distance * ooay);
         float ceil2 = ((front_sector->floor_height - viewer.h) * _view_distance * ooby);
-        float hc = ceil1;
-        float dcdx = (ceil2 - ceil1) / (float)(ix2 - ix1);
+        float dcdx = (ceil2 - ceil1) / (fx2 - fx1);
+        float dx = 0.5f + (float)ix1 - fx1;
+        float hc = ceil1 + dx * dcdx;
 
         if (ix1 < 0)
         {
