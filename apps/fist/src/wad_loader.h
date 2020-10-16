@@ -1,9 +1,11 @@
 #pragma once
 
+#include "types.h"
+
+#include <gli.h>
+
 #include <string>
 #include <vector>
-
-#include "types.h"
 
 namespace fist
 {
@@ -21,6 +23,7 @@ struct Name
 {
     Name() = default;
     Name(const char* str) { *this = str; }
+    Name(uint64_t i64) { this->i64 = i64; }
 
     union
     {
@@ -42,7 +45,20 @@ struct Name
 
 inline bool operator==(const Name& left, const Name& right)
 {
-    return (left.i[0] == right.i[0] && left.i[1] == right.i[1]);
+    return (left.i64 == right.i64);
+}
+
+inline bool operator<(const Name& left, const Name& right)
+{
+    // string ordering
+    for (int i = 0; i < 8; ++i)
+    {
+        if (left.c[i] != right.c[i])
+        {
+            return left.c[i] < right.c[i];
+        }
+    }
+    return false;
 }
 
 enum ThingType
@@ -106,11 +122,20 @@ struct Map
     std::vector<Vertex> vertices;
     std::vector<Sector> sectors;
 };
+
+struct Texture
+{
+    int16_t width;
+    int16_t height;
+    std::vector<gli::Pixel> pixels;
+};
+
 } // namespace Wad
 
 WadFile* wad_open(const std::string& path);
 void wad_close(WadFile* wad);
 
 bool wad_load_map(WadFile* wad, const Wad::Name& mapname, Wad::Map& map);
+bool wad_load_texture(WadFile* wad, const Wad::Name& texname, Wad::Texture& texture);
 
 } // namespace fist

@@ -12,8 +12,13 @@ class Sprite
 {
 public:
     Sprite() = default;
+    Sprite(const Sprite&) = default;
+    Sprite(Sprite&&) = default;
     Sprite(int w, int h);
+    Sprite(int w, int h, Pixel* pixels);
     ~Sprite();
+
+    Sprite& operator=(Sprite&&) = default;
 
     bool load(const std::string& path);
     void unload();

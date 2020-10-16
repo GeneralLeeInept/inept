@@ -21,6 +21,12 @@ void Config::load()
             std::string key;
             std::string value;
             size_t sep = line.find_first_of(':', 0);
+
+            if (sep == std::string::npos)
+            {
+                continue;
+            }
+
             key = line.substr(0, sep);
             key.erase(std::remove(key.begin(), key.end(), ' '), key.end());
             size_t vstart = line.find_first_not_of(' ', sep + 1);
