@@ -45,7 +45,15 @@ struct Name
 
 inline bool operator==(const Name& left, const Name& right)
 {
-    return (left.i64 == right.i64);
+    // case insensitive?!?
+    //return (left.i64 == right.i64);
+    for (int i = 0; i < 8; ++i)
+    {
+        if (std::toupper(left.c[i]) != std::toupper(right.c[i]))
+        {
+            return false;
+        }
+    }
 }
 
 inline bool operator<(const Name& left, const Name& right)
@@ -53,9 +61,9 @@ inline bool operator<(const Name& left, const Name& right)
     // string ordering
     for (int i = 0; i < 8; ++i)
     {
-        if (left.c[i] != right.c[i])
+        if (std::toupper(left.c[i]) != std::toupper(left.c[i]))
         {
-            return left.c[i] < right.c[i];
+            return std::toupper(left.c[i]) < std::toupper(left.c[i]);
         }
     }
     return false;
@@ -91,8 +99,8 @@ struct SideDef
     int16_t xoffset;
     int16_t yoffset;
     Name texupper;
-    Name texmid;
     Name texlower;
+    Name texmid;
     int16_t sector;
 };
 
@@ -137,5 +145,8 @@ void wad_close(WadFile* wad);
 
 bool wad_load_map(WadFile* wad, const Wad::Name& mapname, Wad::Map& map);
 bool wad_load_texture(WadFile* wad, const Wad::Name& texname, Wad::Texture& texture);
+
+using TextureLoadCallback = std::function<void(int64_t, const Wad::Texture&, void*)>;
+void wad_load_all_textures(WadFile* wad, TextureLoadCallback load_callback, void* user_data);
 
 } // namespace fist

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "appstate.h"
+#include "texture_manager.h"
 #include "wad_loader.h"
 
 #include <gli.h>
@@ -17,8 +18,9 @@ public:
     void on_update(float delta) override;
 
 private:
+    TextureManager _tex_man{};
     App* _app{};
-    gli::Sprite _texture{};
+    gli::Sprite* _texture{};
 };
 
 }

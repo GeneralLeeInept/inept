@@ -14,7 +14,7 @@ Sprite::Sprite(int w, int h)
     m_pixels.reset(new Pixel[w * h]);
 }
 
-Sprite::Sprite(int w, int h, Pixel* pixels)
+Sprite::Sprite(int w, int h, const Pixel* pixels)
     : m_width(w)
     , m_height(h)
 {

@@ -1060,6 +1060,13 @@ void App::set_screen_fade(Pixel color, float fade)
     m_fade = fade;
 }
 
+
+Pixel* App::get_framebuffer()
+{
+    return m_framebuffer;
+}
+
+
 void App::shutdown()
 {
     glDeleteTextures(1, &_texture);

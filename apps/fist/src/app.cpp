@@ -12,9 +12,9 @@ bool App::on_create()
 {
     _config.load();
 
-    //GameState* state = new GameState;
+    GameState* state = new GameState;
     //PrototypeState* state = new PrototypeState;
-    TextureViewer* state = new TextureViewer;
+    //TextureViewer* state = new TextureViewer;
     state->on_init(this);
     state->on_pushed();
     _app_states.push_front(state);
@@ -49,6 +49,11 @@ bool App::on_update(float delta)
 Config& App::config()
 {
     return _config;
+}
+
+TextureManager& App::texture_manager()
+{
+    return _texture_manager;
 }
 
 } // namespace fist

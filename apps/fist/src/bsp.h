@@ -14,6 +14,7 @@ struct LineDef
 {
     uint32_t from;
     uint32_t to;
+    uint32_t flags;       // 1: 2-sided
     uint32_t sidedefs[2]; // 0: right - required
                           // 1: left  - optional ((uint32_t)-1 for one sided lines)
 };

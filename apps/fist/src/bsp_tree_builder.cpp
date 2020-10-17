@@ -155,7 +155,8 @@ V2f quantize(const V2f& pos)
     float qx = (pos.x < 0.0f) ? (ix / -1024.0f) : (ix / 1024.0f);
     float qy = (pos.y < 0.0f) ? (iy / -1024.0f) : (iy / 1024.0f);
 
-    return V2f{ qx, qy };
+    //return V2f{ qx, qy };
+    return pos * pos_scale;
 }
 
 V2f calculate_normal(const V2f& from, const V2f& to)
@@ -513,6 +514,7 @@ void BspTreeBuilder::cook(const Wad::Map& wad_map, fist::Map& map)
     {
         linedef->from = add_vertex(wad_map.vertices[src.from], vertices);
         linedef->to = add_vertex(wad_map.vertices[src.to], vertices);
+        linedef->flags = 0;
         linedef->sidedefs[0] = src.sidedefs[0];
         linedef->sidedefs[1] = (src.sidedefs[1] == 0xffff) ? 0xffffffff : src.sidedefs[1];
         linedef++;

@@ -287,6 +287,8 @@ public:
     void blend_partial_sprite(int x, int y, const Sprite& sprite, int ox, int oy, int w, int h, uint8_t alpha);
     void set_screen_fade(Pixel color, float fade);
 
+    Pixel* get_framebuffer();
+
 private:
     void shutdown();
     void pump_messages();

@@ -15,7 +15,7 @@ public:
     Sprite(const Sprite&) = default;
     Sprite(Sprite&&) = default;
     Sprite(int w, int h);
-    Sprite(int w, int h, Pixel* pixels);
+    Sprite(int w, int h, const Pixel* pixels);
     ~Sprite();
 
     Sprite& operator=(Sprite&&) = default;

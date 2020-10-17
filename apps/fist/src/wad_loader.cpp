@@ -184,78 +184,37 @@ bool wad_load_map(WadFile* wad, const Wad::Name& mapname, Wad::Map& map)
     return true;
 }
 
-bool wad_load_texture(WadFile* wad, const Wad::Name& texname, Wad::Texture& texture)
+#pragma pack(push, 1)
+struct TexHeader
 {
-    #pragma pack(push,1)
-    struct TexHeader
-    {
-        Wad::Name name;
-        int16_t pad1[2];
-        int16_t width;
-        int16_t height;
-        int16_t pad2[2];
-        int16_t num_patches;
-    };
+    Wad::Name name;
+    int16_t pad1[2];
+    int16_t width;
+    int16_t height;
+    int16_t pad2[2];
+    int16_t num_patches;
+};
 
-    struct PatchDesc
-    {
-        int16_t xpos;
-        int16_t ypos;
-        int16_t pname;
-        int16_t stepdir;
-        int16_t colormap;
-    };
+struct PatchDesc
+{
+    int16_t xpos;
+    int16_t ypos;
+    int16_t pname;
+    int16_t stepdir;
+    int16_t colormap;
+};
 
-    struct PicHeader
-    {
-        int16_t width;
-        int16_t height;
-        int16_t left_offset;
-        int16_t top_offset;
-    };
-    #pragma pack(pop)
+struct PicHeader
+{
+    int16_t width;
+    int16_t height;
+    int16_t left_offset;
+    int16_t top_offset;
+};
+#pragma pack(pop)
 
-    LumpInfo textures[2]{};
-
-    _lump_info(wad, "TEXTURE1", 0, textures[0]);
-    _lump_info(wad, "TEXTURE2", 0, textures[1]);
-
-    TexHeader* texptr = nullptr;
-    bool found = false;
-
-    for (int i = 0; !found && i < 2; ++i)
-    {
-        int* texture_offsets = ((int*)&wad->data[textures[i].offset]);
-        int smin = 0;
-        int smax = texture_offsets[0];
-
-        while (smin <= smax)
-        {
-            int sindex = (smin + smax) / 2;
-            size_t texture_offset = textures[i].offset + texture_offsets[sindex + 1];
-            texptr = (TexHeader*)&wad->data[texture_offset];
-
-            if (texptr->name == texname)
-            {
-                found = true;
-                break;
-            }
-            else if (texname < texptr->name)
-            {
-                smax = sindex - 1;
-            }
-            else
-            {
-                smin = sindex + 1;
-            }
-        }
-    }
-
-    if (!found)
-    {
-        return false;
-    }
-
+static bool wad_load_texture_internal(WadFile* wad, TexHeader* texptr, Wad::Texture& texture)
+{
     LumpInfo playpal{};
 
     if (!_lump_info(wad, "PLAYPAL", 0, playpal))
@@ -309,7 +268,7 @@ bool wad_load_texture(WadFile* wad, const Wad::Name& texname, Wad::Texture& text
             while (column_data[0] != 0xFF)
             {
                 uint8_t ystart = column_data[0];
-                uint8_t length = column_data[1];
+                int length = column_data[1];
                 uint8_t* src = &column_data[3];
                 int y = patch->ypos + ystart;
 
@@ -339,8 +298,78 @@ bool wad_load_texture(WadFile* wad, const Wad::Name& texname, Wad::Texture& text
     texture.width = texptr->height;
     texture.height = texptr->width;
     texture.pixels = std::move(pixels);
-
     return true;
+}
+
+bool wad_load_texture(WadFile* wad, const Wad::Name& texname, Wad::Texture& texture)
+{
+    LumpInfo textures[2]{};
+
+    _lump_info(wad, "TEXTURE1", 0, textures[0]);
+    _lump_info(wad, "TEXTURE2", 0, textures[1]);
+
+    TexHeader* texptr = nullptr;
+    bool found = false;
+
+    for (int i = 0; !found && i < 2; ++i)
+    {
+        int* texture_offsets = ((int*)&wad->data[textures[i].offset]);
+        int smin = 0;
+        int smax = texture_offsets[0];
+
+        while (smin <= smax)
+        {
+            int sindex = (smin + smax) / 2;
+            size_t texture_offset = textures[i].offset + texture_offsets[sindex + 1];
+            texptr = (TexHeader*)&wad->data[texture_offset];
+
+            if (texptr->name == texname)
+            {
+                found = true;
+                break;
+            }
+            else if (texname < texptr->name)
+            {
+                smax = sindex - 1;
+            }
+            else
+            {
+                smin = sindex + 1;
+            }
+        }
+    }
+
+    if (!found)
+    {
+        return false;
+    }
+
+    return wad_load_texture_internal(wad, texptr, texture);
+}
+
+void wad_load_all_textures(WadFile* wad, TextureLoadCallback load_callback, void* user_data)
+{
+    LumpInfo textures[2]{};
+
+    _lump_info(wad, "TEXTURE1", 0, textures[0]);
+    _lump_info(wad, "TEXTURE2", 0, textures[1]);
+
+    for (int i = 0; i < 2; ++i)
+    {
+        int* texture_offsets = (int*)&wad->data[textures[i].offset];
+        int num_textures = *texture_offsets++;
+
+        for (int t = 0; t < num_textures; ++t)
+        {
+            size_t texture_offset = textures[i].offset + texture_offsets[t];
+            TexHeader* texptr = (TexHeader*)&wad->data[texture_offset];
+            Wad::Texture texture{};
+            if (wad_load_texture_internal(wad, texptr, texture))
+            {
+                load_callback(texptr->name.i64, texture, user_data);
+            }
+        }
+    }
 }
 
 } // namespace fist

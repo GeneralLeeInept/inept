@@ -216,14 +216,17 @@ void GameState::on_pushed()
     _app->config().load();
     const std::string& wad_location =
             _app->config().get("game.wadfile", R"(C:\Program Files (x86)\Steam\SteamApps\common\Ultimate Doom\base\DOOM.WAD)");
-    const std::string& map_name = _app->config().get("game.map", "E1M1");
 
     std::unique_ptr<WadFile, WadFileDeleter> wadfile(wad_open(wad_location));
     gliAssert(wadfile);
 
+    bool result = _app->texture_manager().add_wad(wadfile.get());
+    gliAssert(result && "Failed to load textures.");
+
+    const std::string& map_name = _app->config().get("game.map", "E1M1");
     Wad::Map wad_map;
-    bool result = wad_load_map(wadfile.get(), map_name.c_str(), wad_map);
-    gliAssert(result);
+    result = wad_load_map(wadfile.get(), map_name.c_str(), wad_map);
+    gliAssert(result && "Failed to load map.");
 
     _map = std::make_unique<fist::Map>();
     BspTreeBuilder::cook(wad_map, *_map);
@@ -328,6 +331,7 @@ void GameState::load_configs()
     _move_speed = _app->config().get("game.move_speed", 5.0f);
     _turn_speed = _app->config().get("game.turn_speed", 360.0f);
     _max_fade_dist = _app->config().get("render.fade_dist", 50.0f);
+    _tex_scale = _app->config().get("render.tex_scale", 32.0f);
 }
 
 V2f GameState::doom_to_world(int16_t x, int16_t y)
@@ -636,6 +640,34 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
     // Transform endpoints to view space
     V2f from = world_view * _map->vertices[lineseg->from];
     V2f to = world_view * _map->vertices[lineseg->to];
+    V2f ln = normalize(l);
+    float u_start = dot(ln, _map->vertices[lineseg->from]);
+    float u_end = dot(ln, _map->vertices[lineseg->to]);
+
+    if (u_start < u_end)
+    {
+        float offs{};
+        u_start = std::modf(u_start, &offs);
+        u_end -= offs;
+
+        if (u_start < 0.0f)
+        {
+            u_start = u_start + 1.0f;
+            u_end = u_end + 1.0f;
+        }
+    }
+    else
+    {
+        float offs{};
+        u_end = std::modf(u_end, &offs);
+        u_start -= offs;
+
+        if (u_end < 0.0f)
+        {
+            u_start = u_start + 1.0f;
+            u_end = u_end + 1.0f;
+        }
+    }
 
     // Near clip
     static const float near_clip = 0.1f;
@@ -646,13 +678,17 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
             return;
         }
 
-        from.x = from.x + (near_clip - from.y) * (to.x - from.x) / (to.y - from.y);
+        float interp = (near_clip - from.y) / (to.y - from.y);
+        from.x = from.x + interp * (to.x - from.x);
         from.y = near_clip;
+        u_start = u_start + interp * (u_end - u_start);
     }
     else if ((to.y < near_clip) && (from.y > near_clip))
     {
-        to.x = to.x + (near_clip - to.y) * (from.x - to.x) / (from.y - to.y);
+        float interp = (near_clip - to.y) / (from.y - to.y);
+        to.x = to.x + interp * (from.x - to.x);
         to.y = near_clip;
+        u_end = u_end + interp * (u_start - u_end);
     }
 
     // Project to viewport x
@@ -660,16 +696,19 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
     float ooby = 1.0f / to.y;
     float x1 = _view_distance * from.x * ooay;
     float x2 = _view_distance * to.x * ooby;
+    float u1 = u_start * ooay;
+    float u2 = u_end * ooby;
 
     if (x2 < x1)
     {
         std::swap(x1, x2);
+        std::swap(u1, u2);
         std::swap(ooay, ooby);
     }
 
     // Draw columns (use solid_column as a depth buffer)
-    float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width()* 0.5f;
-    float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width()* 0.5f;
+    float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+    float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
     int ix1 = (int)std::floor(fx1 + 0.5f);
     int ix2 = (int)std::floor(fx2 + 0.5f);
     float ceil1 = ((sector->ceiling_height - viewer.h) * _view_distance * ooay);
@@ -684,6 +723,11 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
     float hc = ceil1 + dcdx * dx;
     float hf = floor1 + dfdx * dx;
 
+    // Texture-mapping
+    uint64_t texture_id = sidedef->textures[0];
+    float uooy = u1;
+    float duooydx = (u2 - u1) / (fx2 - fx1);
+
     if (ix2 > _app->screen_width())
     {
         ix2 = _app->screen_width();
@@ -694,6 +738,7 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
         ooy += (-ix1) * dooydx;
         hc += (-ix1) * dcdx;
         hf += (-ix1) * dfdx;
+        uooy += (-ix1) * duooydx;
         ix1 = 0;
     }
 
@@ -709,6 +754,7 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
             ooy += dooydx;
             hc += dcdx;
             hf += dfdx;
+            uooy += duooydx;
             continue;
         }
 
@@ -733,6 +779,7 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
             ooy += dooydx;
             hc += dcdx;
             hf += dfdx;
+            uooy += duooydx;
             continue;
         }
 
@@ -748,17 +795,15 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
 
         if (fi > ci)
         {
+            draw_column(c, 1.0f / ooy, uooy / ooy, hc, hf, texture_id, fade_offset);
             ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, ci);
             floor_plane = check_plane(floor_plane, c, fi - 1, floor_height[c]);
-            float d = 1.0f / ooy;
-            uint8_t fade =
-                    fade_offset + (uint8_t)std::floor(235.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
-            _app->draw_line(c, ci, c, fi, gli::Pixel(0, 0, fade));
         }
 
         ooy += dooydx;
         hc += dcdx;
         hf += dfdx;
+        uooy += duooydx;
     }
 
     mark_solid(ix1, ix2 - 1);
@@ -780,6 +825,34 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
     // Transform endpoints to view space
     V2f from = world_view * _map->vertices[lineseg->from];
     V2f to = world_view * _map->vertices[lineseg->to];
+    V2f ln = normalize(l);
+    float u_start = dot(ln, _map->vertices[lineseg->from]);
+    float u_end = dot(ln, _map->vertices[lineseg->to]);
+
+    if (u_start < u_end)
+    {
+        float offs{};
+        u_start = std::modf(u_start, &offs);
+        u_end -= offs;
+
+        if (u_start < 0.0f)
+        {
+            u_start = u_start + 1.0f;
+            u_end = u_end + 1.0f;
+        }
+    }
+    else
+    {
+        float offs{};
+        u_end = std::modf(u_end, &offs);
+        u_start -= offs;
+
+        if (u_end < 0.0f)
+        {
+            u_start = u_start + 1.0f;
+            u_end = u_end + 1.0f;
+        }
+    }
 
     // Near clip
     static const float near_clip = 0.1f;
@@ -790,13 +863,17 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             return;
         }
 
-        from.x = from.x + (near_clip - from.y) * (to.x - from.x) / (to.y - from.y);
+        float interp = (near_clip - from.y) / (to.y - from.y);
+        from.x = from.x + interp * (to.x - from.x);
         from.y = near_clip;
+        u_start = u_start + interp * (u_end - u_start);
     }
     else if ((to.y < near_clip) && (from.y > near_clip))
     {
-        to.x = to.x + (near_clip - to.y) * (from.x - to.x) / (from.y - to.y);
+        float interp = (near_clip - to.y) / (from.y - to.y);
+        to.x = to.x + interp * (from.x - to.x);
         to.y = near_clip;
+        u_end = u_end + interp * (u_start - u_end);
     }
 
     // Project to viewport x
@@ -804,10 +881,13 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
     float ooby = 1.0f / to.y;
     float x1 = _view_distance * from.x * ooay;
     float x2 = _view_distance * to.x * ooby;
+    float u1 = u_start * ooay;
+    float u2 = u_end * ooby;
 
     if (x2 < x1)
     {
         std::swap(x1, x2);
+        std::swap(u1, u2);
         std::swap(ooay, ooby);
     }
 
@@ -839,6 +919,11 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
         float hc = ceil1 + dcdx * dx;
         float hf = floor1 + dfdx * dx;
 
+        // Texture-mapping
+        uint64_t texture_id = front_sidedef->textures[1];
+        float uooy = u1;
+        float duooydx = (u2 - u1) / (fx2 - fx1);
+
         if (ix2 > _app->screen_width())
         {
             ix2 = _app->screen_width();
@@ -849,6 +934,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             ooy += (-ix1) * dooydx;
             hc += (-ix1) * dcdx;
             hf += (-ix1) * dfdx;
+            uooy += (-ix1) * duooydx;
             ix1 = 0;
         }
 
@@ -861,6 +947,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
                 ooy += dooydx;
                 hc += dcdx;
                 hf += dfdx;
+                uooy += duooydx;
                 continue;
             }
 
@@ -876,6 +963,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
                 ooy += dooydx;
                 hc += dcdx;
                 hf += dfdx;
+                uooy += duooydx;
                 continue;
             }
 
@@ -885,6 +973,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
                 ooy += dooydx;
                 hc += dcdx;
                 hf += dfdx;
+                uooy += duooydx;
                 continue;
             }
 
@@ -900,17 +989,15 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
 
             if (fi > ci)
             {
+                draw_column(c, 1.0f / ooy, uooy / ooy, hc, hf, texture_id, fade_offset);
                 ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, ci);
-                float d = 1.0f / ooy;
-                uint8_t fade = fade_offset +
-                               (uint8_t)std::floor(235.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
-                _app->draw_line(c, ci, c, fi, gli::Pixel(fade, 0, 0));
                 ceiling_height[c] = fi;
             }
 
             ooy += dooydx;
             hc += dcdx;
             hf += dfdx;
+            uooy += duooydx;
         }
     }
     else
@@ -991,6 +1078,11 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
         float hc = ceil1 + dcdx * dx;
         float hf = floor1 + dfdx * dx;
 
+        // Texture-mapping
+        uint64_t texture_id = front_sidedef->textures[2];
+        float uooy = u1;
+        float duooydx = (u2 - u1) / (fx2 - fx1);
+
         if (ix2 > _app->screen_width())
         {
             ix2 = _app->screen_width();
@@ -1001,6 +1093,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
             ooy += (-ix1) * dooydx;
             hc += (-ix1) * dcdx;
             hf += (-ix1) * dfdx;
+            uooy += (-ix1) * duooydx;
             ix1 = 0;
         }
 
@@ -1013,6 +1106,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
                 ooy += dooydx;
                 hc += dcdx;
                 hf += dfdx;
+                uooy += duooydx;
                 continue;
             }
 
@@ -1027,6 +1121,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
                 ooy += dooydx;
                 hc += dcdx;
                 hf += dfdx;
+                uooy += duooydx;
                 continue;
             }
 
@@ -1036,6 +1131,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
                 ooy += dooydx;
                 hc += dcdx;
                 hf += dfdx;
+                uooy += duooydx;
                 continue;
             }
 
@@ -1051,17 +1147,15 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
 
             if (fi > ci)
             {
+                draw_column(c, 1.0f / ooy, uooy / ooy, hc, hf, texture_id, fade_offset);
                 floor_plane = check_plane(floor_plane, c, fi - 1, floor_height[c]);
-                float d = 1.0f / ooy;
-                uint8_t fade = fade_offset +
-                               (uint8_t)std::floor(235.0f * (1.0f - clamp((d - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
-                _app->draw_line(c, ci, c, fi, gli::Pixel(0, fade, 0));
                 floor_height[c] = ci;
             }
 
             ooy += dooydx;
             hc += dcdx;
             hf += dfdx;
+            uooy += duooydx;
         }
     }
     else
@@ -1116,6 +1210,49 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
 
             hc += dcdx;
         }
+    }
+}
+
+void GameState::draw_column(int x, float dist, float texu, float top, float bottom, uint64_t texture_id, uint8_t fade_offset)
+{
+    int y1 = _app->screen_height() / 2 - (int)std::floor(top * _app->screen_height() * 0.5f + 0.5f);
+    int y2 = _app->screen_height() / 2 - (int)std::floor(bottom * _app->screen_height() * 0.5f);
+    gli::Sprite* texture = _app->texture_manager().get(texture_id);
+    float fy1 = top * _app->screen_height() * 0.5f;
+    //float dvdy = dist / _app->screen_height();
+    float dvdy = (2.0f * dist / _app->screen_height()) / _view_distance;
+    float texv = (fy1 - std::floor(fy1 + 0.5f)) * dvdy;
+
+    if (y1 < ceiling_height[x])
+    {
+        texv += dvdy * (ceiling_height[x] - y1);
+        y1 = ceiling_height[x];
+    }
+
+    if (y2 > floor_height[x])
+    {
+        y2 = floor_height[x];
+    }
+
+    if (texture)
+    {
+        int dest_stride = _app->screen_width();
+        gli::Pixel* dest = _app->get_framebuffer() + x + (y1 * dest_stride);
+        int iu = (int)std::floor(texu * _tex_scale + 0.5f) % texture->height();
+        gli::Pixel* src = texture->pixels() + iu * texture->width();
+
+        for (int y = y1; y < y2; ++y, dest += dest_stride)
+        {
+            int iv = (int)std::floor(texv * _tex_scale + 0.5f) % texture->width();
+            *dest = src[iv];
+            texv += dvdy;
+        }
+    }
+    else
+    {
+        uint8_t fade =
+                fade_offset + (uint8_t)std::floor(235.0f * (1.0f - clamp((dist - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
+        _app->draw_line(x, y1, x, y2, gli::Pixel(fade, 0, fade));
     }
 }
 

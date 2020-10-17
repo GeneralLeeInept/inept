@@ -35,6 +35,9 @@
     <ClCompile Include="..\src\texture_viewer.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\texture_manager.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\types.h">
@@ -65,6 +68,9 @@
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="..\src\texture_viewer.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\texture_manager.h">
       <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>
