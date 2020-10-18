@@ -1,0 +1,1 @@
+* Texture names are not consistently uppercase :(

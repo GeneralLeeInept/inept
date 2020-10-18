@@ -370,6 +370,42 @@ void wad_load_all_textures(WadFile* wad, TextureLoadCallback load_callback, void
             }
         }
     }
+
+    LumpInfo flats{};
+    LumpInfo flats_end{};
+    LumpInfo playpal{};
+
+    _lump_info(wad, "F_START", 0, flats);
+    _lump_info(wad, "F_END", flats.index, flats_end);
+    _lump_info(wad, "PLAYPAL", 0, playpal);
+
+    uint8_t* palette = (uint8_t*)(&wad->data[playpal.offset]);
+    Wad::Texture texture{};
+    texture.width = 64;
+    texture.height = 64;
+    texture.pixels.resize(64 * 64);
+
+    for (size_t findex = flats.index + 1; findex < flats_end.index; ++findex)
+    {
+        WadDirEntry* entry = wad->directory + findex;
+
+        if (entry->size != 64 * 64)
+        {
+            continue;
+        }
+
+        uint8_t* src = (uint8_t*)&wad->data[entry->offs];
+        gli::Pixel* dest = &texture.pixels[0];
+
+        for (int t = 0; t < 64 * 64; ++t)
+        {
+            uint8_t palindex = *src++;
+            uint8_t* palentry = &palette[3 * palindex];
+            *dest++ = gli::Pixel(palentry[0], palentry[1], palentry[2], 255);
+        }
+
+        load_callback(*(uint64_t*)entry->name, texture, user_data);
+    }
 }
 
 } // namespace fist

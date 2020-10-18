@@ -164,6 +164,8 @@ struct Pixel
     constexpr Pixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) { argb = (a << 24) | (r << 16) | (g << 8) | b; }
     constexpr Pixel(uint32_t argb_in) { argb = argb_in; }
 
+    Pixel operator*(float f);
+
     union
     {
         uint32_t argb = 0xFF000000;

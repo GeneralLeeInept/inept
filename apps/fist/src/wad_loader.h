@@ -54,6 +54,7 @@ inline bool operator==(const Name& left, const Name& right)
             return false;
         }
     }
+    return true;
 }
 
 inline bool operator<(const Name& left, const Name& right)

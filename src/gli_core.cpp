@@ -5,6 +5,7 @@
 #include "gli_log.h"
 #include "gli_opengl.h"
 #include "gli_sprite.h"
+#include "gli_types.h"
 
 #include "opengl40/glad.h"
 
@@ -89,6 +90,14 @@ XInputGetStateFuncPtr XInputGetState = XInputGetStateStub;
 ControllerState _controller_states[4]{};
 int _hide_cursor = 1;
 bool _cursor_hidden = true;
+
+Pixel Pixel::operator*(float f)
+{
+    float fr = clamp(float(r) * f, 0.0f, 255.0f);
+    float fg = clamp(float(g) * f, 0.0f, 255.0f);
+    float fb = clamp(float(b) * f, 0.0f, 255.0f);
+    return Pixel((uint8_t)std::floor(fr + 0.5f), (uint8_t)std::floor(fg + 0.5f), (uint8_t)std::floor(fb + 0.5f));
+}
 
 bool App::initialize(const char* name, int screen_width, int screen_height, int window_scale)
 {

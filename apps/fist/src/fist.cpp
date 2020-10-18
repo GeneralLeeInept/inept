@@ -6,7 +6,7 @@ fist::App app;
 
 int gli_main(int argc, char** argv)
 {
-    if (app.initialize("Fist", 640, 480, 2))
+    if (app.initialize("Fist", 1024, 768, 1))
     {
         app.show_mouse(true);
         app.run();

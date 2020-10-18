@@ -14,7 +14,7 @@ namespace fist
 
 struct VisPlane
 {
-    uint64_t texture;
+    uint64_t texture_id;
     float height;
     float light;
     int min_y, max_y;
@@ -35,7 +35,7 @@ size_t find_plane(uint64_t texture, float height, float light)
 
     for (; plane < num_visplanes; ++plane)
     {
-        if (visplanes[plane].texture == texture && visplanes[plane].height == height && visplanes[plane].light == light)
+        if (visplanes[plane].texture_id == texture && visplanes[plane].height == height && visplanes[plane].light == light)
         {
             break;
         }
@@ -51,7 +51,7 @@ size_t find_plane(uint64_t texture, float height, float light)
             max_visplanes = new_max_visplanes;
         }
 
-        visplanes[plane].texture = texture;
+        visplanes[plane].texture_id = texture;
         visplanes[plane].height = height;
         visplanes[plane].light = light;
         visplanes[plane].min_y = SCREEN_HEIGHT;
@@ -85,7 +85,7 @@ size_t check_plane(size_t plane, int x, int top, int bottom)
             max_visplanes = new_max_visplanes;
         }
 
-        visplanes[new_plane].texture = visplanes[plane].texture;
+        visplanes[new_plane].texture_id = visplanes[plane].texture_id;
         visplanes[new_plane].height = visplanes[plane].height;
         visplanes[new_plane].light = visplanes[plane].light;
         visplanes[new_plane].min_y = SCREEN_HEIGHT;
@@ -108,39 +108,84 @@ size_t check_plane(size_t plane, int x, int top, int bottom)
     return plane;
 }
 
-void draw_plane(size_t plane, gli::App* app, gli::Pixel color)
+void GameState::draw_plane(const ThingPos& viewer, size_t plane, gli::Pixel color)
 {
     VisPlane* vp = &visplanes[plane];
+    gli::Sprite* texture = _app->texture_manager().get(vp->texture_id);
+    float cos_facing = std::cos(viewer.f);
+    float sin_facing = std::sin(viewer.f);
 
     for (int y = vp->min_y; y < vp->max_y; ++y)
     {
-        int span_start = vp->min_x;
-        int span_end = 0;
-
-        while (span_start <= vp->max_x)
+        if (vp->min_x <= vp->max_x)
         {
-            for (; span_start <= vp->max_x; ++span_start)
+            int span_start = vp->min_x;
+            int span_end = 0;
+
+            float h = vp->height - viewer.h;
+            float normy = (float)(_app->screen_height() - 2 * y) / (float)_app->screen_height();
+            float dist = (_view_distance * h) / normy;
+
+            V2f world{};
+            V2f forward{ cos_facing, sin_facing };
+            V2f right{ sin_facing, -cos_facing };
+            world = viewer.p;
+            world = world + forward * dist;
+            float world_x = world.x;
+            float world_y = world.y;
+
+            float pixel_size = 1.0f / (float)_app->screen_height();
+            float pixel_scale = pixel_size * (2.0f * dist) / _view_distance;
+            float dudx = pixel_scale * sin_facing;
+            float dvdx = pixel_scale * -cos_facing;
+            float fade = clamp(1.0f - (dist / _max_fade_dist), 0.0f, 1.0f) * vp->light;
+
+            while (span_start <= vp->max_x)
             {
-                if (vp->top[span_start] <= y && vp->bottom[span_start] >= y)
+                for (; span_start <= vp->max_x; ++span_start)
                 {
-                    break;
+                    if (vp->top[span_start] <= y && vp->bottom[span_start] >= y)
+                    {
+                        break;
+                    }
                 }
-            }
 
-            for (span_end = span_start; span_end <= vp->max_x; ++span_end)
-            {
-                if (vp->top[span_end] >= y || vp->bottom[span_end] <= y)
+                for (span_end = span_start; span_end <= vp->max_x; ++span_end)
                 {
-                    break;
+                    if (vp->top[span_end] >= y || vp->bottom[span_end] <= y)
+                    {
+                        break;
+                    }
                 }
-            }
 
-            if (span_end > span_start)
-            {
-                app->draw_line(span_start, y, span_end, y, color);
-            }
+                if (span_end > span_start)
+                {
+                    if (texture)
+                    {
+                        float dx = (float)(span_start - _app->screen_width() * 0.5f);
+                        float u = world_x + dx * dudx;
+                        float v = world_y + dx * dvdx;
+                        gli::Pixel* src = texture->pixels();
+                        gli::Pixel* dest = _app->get_framebuffer() + (y * _app->screen_width()) + span_start;
+                        for (int x = span_start; x < span_end; ++x)
+                        {
+                            int iu = (int)std::floor(u * _tex_scale + 0.5f) % 64;
+                            int iv = (int)std::floor(v * _tex_scale + 0.5f) % 64;
+                            if (iu < 0) iu += 64;
+                            if (iv < 0) iv += 64;
+                            *dest++ = src[iu + iv * 64] * fade;
+                            u += dudx;
+                            v += dvdx;
+                        }
+                    }
+                    else
+                    {
+                        _app->draw_line(span_start, y, span_end, y, color);
+                    }
+                }
 
-            span_start = span_end + 1;
+                span_start = span_end + 1;
+            }
         }
     }
 }
@@ -473,7 +518,7 @@ void GameState::draw_3d(const ThingPos& viewer)
         float norm_height = clamp(visplanes[p].height / 10.0f, -1.0f, 1.0f);
         uint8_t color = (uint8_t)std::floor(128.0f + norm_height * 127.0f);
         bool ceiling = visplanes[p].height < viewer.h;
-        draw_plane(p, _app, gli::Pixel(ceiling ? 0 : color, color >> 1, ceiling ? color : 0));
+        draw_plane(viewer, p, gli::Pixel(ceiling ? 0 : color, color >> 1, ceiling ? color : 0));
     }
 }
 
@@ -795,7 +840,7 @@ void GameState::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
 
         if (fi > ci)
         {
-            draw_column(c, 1.0f / ooy, uooy / ooy, hc, hf, texture_id, fade_offset);
+            draw_column(c, 1.0f / ooy, uooy / ooy, hc, hf, texture_id, fade_offset, sector->light_level);
             ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, ci);
             floor_plane = check_plane(floor_plane, c, fi - 1, floor_height[c]);
         }
@@ -989,7 +1034,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
 
             if (fi > ci)
             {
-                draw_column(c, 1.0f / ooy, uooy / ooy, hc, hf, texture_id, fade_offset);
+                draw_column(c, 1.0f / ooy, uooy / ooy, hc, hf, texture_id, fade_offset, front_sector->light_level);
                 ceiling_plane = check_plane(ceiling_plane, c, ceiling_height[c] - 1, ci);
                 ceiling_height[c] = fi;
             }
@@ -1147,7 +1192,7 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
 
             if (fi > ci)
             {
-                draw_column(c, 1.0f / ooy, uooy / ooy, hc, hf, texture_id, fade_offset);
+                draw_column(c, 1.0f / ooy, uooy / ooy, hc, hf, texture_id, fade_offset, front_sector->light_level);
                 floor_plane = check_plane(floor_plane, c, fi - 1, floor_height[c]);
                 floor_height[c] = ci;
             }
@@ -1213,14 +1258,14 @@ void GameState::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* linese
     }
 }
 
-void GameState::draw_column(int x, float dist, float texu, float top, float bottom, uint64_t texture_id, uint8_t fade_offset)
+void GameState::draw_column(int x, float dist, float texu, float top, float bottom, uint64_t texture_id, uint8_t fade_offset, float sector_light)
 {
     int y1 = _app->screen_height() / 2 - (int)std::floor(top * _app->screen_height() * 0.5f + 0.5f);
     int y2 = _app->screen_height() / 2 - (int)std::floor(bottom * _app->screen_height() * 0.5f);
     gli::Sprite* texture = _app->texture_manager().get(texture_id);
     float fy1 = top * _app->screen_height() * 0.5f;
-    //float dvdy = dist / _app->screen_height();
-    float dvdy = (2.0f * dist / _app->screen_height()) / _view_distance;
+    //float dvdy = (2.0f * dist / _app->screen_height()) / _view_distance;
+    float dvdy = (2.0f * dist) / (_view_distance * _app->screen_height());
     float texv = (fy1 - std::floor(fy1 + 0.5f)) * dvdy;
 
     if (y1 < ceiling_height[x])
@@ -1241,17 +1286,19 @@ void GameState::draw_column(int x, float dist, float texu, float top, float bott
         int iu = (int)std::floor(texu * _tex_scale + 0.5f) % texture->height();
         gli::Pixel* src = texture->pixels() + iu * texture->width();
 
+        float fade = (fade_offset / 255.0f) + clamp(1.0f - (dist / _max_fade_dist), 0.0f, 0.8f) * sector_light;
+
         for (int y = y1; y < y2; ++y, dest += dest_stride)
         {
             int iv = (int)std::floor(texv * _tex_scale + 0.5f) % texture->width();
-            *dest = src[iv];
+            *dest = src[iv] * fade;
             texv += dvdy;
         }
     }
     else
     {
         uint8_t fade =
-                fade_offset + (uint8_t)std::floor(235.0f * (1.0f - clamp((dist - _view_distance) / (_max_fade_dist - _view_distance), 0.2f, 1.0f)));
+                fade_offset + (uint8_t)std::floor(235.0f * (1.0f - clamp((dist - _view_distance) / (_max_fade_dist - _view_distance), 0.0f, 1.0f)));
         _app->draw_line(x, y1, x, y2, gli::Pixel(fade, 0, fade));
     }
 }
