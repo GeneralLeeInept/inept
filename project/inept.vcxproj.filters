@@ -389,6 +389,9 @@
     <ClCompile Include="..\extern\vorbis\lib\window.c">
       <Filter>vorbis</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\stb_image_write.cpp">
+      <Filter>stb</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\res\vga9.png">

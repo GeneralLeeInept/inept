@@ -79,6 +79,7 @@ enum Key
     Key_Menu,
     Key_LeftSystem,  // Windows / Super / Command
     Key_RightSystem, // Windows / Super / Command
+    Key_PrintScreen,
 
     Key_F1,
     Key_F2,
@@ -291,10 +292,13 @@ public:
 
     Pixel* get_framebuffer();
 
+    void request_screenshot(const std::string& directory);
+
 private:
     void shutdown();
     void pump_messages();
     void engine_loop();
+    void make_screenshot(const std::string& path);
 
     static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
@@ -317,6 +321,8 @@ private:
     BlendMode m_dest_blend = BlendMode::Zero;
     uint8_t m_blend_constant = 255;
     BlendOp m_blend_op = BlendOp::None;
+    bool m_screenshot_requested = false;
+    std::string m_screenshot_directory{};
 };
 
 } // namespace gli

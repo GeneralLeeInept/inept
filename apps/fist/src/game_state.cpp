@@ -365,6 +365,11 @@ void GameState::on_update(float delta)
     }
 
     render(delta);
+
+    if (_app->key_state(gli::Key_PrintScreen).pressed)
+    {
+        _app->request_screenshot(".");
+    }
 }
 
 void GameState::load_configs()
@@ -402,7 +407,7 @@ void GameState::render(float delta)
     }
 
     uint8_t clearintensity = (uint8_t)std::floor(64.0f + 25.6f * clearcolor_timer);
-    _app->clear_screen(gli::Pixel(clearintensity, 0, clearintensity));
+    //_app->clear_screen(gli::Pixel(clearintensity, 0, clearintensity));
     _screen_aspect = (float)_app->screen_width() / (float)_app->screen_height();
     draw_3d(_player.pos);
 }

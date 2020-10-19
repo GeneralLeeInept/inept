@@ -13,9 +13,12 @@
 #include <Xinput.h>
 
 #include <atomic>
+#include <ctime>
 #include <thread>
 #include <unordered_map>
 
+// TODO: Move this into gli::Sprite (and rename that class)
+#include <stb/stb_image_write.h>
 
 extern int gli_main(int argc, char** argv);
 
@@ -210,6 +213,7 @@ bool App::initialize(const char* name, int screen_width, int screen_height, int 
     m_keymap[Key_Menu] = VK_APPS;
     m_keymap[Key_LeftSystem] = VK_LWIN;
     m_keymap[Key_RightSystem] = VK_RWIN;
+    m_keymap[Key_PrintScreen] = VK_SNAPSHOT;
     m_keymap[Key_F1] = VK_F1;
     m_keymap[Key_F2] = VK_F2;
     m_keymap[Key_F3] = VK_F3;
@@ -1075,6 +1079,11 @@ Pixel* App::get_framebuffer()
     return m_framebuffer;
 }
 
+void App::request_screenshot(const std::string& directory)
+{
+    m_screenshot_requested = true;
+    m_screenshot_directory = directory;
+}
 
 void App::shutdown()
 {
@@ -1249,6 +1258,34 @@ void App::engine_loop()
         glUniform1f(_uniform_fade, 1.0f - m_fade);
         glBindVertexArray(_vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        if (m_screenshot_requested)
+        {
+            std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
+            std::time_t tt = std::chrono::system_clock::to_time_t(tp);
+            std::tm* local = std::localtime(&tt);
+            std::string filename(128, 0);
+
+            for (size_t size = 128; true; size *= 2)
+            {
+                filename.resize(size);
+
+                if (std::strftime(&filename[0], size, "%Y%m%d%H%M%S", local))
+                {
+                    break;
+                }
+            }
+
+            std::chrono::system_clock::duration ticks = tp.time_since_epoch();
+            ticks -= std::chrono::duration_cast<std::chrono::seconds>(ticks);
+            uint32_t milliseconds = (uint32_t)(ticks / std::chrono::milliseconds(1));
+            int len = std::snprintf(nullptr, 0, "%s\\screen_%s%03u.png", m_screenshot_directory.c_str(), filename.c_str(), milliseconds) + 1;
+            std::string path(len, 0);
+            std::snprintf(&path[0], len, "%s\\screen_%s%03u.png", m_screenshot_directory.c_str(), filename.c_str(), milliseconds);
+            make_screenshot(path);
+            m_screenshot_requested = false;
+        }
+
         _opengl.end_frame();
 
         m_fade = 0.0f;
@@ -1257,6 +1294,19 @@ void App::engine_loop()
     on_destroy();
 
     PostMessage(m_hwnd, WM_DESTROY, 0, 0);
+}
+
+
+void App::make_screenshot(const std::string& path)
+{
+    //std::vector<uint32_t> image_data(m_window_width * m_window_height);
+    std::vector<uint8_t> image_data(m_window_width * m_window_height * 3);
+    glReadBuffer(GL_BACK);
+    //glReadPixels(0, 0, m_window_width, m_window_height, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, &image_data[0]);
+    glReadPixels(0, 0, m_window_width, m_window_height, GL_RGB, GL_UNSIGNED_BYTE, &image_data[0]);
+    stbi_flip_vertically_on_write(1);
+    //stbi_write_png(path.c_str(), m_window_width, m_window_height, 4, &image_data[0], m_window_width * sizeof(uint32_t));
+    stbi_write_png(path.c_str(), m_window_width, m_window_height, 3, &image_data[0], m_window_width * 3);
 }
 
 

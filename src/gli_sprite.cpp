@@ -2,6 +2,7 @@
 #include "gli_file.h"
 
 #include <stb/stb_image.h>
+#include <stb/stb_image_write.h>
 #include <vector>
 
 namespace gli
