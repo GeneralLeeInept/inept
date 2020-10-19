@@ -284,7 +284,6 @@
     <ClCompile Include="..\src\gli_sprite.cpp" />
     <ClCompile Include="..\src\opengl40\glad.c" />
     <ClCompile Include="..\src\stb_image.cpp" />
-    <ClCompile Include="..\src\test_app.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\res\vga9.png">

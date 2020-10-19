@@ -299,9 +299,6 @@
     <ClCompile Include="..\src\gli_core.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\test_app.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\gli_opengl.cpp">
       <Filter>src</Filter>
     </ClCompile>

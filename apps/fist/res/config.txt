@@ -4,7 +4,7 @@ bsp.splitscore.orthogonal_bonus : 100.000000
 bsp.splitscore.split_weight : 1.000000
 fovy : 90.000000
 game.eye_height : 1.500000
-game.map : E2M6
+game.map : E1M4
 game.move_speed : 5.000000
 game.turn_speed : 360.000000
 game.wadfile : C:\Program Files (x86)\Steam\SteamApps\common\Ultimate Doom\base\DOOM.WAD
