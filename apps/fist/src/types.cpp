@@ -141,4 +141,52 @@ V2i operator/(const V2i& v, int s)
     return { v.x / s, v.y / s };
 }
 
+V2f operator*(const Mat2& m, const V2f& v)
+{
+    V2f result;
+    result.x = dot(V2f{ m.x.x, m.y.x }, v);
+    result.y = dot(V2f{ m.x.y, m.y.y }, v);
+    return result;
+}
+
+V2f operator*(const Transform2D& t, const V2f& p)
+{
+    return t.m * p + t.p;
+}
+
+Mat2 transpose(const Mat2& m)
+{
+    Mat2 t;
+    t.x.x = m.x.x;
+    t.x.y = m.y.x;
+    t.y.x = m.x.y;
+    t.y.y = m.y.y;
+    return t;
+}
+
+Transform2D inverse(const Transform2D& t)
+{
+    Mat2 m = transpose(t.m);
+    V2f p = -(m * t.p);
+    return { m, p };
+}
+
+Transform2D from_camera(const V2f& p, float facing)
+{
+    Transform2D t;
+    float cos_facing = std::cos(facing);
+    float sin_facing = std::sin(facing);
+
+    // Forward
+    t.m.y.x = cos_facing;
+    t.m.y.y = sin_facing;
+
+    // Right
+    t.m.x.x = sin_facing;
+    t.m.x.y = -cos_facing;
+
+    t.p = p;
+    return t;
+}
+
 } // namespace fist

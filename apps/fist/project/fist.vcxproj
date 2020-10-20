@@ -79,7 +79,7 @@
     <ClCompile Include="..\src\config.cpp" />
     <ClCompile Include="..\src\fist.cpp" />
     <ClCompile Include="..\src\game_state.cpp" />
-    <ClCompile Include="..\src\prototype_state.cpp" />
+    <ClCompile Include="..\src\render_3d.cpp" />
     <ClCompile Include="..\src\texture_manager.cpp" />
     <ClCompile Include="..\src\texture_viewer.cpp" />
     <ClCompile Include="..\src\types.cpp" />
@@ -97,7 +97,7 @@
     <ClInclude Include="..\src\bsp_tree_builder.h" />
     <ClInclude Include="..\src\config.h" />
     <ClInclude Include="..\src\game_state.h" />
-    <ClInclude Include="..\src\prototype_state.h" />
+    <ClInclude Include="..\src\render_3d.h" />
     <ClInclude Include="..\src\texture_manager.h" />
     <ClInclude Include="..\src\texture_viewer.h" />
     <ClInclude Include="..\src\types.h" />

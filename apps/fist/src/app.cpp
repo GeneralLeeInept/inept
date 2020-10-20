@@ -2,8 +2,6 @@
 
 #include "appstate.h"
 #include "game_state.h"
-#include "prototype_state.h"
-#include "texture_viewer.h"
 
 namespace fist
 {
@@ -13,8 +11,6 @@ bool App::on_create()
     _config.load();
 
     GameState* state = new GameState;
-    //PrototypeState* state = new PrototypeState;
-    //TextureViewer* state = new TextureViewer;
     state->on_init(this);
     state->on_pushed();
     _app_states.push_front(state);
