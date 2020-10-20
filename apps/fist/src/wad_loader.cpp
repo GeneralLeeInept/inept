@@ -350,11 +350,25 @@ bool wad_load_texture(WadFile* wad, const Wad::Name& texname, Wad::Texture& text
 void wad_load_all_textures(WadFile* wad, TextureLoadCallback load_callback, void* user_data)
 {
     LumpInfo textures[2]{};
+    int num_texture_lumps = 0;
 
-    _lump_info(wad, "TEXTURE1", 0, textures[0]);
-    _lump_info(wad, "TEXTURE2", 0, textures[1]);
+    if (_lump_info(wad, "TEXTURE1", 0, textures[num_texture_lumps]))
+    {
+        num_texture_lumps++;
+    }
 
-    for (int i = 0; i < 2; ++i)
+    if (_lump_info(wad, "TEXTURE2", 0, textures[num_texture_lumps]))
+    {
+        num_texture_lumps++;
+    }
+    
+    if (!num_texture_lumps)
+    {
+        gliLog(gli::LogLevel::Error, "WadLoader", "wad_load_all_textures", "No TEXTURE lumps found.");
+        return;
+    }
+
+    for (int i = 0; i < num_texture_lumps; ++i)
     {
         int* texture_offsets = (int*)&wad->data[textures[i].offset];
         int num_textures = *texture_offsets++;
@@ -375,9 +389,23 @@ void wad_load_all_textures(WadFile* wad, TextureLoadCallback load_callback, void
     LumpInfo flats_end{};
     LumpInfo playpal{};
 
-    _lump_info(wad, "F_START", 0, flats);
-    _lump_info(wad, "F_END", flats.index, flats_end);
-    _lump_info(wad, "PLAYPAL", 0, playpal);
+    if (!_lump_info(wad, "F_START", 0, flats))
+    {
+        gliLog(gli::LogLevel::Error, "WadLoader", "wad_load_all_textures", "F_START lump not found.");
+        return;
+    }
+
+    if (!_lump_info(wad, "F_END", flats.index, flats_end))
+    {
+        gliLog(gli::LogLevel::Error, "WadLoader", "wad_load_all_textures", "F_END lump not found.");
+        return;
+    }
+
+    if (!_lump_info(wad, "PLAYPAL", 0, playpal))
+    {
+        gliLog(gli::LogLevel::Error, "WadLoader", "wad_load_all_textures", "PLAYPAL lump not found.");
+        return;
+    }
 
     uint8_t* palette = (uint8_t*)(&wad->data[playpal.offset]);
     Wad::Texture texture{};
