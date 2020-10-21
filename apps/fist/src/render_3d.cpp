@@ -78,6 +78,7 @@ void Render3D::load_configs()
     _fov_y = _app->config().get("render.fovy", 90.0f);
     _max_fade_dist = _app->config().get("render.fade_dist", 50.0f);
     _tex_scale = _app->config().get("render.tex_scale", 32.0f);
+    _near_clip = _app->config().get("render.near_clip", 0.1f);
 
     // Update state
     _view_distance = std::tanf(_fov_y * 0.5f);
@@ -313,13 +314,299 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
 {
     LineDef* linedef = &_map->linedefs[lineseg->line_def];
 
-    if (linedef->sidedefs[1] == (uint32_t)-1)
+    V2f seg_start = _map->vertices[lineseg->from];
+    V2f seg_end = _map->vertices[lineseg->to];
+
+    // Cull backfaces
+    V2f v = seg_start - viewer.p;
+    V2f l = seg_end - seg_start;
+    V2f n = { l.y, -l.x };
+
+    if (dot(v, n) > 0.0f)
     {
-        draw_solid_seg(viewer, lineseg);
+        // Backface
+        return;
+    }
+
+    // Texture coordinates
+    V2f ln = normalize(l);
+    float u_start = dot(ln, seg_start);
+    float u_end = dot(ln, seg_end);
+
+    if (u_start < u_end)
+    {
+        float offs{};
+        u_start = std::modf(u_start, &offs);
+        u_end -= offs;
+
+        if (u_start < 0.0f)
+        {
+            u_start = u_start + 1.0f;
+            u_end = u_end + 1.0f;
+        }
     }
     else
     {
-        draw_non_solid_seg(viewer, lineseg);
+        float offs{};
+        u_end = std::modf(u_end, &offs);
+        u_start -= offs;
+
+        if (u_end < 0.0f)
+        {
+            u_start = u_start + 1.0f;
+            u_end = u_end + 1.0f;
+        }
+    }
+
+    // Transform and clip
+    V2f view_start = _world_view * _map->vertices[lineseg->from];
+    V2f view_end = _world_view * _map->vertices[lineseg->to];
+
+    if (view_start.y < _near_clip)
+    {
+        if (view_end.y <= _near_clip)
+        {
+            // Near cull
+            return;
+        }
+
+        float interp = (_near_clip - view_start.y) / (view_end.y - view_start.y);
+        view_start.x = view_start.x + interp * (view_end.x - view_start.x);
+        view_start.y = _near_clip;
+        u_start = u_start + interp * (u_end - u_start);
+    }
+    else if (view_end.y < _near_clip && view_start.y > _near_clip)
+    {
+        float interp = (_near_clip - view_end.y) / (view_start.y - view_end.y);
+        view_end.x = view_end.x + interp * (view_start.x - view_end.x);
+        view_end.y = _near_clip;
+        u_end = u_end + interp * (u_start - u_end);
+    }
+
+    // Project
+    float ooy_start = 1.0f / view_start.y;
+    float ooy_end = 1.0f / view_end.y;
+    float x1 = _view_distance * view_start.x * ooy_start;
+    float x2 = _view_distance * view_end.x * ooy_end;
+    float uooy_start = u_start * ooy_start;
+    float uooy_end = u_end * ooy_end;
+
+    if (x2 < x1)
+    {
+        std::swap(x1, x2);
+        std::swap(uooy_start, uooy_end);
+        std::swap(ooy_start, ooy_end);
+    }
+
+    if (x1 > _screen_aspect || x2 < -_screen_aspect)
+    {
+        // Cull left/right
+        return;
+    }
+
+    SideDef* front_sidedef = &_map->sidedefs[linedef->sidedefs[lineseg->side]];
+    SideDef* back_sidedef = nullptr;
+    Sector* front_sector = &_map->sectors[front_sidedef->sector];
+    Sector* back_sector = nullptr;
+    bool solid = linedef->sidedefs[1] == ((uint32_t)-1);
+
+    if (!solid)
+    {
+        back_sidedef = &_map->sidedefs[linedef->sidedefs[1 - lineseg->side]];
+        back_sector = &_map->sectors[back_sidedef->sector];
+
+        if (front_sector->floor_height >= back_sector->ceiling_height || back_sector->floor_height >= front_sector->ceiling_height)
+        {
+            solid = true;
+        }
+    }
+
+    // Cache textures
+    gli::Sprite* textures[3]{};
+    textures[0] = _app->texture_manager().get(front_sidedef->textures[0]);
+    bool markfloor = false;
+    bool markceiling = false;
+
+    if (back_sector)
+    {
+        if (back_sector->ceiling_height < front_sector->ceiling_height)
+        {
+            textures[1] = _app->texture_manager().get(front_sidedef->textures[1]);
+            markceiling = true;
+        }
+
+        if (back_sector->floor_height > front_sector->floor_height)
+        {
+            textures[2] = _app->texture_manager().get(front_sidedef->textures[2]);
+            markfloor = true;
+        }
+
+        if (back_sector->ceiling_texture != front_sector->ceiling_texture || back_sector->ceiling_height != front_sector->ceiling_height ||
+            back_sector->light_level != front_sector->light_level)
+        {
+            markceiling = true;
+        }
+
+        if (back_sector->floor_texture != front_sector->floor_texture || back_sector->floor_height != front_sector->floor_height ||
+            back_sector->light_level != front_sector->light_level)
+        {
+            markfloor = true;
+        }
+    }
+
+    // Setup
+    float fx_start = (x1 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
+    float fx_end = (x2 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
+    float invdx = 1.0f / (fx_end - fx_start);
+    float dooydx = (ooy_end - ooy_start) * invdx;
+    float duooydx = (uooy_end - uooy_start) * invdx;
+
+    // Top and bottom of middle section
+    float top_start = (front_sector->ceiling_height - viewer.h) * _view_distance * ooy_start;
+    float top_end = (front_sector->ceiling_height - viewer.h) * _view_distance * ooy_end;
+    float dtopdx = (top_end - top_start) * invdx;
+
+    float bottom_start = (front_sector->floor_height - viewer.h) * _view_distance * ooy_start;
+    float bottom_end = (front_sector->floor_height - viewer.h) * _view_distance * ooy_end;
+    float dbottomdx = (bottom_end - bottom_start) * invdx;
+
+    // Bottom of top section
+    float ceiling_start = 0.0f;
+    float ceiling_end = 0.0f;
+    float dceilingdx = 0.0f;
+
+    if (markceiling)
+    {
+        ceiling_start = (back_sector->ceiling_height - viewer.h) * _view_distance * ooy_start;
+        ceiling_end = (back_sector->ceiling_height - viewer.h) * _view_distance * ooy_end;
+        dceilingdx = (ceiling_end - ceiling_start) * invdx;
+    }
+
+    // Top of bottom section
+    float floor_start = 0.0f;
+    float floor_end = 0.0f;
+    float dfloordx = 0.0f;
+
+    if (markfloor)
+    {
+        floor_start = (back_sector->floor_height - viewer.h) * _view_distance * ooy_start;
+        floor_end = (back_sector->floor_height - viewer.h) * _view_distance * ooy_end;
+        dfloordx = (floor_end - floor_start) * invdx;
+    }
+
+    // Clip to solid columns and draw
+    auto draw_columns = [&](int x_start, int x_end)
+    {
+        float dx = 0.5f + (float)x_start - fx_start;
+        float ooy = ooy_start + dooydx * dx;
+        float uooy = uooy_start + duooydx * dx;
+        float top = top_start + dtopdx * dx;
+        float bottom = bottom_start + dbottomdx * dx;
+        float ceiling = ceiling_start + dceilingdx * dx;
+        float floor = floor_start + dfloordx * dx;
+
+        for (int x = x_start; x <= x_end; ++x)
+        {
+            int itop = _screen_height / 2 - (int)std::floor(top * _screen_height * 0.5f);
+            int ibottom = _screen_height / 2 - (int)std::floor(bottom * _screen_height * 0.5f);
+            draw_column(x, 1.0f / ooy, uooy / ooy, top, bottom, front_sidedef->textures[0], 0, 1.0f);
+            //if (markceiling)
+            //{
+            //}
+
+            //if (markfloor)
+            //{
+            //}
+            ooy += dooydx;
+            uooy += duooydx;
+            top += dtopdx;
+            bottom += dbottomdx;
+        }
+    };
+
+    int ix1 = (int)std::floor(fx_start + 0.5f);
+    int ix2 = (int)std::floor(fx_end + 0.5f);
+
+    SolidColumns* solid_start = &_solid_columns[0];
+
+    for (; solid_start && ix1 < ix2;)
+    {
+        SolidColumns* solid_end = solid_start->next;
+
+        if (solid_start->max > ix2 + 1)
+        {
+            break;
+        }
+
+        if (solid_end->min < ix1 - 1)
+        {
+            solid_start = solid_end;
+            continue;
+        }
+
+        if (ix1 > solid_start->max + 1)
+        {
+            if (ix2 + 1 < solid_end->min)
+            {
+                // Span from ix1 to ix2 is visible
+                draw_columns(ix1, ix2);
+
+                if (solid)
+                {
+                    SolidColumns* solid_seg = &_solid_columns[_num_solid_columns++];
+                    solid_seg->min = ix1;
+                    solid_seg->max = ix2;
+                    solid_seg->next = solid_end;
+                    solid_start->next = solid_seg;
+                }
+
+                break;
+            }
+            else
+            {
+                // Span from ix1 to solid_end->min - 1 is visible
+                draw_columns(ix1, solid_end->min - 1);
+
+                if (solid)
+                {
+                    solid_end->min = ix1;
+                }
+
+                solid_start = solid_end;
+            }
+        }
+        else
+        {
+            if (ix2 + 1 < solid_end->min)
+            {
+                // Span from solid_start->max + 1 to ix2 is visible
+                draw_columns(solid_start->max + 1, ix2);
+
+                if (solid)
+                {
+                    solid_start->max = ix2;
+                }
+
+                break;
+            }
+            else
+            {
+                // Span from solid_start->max + 1 to solid_end->min - 1 is visible
+                draw_columns(solid_start->max + 1, solid_end->min - 1);
+
+                if (solid)
+                {
+                    solid_start->max = solid_end->max;
+                    solid_start->next = solid_end->next;
+                }
+                else
+                {
+                    solid_start = solid_end;
+                }
+            }
+        }
+
+        ix1 = solid_end->max + 1;
     }
 }
 
@@ -409,8 +696,8 @@ void Render3D::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
     }
 
     // Draw columns (use solid_column as a depth buffer)
-    float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
-    float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+    float fx1 = (x1 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
+    float fx2 = (x2 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
     int ix1 = (int)std::floor(fx1 + 0.5f);
     int ix2 = (int)std::floor(fx2 + 0.5f);
     float ceil1 = ((sector->ceiling_height - viewer.h) * _view_distance * ooay);
@@ -430,9 +717,9 @@ void Render3D::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
     float uooy = u1;
     float duooydx = (u2 - u1) / (fx2 - fx1);
 
-    if (ix2 > _app->screen_width())
+    if (ix2 > _screen_width)
     {
-        ix2 = _app->screen_width();
+        ix2 = _screen_width;
     }
 
     if (ix1 < 0)
@@ -461,8 +748,8 @@ void Render3D::draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg)
         }
 
         // Project wall column
-        int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
-        int fi = _app->screen_height() / 2 - (int)std::floor(hf * _app->screen_height() * 0.5f);
+        int ci = _screen_height / 2 - (int)std::floor(hc * _screen_height * 0.5f);
+        int fi = _screen_height / 2 - (int)std::floor(hf * _screen_height * 0.5f);
 
         if (ci >= _floor_height[c] || fi <= _ceiling_height[c])
         {
@@ -600,8 +887,8 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
     if (back_sector->ceiling_height < front_sector->ceiling_height)
     {
         // Draw upper columns
-        float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
-        float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        float fx1 = (x1 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
+        float fx2 = (x2 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
         int ix1 = (int)std::floor(fx1 + 0.5f);
         int ix2 = (int)std::floor(fx2 + 0.5f);
 
@@ -626,9 +913,9 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
         float uooy = u1;
         float duooydx = (u2 - u1) / (fx2 - fx1);
 
-        if (ix2 > _app->screen_width())
+        if (ix2 > _screen_width)
         {
-            ix2 = _app->screen_width();
+            ix2 = _screen_width;
         }
 
         if (ix1 < 0)
@@ -654,8 +941,8 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
             }
 
             // Project wall column
-            int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
-            int fi = _app->screen_height() / 2 - (int)std::floor(hf * _app->screen_height() * 0.5f);
+            int ci = _screen_height / 2 - (int)std::floor(hc * _screen_height * 0.5f);
+            int fi = _screen_height / 2 - (int)std::floor(hf * _screen_height * 0.5f);
 
             if (ci >= _floor_height[c])
             {
@@ -705,8 +992,8 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
     else
     {
         // Just update column ceiling heights
-        float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
-        float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        float fx1 = (x1 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
+        float fx2 = (x2 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
         int ix1 = (int)std::floor(fx1 + 0.5f);
         int ix2 = (int)std::floor(fx2 + 0.5f);
         float ceil1 = ((front_sector->ceiling_height - viewer.h) * _view_distance * ooay);
@@ -721,9 +1008,9 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
             ix1 = 0;
         }
 
-        if (ix2 > _app->screen_width())
+        if (ix2 > _screen_width)
         {
-            ix2 = _app->screen_width();
+            ix2 = _screen_width;
         }
 
         for (int c = ix1; c < ix2; ++c)
@@ -736,7 +1023,7 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
             }
 
             // Project wall column
-            int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
+            int ci = _screen_height / 2 - (int)std::floor(hc * _screen_height * 0.5f);
 
             if (ci >= _floor_height[c])
             {
@@ -759,8 +1046,8 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
     if (front_facing && (back_sector->floor_height > front_sector->floor_height))
     {
         // Draw lower columns
-        float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
-        float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        float fx1 = (x1 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
+        float fx2 = (x2 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
         int ix1 = (int)std::floor(fx1 + 0.5f);
         int ix2 = (int)std::floor(fx2 + 0.5f);
 
@@ -785,9 +1072,9 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
         float uooy = u1;
         float duooydx = (u2 - u1) / (fx2 - fx1);
 
-        if (ix2 > _app->screen_width())
+        if (ix2 > _screen_width)
         {
-            ix2 = _app->screen_width();
+            ix2 = _screen_width;
         }
 
         if (ix1 < 0)
@@ -813,8 +1100,8 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
             }
 
             // Project wall column
-            int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
-            int fi = _app->screen_height() / 2 - (int)std::floor(hf * _app->screen_height() * 0.5f);
+            int ci = _screen_height / 2 - (int)std::floor(hc * _screen_height * 0.5f);
+            int fi = _screen_height / 2 - (int)std::floor(hf * _screen_height * 0.5f);
 
             if (fi <= _ceiling_height[c])
             {
@@ -863,8 +1150,8 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
     else
     {
         // Just update column floor heights
-        float fx1 = (x1 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
-        float fx2 = (x2 / _screen_aspect) * _app->screen_width() * 0.5f + _app->screen_width() * 0.5f;
+        float fx1 = (x1 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
+        float fx2 = (x2 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
         int ix1 = (int)std::floor(fx1 + 0.5f);
         int ix2 = (int)std::floor(fx2 + 0.5f);
         float ceil1 = ((front_sector->floor_height - viewer.h) * _view_distance * ooay);
@@ -879,9 +1166,9 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
             ix1 = 0;
         }
 
-        if (ix2 > _app->screen_width())
+        if (ix2 > _screen_width)
         {
-            ix2 = _app->screen_width();
+            ix2 = _screen_width;
         }
 
         for (int c = ix1; c < ix2; ++c)
@@ -894,7 +1181,7 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
             }
 
             // Project wall column
-            int ci = _app->screen_height() / 2 - (int)std::floor(hc * _app->screen_height() * 0.5f);
+            int ci = _screen_height / 2 - (int)std::floor(hc * _screen_height * 0.5f);
 
             if (ci <= _ceiling_height[c])
             {
@@ -917,12 +1204,11 @@ void Render3D::draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg
 
 void Render3D::draw_column(int x, float dist, float texu, float top, float bottom, uint64_t texture_id, uint8_t fade_offset, float sector_light)
 {
-    int y1 = _app->screen_height() / 2 - (int)std::floor(top * _app->screen_height() * 0.5f + 0.5f);
-    int y2 = _app->screen_height() / 2 - (int)std::floor(bottom * _app->screen_height() * 0.5f);
+    int y1 = _screen_height / 2 - (int)std::floor(top * _screen_height * 0.5f + 0.5f);
+    int y2 = _screen_height / 2 - (int)std::floor(bottom * _screen_height * 0.5f);
     gli::Sprite* texture = _app->texture_manager().get(texture_id);
-    float fy1 = top * _app->screen_height() * 0.5f;
-    //float dvdy = (2.0f * dist / _app->screen_height()) / _view_distance;
-    float dvdy = (2.0f * dist) / (_view_distance * _app->screen_height());
+    float fy1 = top * _screen_height * 0.5f;
+    float dvdy = (2.0f * dist) / (_view_distance * _screen_height);
     float texv = (fy1 - std::floor(fy1 + 0.5f)) * dvdy;
 
     if (y1 < _ceiling_height[x])
@@ -938,7 +1224,7 @@ void Render3D::draw_column(int x, float dist, float texu, float top, float botto
 
     if (texture)
     {
-        int dest_stride = _app->screen_width();
+        int dest_stride = _screen_width;
         gli::Pixel* dest = _app->get_framebuffer() + x + (y1 * dest_stride);
         int iu = (int)std::floor(texu * _tex_scale + 0.5f) % texture->height();
         gli::Pixel* src = texture->pixels() + iu * texture->width();
@@ -975,7 +1261,7 @@ void Render3D::draw_plane(const ThingPos& viewer, size_t plane)
             int span_end = 0;
 
             float h = vp->height - viewer.h;
-            float normy = (float)(_app->screen_height() - 2 * y) / (float)_app->screen_height();
+            float normy = (float)(_screen_height - 2 * y) / (float)_screen_height;
             float dist = (_view_distance * h) / normy;
 
             V2f world{};
@@ -986,7 +1272,7 @@ void Render3D::draw_plane(const ThingPos& viewer, size_t plane)
             float world_x = world.x;
             float world_y = world.y;
 
-            float pixel_size = 1.0f / (float)_app->screen_height();
+            float pixel_size = 1.0f / (float)_screen_height;
             float pixel_scale = pixel_size * (2.0f * dist) / _view_distance;
             float dudx = pixel_scale * sin_facing;
             float dvdx = pixel_scale * -cos_facing;
@@ -1014,11 +1300,11 @@ void Render3D::draw_plane(const ThingPos& viewer, size_t plane)
                 {
                     if (texture)
                     {
-                        float dx = (float)(span_start - _app->screen_width() * 0.5f);
+                        float dx = (float)(span_start - _screen_width * 0.5f);
                         float u = world_x + dx * dudx;
                         float v = world_y + dx * dvdx;
                         gli::Pixel* src = texture->pixels();
-                        gli::Pixel* dest = _app->get_framebuffer() + (y * _app->screen_width()) + span_start;
+                        gli::Pixel* dest = _app->get_framebuffer() + (y * _screen_width) + span_start;
                         for (int x = span_start; x < span_end; ++x)
                         {
                             int iu = (int)std::floor(u * _tex_scale + 0.5f) % 64;

@@ -44,6 +44,7 @@ private:
     float _view_distance{};
     float _max_fade_dist{};
     float _tex_scale{};
+    float _near_clip{};
 
     App* _app{};
     Map* _map{};

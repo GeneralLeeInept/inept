@@ -1,1 +1,11 @@
 * Texture names are not consistently uppercase :(
+* Solid clipping fail E1M1:
+-		viewer	{p={x=31.1904678 y=-103.049759 } f=5.34145832 h=1.00000000 }	const fist::ThingPos &
+-		p	{x=31.1904678 y=-103.049759 }	fist::V2f
+		x	31.1904678	float
+		y	-103.049759	float
+		f	5.34145832	float
+		h	1.00000000	float
+    + solid lineseg x1 = 174, x2 = 414
+    + solid_column 185->343
+    - appears that lineseg between 344->414 is not marked solid

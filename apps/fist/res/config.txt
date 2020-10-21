@@ -9,5 +9,6 @@ game.turn_speed : 360.000000
 game.wadfile : C:\Program Files (x86)\Steam\SteamApps\common\Ultimate Doom\base\DOOM.WAD
 render.fade_dist : 40.000000
 render.fovy : 90.000000
+render.near_clip : 0.100000
 render.tex_scale : 32.000000
 tv.texture : BIGDOOR7
