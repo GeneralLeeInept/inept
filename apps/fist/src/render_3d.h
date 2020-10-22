@@ -64,16 +64,12 @@ private:
     void load_configs();
     void grow_visplanes();
     size_t find_visplane(uint64_t texture, float height, float light);
-    size_t check_visplane(size_t plane, int x, int top, int bottom);
-    void mark_solid(int min, int max);
-    bool check_solid(int c);
+    size_t check_visplane(size_t plane, int x_start, int x_end);
 
     void draw_node(const ThingPos& viewer, uint32_t index);
     bool cull_node(const ThingPos& viewer, uint32_t index, int child);
     void draw_subsector(const ThingPos& viewer, uint32_t index);
     void draw_line(const ThingPos& viewer, const LineSeg* lineseg);
-    void draw_solid_seg(const ThingPos& viewer, const LineSeg* lineseg);
-    void draw_non_solid_seg(const ThingPos& viewer, const LineSeg* lineseg);
     void draw_column(int x, float dist, float texu, float top, float bottom, uint64_t texture_id, uint8_t fade_offset, float sector_light);
     void draw_plane(const ThingPos& viewer, size_t plane);
 };
