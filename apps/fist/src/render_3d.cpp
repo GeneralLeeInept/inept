@@ -52,7 +52,7 @@ void Render3D::draw_3d(const ThingPos& viewer, Map* map)
     for (int i = 0; i < _screen_width; ++i)
     {
         _floor_height[i] = _screen_height;
-        _ceiling_height[i] = 0;
+        _ceiling_height[i] = -1;
     }
 
     _num_visplanes = 0;
@@ -66,10 +66,10 @@ void Render3D::draw_3d(const ThingPos& viewer, Map* map)
 
     draw_node(viewer, 0);
 
-    for (size_t p = 0; p < _num_visplanes; ++p)
-    {
-        draw_plane(viewer, p);
-    }
+    //for (size_t p = 0; p < _num_visplanes; ++p)
+    //{
+    //    draw_plane(viewer, p);
+    //}
 }
 
 void Render3D::load_configs()
@@ -144,6 +144,7 @@ size_t Render3D::find_visplane(uint64_t texture, float height, float light)
         _visplanes[plane].min_y = _screen_height;
         _visplanes[plane].max_y = 0;
         memset(_visplanes[plane].top.get(), 0xff, sizeof(int) * _screen_width);
+        memset(_visplanes[plane].bottom.get(), 0xff, sizeof(int) * _screen_width);
         _num_visplanes++;
     }
 
@@ -176,6 +177,7 @@ size_t Render3D::check_visplane(size_t plane, int x_start, int x_end)
             _visplanes[new_plane].min_y = _screen_height;
             _visplanes[new_plane].max_y = 0;
             memset(_visplanes[new_plane].top.get(), 0xff, sizeof(int) * _screen_width);
+            memset(_visplanes[new_plane].bottom.get(), 0xff, sizeof(int) * _screen_width);
             _num_visplanes++;
             plane = new_plane;
             break;
@@ -233,10 +235,18 @@ void Render3D::draw_subsector(const ThingPos& viewer, uint32_t index)
     {
         _ceiling_plane = find_visplane(sector->ceiling_texture, sector->ceiling_height, sector->light_level);
     }
+    else
+    {
+        _ceiling_plane = -1;
+    }
 
     if (sector->floor_height < viewer.h)
     {
         _floor_plane = find_visplane(sector->floor_texture, sector->floor_height, sector->light_level);
+    }
+    else
+    {
+        _floor_plane = -1;
     }
 
     for (uint32_t i = 0; i < ss->num_segs; ++i, ++ls)
@@ -252,18 +262,9 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
     V2f seg_start = _map->vertices[lineseg->from];
     V2f seg_end = _map->vertices[lineseg->to];
 
-    // Cull backfaces
+    // Texture coordinates
     V2f v = seg_start - viewer.p;
     V2f l = seg_end - seg_start;
-    //V2f n = { l.y, -l.x };
-
-    //if (dot(v, n) > 0.0f)
-    //{
-    //    // Backface
-    //    return;
-    //}
-
-    // Texture coordinates
     V2f ln = normalize(l);
     float u_start = dot(ln, seg_start);
     float u_end = dot(ln, seg_end);
@@ -293,10 +294,11 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
         }
     }
 
-    // Transform and clip
+    // Transform to view space
     V2f view_start = _world_view * _map->vertices[lineseg->from];
     V2f view_end = _world_view * _map->vertices[lineseg->to];
 
+    // Clip to near plane
     if (view_start.y < _near_clip)
     {
         if (view_end.y <= _near_clip)
@@ -403,19 +405,19 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
     }
 
     // Setup
-    float fx_start = (x1 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
-    float fx_end = (x2 / _screen_aspect) * _screen_width * 0.5f + _screen_width * 0.5f;
+    float fx_start = (_screen_width * 0.5f) * ((x1 / _screen_aspect) + 1.0f);
+    float fx_end = (_screen_width * 0.5f) * ((x2 / _screen_aspect) + 1.0f);
     float invdx = 1.0f / (fx_end - fx_start);
     float dooydx = (ooy_end - ooy_start) * invdx;
     float duooydx = (uooy_end - uooy_start) * invdx;
 
     // Top and bottom of middle section
-    float top_start = (front_sector->ceiling_height - viewer.h) * _view_distance * ooy_start;
-    float top_end = (front_sector->ceiling_height - viewer.h) * _view_distance * ooy_end;
+    float top_start = (_screen_height * 0.5f) * (1.0f - (front_sector->ceiling_height - viewer.h) * _view_distance * ooy_start);
+    float top_end = (_screen_height * 0.5f) * (1.0f - (front_sector->ceiling_height - viewer.h) * _view_distance * ooy_end);
     float dtopdx = (top_end - top_start) * invdx;
 
-    float bottom_start = (front_sector->floor_height - viewer.h) * _view_distance * ooy_start;
-    float bottom_end = (front_sector->floor_height - viewer.h) * _view_distance * ooy_end;
+    float bottom_start = (_screen_height * 0.5f) * (1.0f - (front_sector->floor_height - viewer.h) * _view_distance * ooy_start);
+    float bottom_end = (_screen_height * 0.5f) * (1.0f - (front_sector->floor_height - viewer.h) * _view_distance * ooy_end);
     float dbottomdx = (bottom_end - bottom_start) * invdx;
 
     // Bottom of top section
@@ -425,8 +427,8 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
 
     if (textures[1])
     {
-        ceiling_start = (back_sector->ceiling_height - viewer.h) * _view_distance * ooy_start;
-        ceiling_end = (back_sector->ceiling_height - viewer.h) * _view_distance * ooy_end;
+        ceiling_start = (_screen_height * 0.5f) * (1.0f - (back_sector->ceiling_height - viewer.h) * _view_distance * ooy_start);
+        ceiling_end = (_screen_height * 0.5f) * (1.0f - (back_sector->ceiling_height - viewer.h) * _view_distance * ooy_end);
         dceilingdx = (ceiling_end - ceiling_start) * invdx;
     }
 
@@ -437,8 +439,8 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
 
     if (textures[2])
     {
-        floor_start = (back_sector->floor_height - viewer.h) * _view_distance * ooy_start;
-        floor_end = (back_sector->floor_height - viewer.h) * _view_distance * ooy_end;
+        floor_start = (_screen_height * 0.5f) * (1.0f - (back_sector->floor_height - viewer.h) * _view_distance * ooy_start);
+        floor_end = (_screen_height * 0.5f) * (1.0f - (back_sector->floor_height - viewer.h) * _view_distance * ooy_end);
         dfloordx = (floor_end - floor_start) * invdx;
     }
 
@@ -465,36 +467,6 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
 
         for (int x = x_start; x <= x_end; ++x)
         {
-            int itop = _screen_height / 2 - (int)std::floor(top * _screen_height * 0.5f);
-
-            if (itop > _ceiling_height[x])
-            {
-                if (0)//_ceiling_plane != -1)
-                {
-                    _visplanes[_ceiling_plane].top[x] = _ceiling_height[x] + 1;
-                    _visplanes[_ceiling_plane].bottom[x] = itop;
-                    _visplanes[_ceiling_plane].min_y = std::min(_visplanes[_ceiling_plane].min_y, _ceiling_height[x] + 1);
-                    _visplanes[_ceiling_plane].max_y = std::max(_visplanes[_ceiling_plane].max_y, itop + 1);
-                }
-
-                _ceiling_height[x] = itop;
-            }
-
-            int ibottom = _screen_height / 2 - (int)std::floor(bottom * _screen_height * 0.5f);
-
-            if (ibottom < _floor_height[x])
-            {
-                if (0)//_floor_plane != -1)
-                {
-                    _visplanes[_floor_plane].top[x] = ibottom;
-                    _visplanes[_floor_plane].bottom[x] = _floor_height[x];
-                    _visplanes[_floor_plane].min_y = std::min(_visplanes[_floor_plane].min_y, ibottom);
-                    _visplanes[_floor_plane].max_y = std::max(_visplanes[_floor_plane].max_y, _floor_height[x]);
-                }
-
-                _floor_height[x] = ibottom;
-            }
-
             if (textures[0])
             {
                 draw_column(x, 1.0f / ooy, uooy / ooy, top, bottom, front_sidedef->textures[0], 0, 1.0f);
@@ -503,22 +475,56 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
             if (textures[1])
             {
                 draw_column(x, 1.0f / ooy, uooy / ooy, top, ceiling, front_sidedef->textures[1], 0, 1.0f);
-
-                int itop = _screen_height / 2 - (int)std::floor(ceiling * _screen_height * 0.5f);
-                if (itop > _ceiling_height[x])
-                {
-                    _ceiling_height[x] = itop;
-                }
             }
 
             if (textures[2])
             {
                 draw_column(x, 1.0f / ooy, uooy / ooy, floor, bottom, front_sidedef->textures[2], 0, 1.0f);
+            }
 
-                int ibottom = _screen_height / 2 - (int)std::floor(floor * _screen_height * 0.5f);
+            if (_ceiling_plane != -1)
+            {
+                int itop = (int)std::floor(top + 0.5f);
+
+                if (itop > _ceiling_height[x] + 1)
+                {
+                    _visplanes[_ceiling_plane].top[x] = _ceiling_height[x] + 1;
+                    _visplanes[_ceiling_plane].bottom[x] = itop;
+                    _visplanes[_ceiling_plane].min_y = std::min(_visplanes[_ceiling_plane].min_y, _ceiling_height[x] + 1);
+                    _visplanes[_ceiling_plane].max_y = std::max(_visplanes[_ceiling_plane].max_y, itop);
+                }
+            }
+
+            if (_floor_plane != -1)
+            {
+                int ibottom = (int)std::ceil(bottom - 0.5f);
+
                 if (ibottom < _floor_height[x])
                 {
-                    _floor_height[x] = ibottom;
+                    _visplanes[_floor_plane].top[x] = ibottom;
+                    _visplanes[_floor_plane].bottom[x] = _floor_height[x];
+                    _visplanes[_floor_plane].min_y = std::min(_visplanes[_floor_plane].min_y, ibottom);
+                    _visplanes[_floor_plane].max_y = std::max(_visplanes[_floor_plane].max_y, _floor_height[x]);
+                }
+            }
+
+            if (markceiling)
+            {
+                int iceiling = (int)std::ceil(ceiling - 0.5f);
+
+                if (iceiling - 1 > _ceiling_height[x])
+                {
+                    _ceiling_height[x] = iceiling - 1;
+                }
+            }
+
+            if (markfloor)
+            {
+                int ifloor = (int)std::floor(floor + 0.5f);
+
+                if (ifloor < _floor_height[x])
+                {
+                    _floor_height[x] = ifloor;
                 }
             }
 
@@ -531,12 +537,12 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
         }
     };
 
-    int ix1 = (int)std::floor(fx_start + 0.5f);
-    int ix2 = (int)std::floor(fx_end + 0.5f);
+    int ix1 = (int)std::ceil(fx_start - 0.5f);
+    int ix2 = (int)std::floor(fx_end - 0.5f);
 
     SolidColumns* solid_start = &_solid_columns[0];
 
-    for (; solid_start && ix1 < ix2;)
+    for (; solid_start && ix1 <= ix2;)
     {
         SolidColumns* solid_end = solid_start->next;
 
@@ -619,17 +625,16 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
 
 void Render3D::draw_column(int x, float dist, float texu, float top, float bottom, uint64_t texture_id, uint8_t fade_offset, float sector_light)
 {
-    int y1 = _screen_height / 2 - (int)std::floor(top * _screen_height * 0.5f + 0.5f);
-    int y2 = _screen_height / 2 - (int)std::floor(bottom * _screen_height * 0.5f);
+    int y1 = (int)std::ceil(top - 0.5f);
+    int y2 = (int)std::floor(bottom +0.5f);
     gli::Sprite* texture = _app->texture_manager().get(texture_id);
-    float fy1 = top * _screen_height * 0.5f;
     float dvdy = (2.0f * dist) / (_view_distance * _screen_height);
-    float texv = (fy1 - std::floor(fy1 + 0.5f)) * dvdy;
+    float texv = (y1 - top) * dvdy;
 
-    if (y1 < _ceiling_height[x])
+    if (y1 < _ceiling_height[x] + 1)
     {
-        texv += dvdy * (_ceiling_height[x] - y1);
-        y1 = _ceiling_height[x];
+        texv += dvdy * (_ceiling_height[x] + 1 - y1);
+        y1 = _ceiling_height[x] + 1;
     }
 
     if (y2 > _floor_height[x])
