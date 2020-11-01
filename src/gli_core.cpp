@@ -96,10 +96,10 @@ bool _cursor_hidden = true;
 
 Pixel Pixel::operator*(float f)
 {
-    float fr = clamp(float(r) * f, 0.0f, 255.0f);
-    float fg = clamp(float(g) * f, 0.0f, 255.0f);
-    float fb = clamp(float(b) * f, 0.0f, 255.0f);
-    return Pixel((uint8_t)std::floor(fr + 0.5f), (uint8_t)std::floor(fg + 0.5f), (uint8_t)std::floor(fb + 0.5f));
+    uint8_t fr = (uint8_t)clamp(float(r) * f, 0.0f, 255.0f);
+    uint8_t fg = (uint8_t)clamp(float(g) * f, 0.0f, 255.0f);
+    uint8_t fb = (uint8_t)clamp(float(b) * f, 0.0f, 255.0f);
+    return Pixel(fr, fg, fb);
 }
 
 bool App::initialize(const char* name, int screen_width, int screen_height, int window_scale)

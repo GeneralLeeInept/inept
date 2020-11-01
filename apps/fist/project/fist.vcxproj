@@ -70,6 +70,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalOptions>/include:wWinMain %(AdditionalOptions)</AdditionalOptions>
+      <Profile Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

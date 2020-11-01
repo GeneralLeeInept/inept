@@ -168,21 +168,6 @@ static float clearcolor_timer = 0.0f;
 
 void GameState::render(float delta)
 {
-    #if 0
-    clearcolor_timer += delta;
-
-    while (clearcolor_timer > 5.0f)
-    {
-        clearcolor_timer -= 5.0f;
-    }
-
-    uint8_t clearintensity = (uint8_t)std::floor(64.0f + 25.6f * clearcolor_timer);
-    _app->clear_screen(gli::Pixel(clearintensity, 0, clearintensity));
-    #else
-    _app->fill_rect(0, 0, _app->screen_width(), _app->screen_height() / 2, 0, gli::Pixel(64, 64, 192), 0);
-    _app->fill_rect(0, _app->screen_height() / 2, _app->screen_width(), _app->screen_height() / 2, 0, gli::Pixel(192, 128, 64), 0);
-    #endif
-
     _render_3d.draw_3d(_player.pos, _map.get());
 }
 

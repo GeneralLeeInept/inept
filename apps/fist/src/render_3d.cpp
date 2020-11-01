@@ -731,15 +731,37 @@ void Render3D::draw_plane(const ThingPos& viewer, size_t plane)
                         float v = world_y + dx * dvdx;
                         gli::Pixel* src = texture->pixels();
                         gli::Pixel* dest = _app->get_framebuffer() + (y * _screen_width) + span_start;
+                        int iu = (int)std::floor(u * _tex_scale + 0.5f);
+                        int iv = (int)std::floor(v * _tex_scale + 0.5f);
+                        float ftemp;
+                        float uerrstep = std::abs(std::modf(dudx * _tex_scale, &ftemp));
+                        int ustep = (int)ftemp;
+                        float verrstep = std::abs(std::modf(dvdx * _tex_scale, &ftemp));
+                        int vstep = (int)ftemp;
+                        float uerror = 0.0f;    //FIXME: Correct initial error
+                        float verror = 0.0f;
+                        int uerradjust = dudx < 0.0f ? -1 : 1;
+                        int verradjust = dvdx < 0.0f ? -1 : 1;
+
                         for (int x = span_start; x < span_end; ++x)
                         {
-                            int iu = (int)std::floor(u * _tex_scale + 0.5f) % 64;
-                            int iv = (int)std::floor(v * _tex_scale + 0.5f) % 64;
-                            if (iu < 0) iu += 64;
-                            if (iv < 0) iv += 64;
-                            *dest++ = src[iu + iv * 64] * fade;
-                            u += dudx;
-                            v += dvdx;
+                            *dest++ = src[(iu & 63) + (iv & 63) * 64] * fade;
+                            iu += ustep;
+                            iv += vstep;
+                            uerror += uerrstep;
+                            verror += verrstep;
+
+                            if (uerror >= 1.0f)
+                            {
+                                iu += uerradjust;
+                                uerror -= 1.0f;
+                            }
+
+                            if (verror >= 1.0f)
+                            {
+                                iv += verradjust;
+                                verror -= 1.0f;
+                            }
                         }
                     }
                     else
