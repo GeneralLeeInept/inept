@@ -51,8 +51,8 @@ private:
     int _screen_width{};
     int _screen_height{};
     Transform2D _world_view{};
-    std::unique_ptr<int[]> _floor_height{};
-    std::unique_ptr<int[]> _ceiling_height{};
+    std::unique_ptr<int[]> _floor_mask{};
+    std::unique_ptr<int[]> _ceiling_mask{};
     std::unique_ptr<SolidColumns[]> _solid_columns{};
     int _num_solid_columns{};
     std::unique_ptr<VisPlane[]> _visplanes{};

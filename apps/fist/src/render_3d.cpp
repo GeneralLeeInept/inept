@@ -34,8 +34,8 @@ void Render3D::draw_3d(const ThingPos& viewer, Map* map)
         _screen_height = _app->screen_height();
 
         // Resize
-        _floor_height.reset(new int[_screen_width]);
-        _ceiling_height.reset(new int[_screen_width]);
+        _floor_mask.reset(new int[_screen_width]);
+        _ceiling_mask.reset(new int[_screen_width]);
         _solid_columns.reset(new SolidColumns[_screen_width]);
         _visplanes.reset();
         _max_visplanes = 0;
@@ -51,8 +51,8 @@ void Render3D::draw_3d(const ThingPos& viewer, Map* map)
 
     for (int i = 0; i < _screen_width; ++i)
     {
-        _floor_height[i] = _screen_height;
-        _ceiling_height[i] = -1;
+        _floor_mask[i] = _screen_height;
+        _ceiling_mask[i] = -1;
     }
 
     _num_visplanes = 0;
@@ -66,10 +66,10 @@ void Render3D::draw_3d(const ThingPos& viewer, Map* map)
 
     draw_node(viewer, 0);
 
-    //for (size_t p = 0; p < _num_visplanes; ++p)
-    //{
-    //    draw_plane(viewer, p);
-    //}
+    for (size_t p = 0; p < _num_visplanes; ++p)
+    {
+        draw_plane(viewer, p);
+    }
 }
 
 void Render3D::load_configs()
@@ -164,22 +164,21 @@ size_t Render3D::check_visplane(size_t plane, int x_start, int x_end)
         {
             size_t new_plane = _num_visplanes;
 
-            if (new_plane == _max_visplanes)
+            if (_num_visplanes == _max_visplanes)
             {
                 grow_visplanes();
             }
 
-            _visplanes[new_plane].texture_id = _visplanes[plane].texture_id;
-            _visplanes[new_plane].height = _visplanes[plane].height;
-            _visplanes[new_plane].light = _visplanes[plane].light;
-            _visplanes[new_plane].min_x = x_start;
-            _visplanes[new_plane].max_x = x_end;
-            _visplanes[new_plane].min_y = _screen_height;
-            _visplanes[new_plane].max_y = 0;
-            memset(_visplanes[new_plane].top.get(), 0xff, sizeof(int) * _screen_width);
-            memset(_visplanes[new_plane].bottom.get(), 0xff, sizeof(int) * _screen_width);
-            _num_visplanes++;
-            plane = new_plane;
+            _visplanes[_num_visplanes].texture_id = _visplanes[plane].texture_id;
+            _visplanes[_num_visplanes].height = _visplanes[plane].height;
+            _visplanes[_num_visplanes].light = _visplanes[plane].light;
+            _visplanes[_num_visplanes].min_x = x_start;
+            _visplanes[_num_visplanes].max_x = x_end;
+            _visplanes[_num_visplanes].min_y = _screen_height;
+            _visplanes[_num_visplanes].max_y = 0;
+            memset(_visplanes[_num_visplanes].top.get(), 0xff, sizeof(int) * _screen_width);
+            memset(_visplanes[_num_visplanes].bottom.get(), 0xff, sizeof(int) * _screen_width);
+            plane = _num_visplanes++;
             break;
         }
     }
@@ -371,8 +370,8 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
     // Cache textures
     gli::Sprite* textures[3]{};
     textures[0] = _app->texture_manager().get(front_sidedef->textures[0]);
-    bool markfloor = false;
-    bool markceiling = false;
+    bool markfloor = solid;
+    bool markceiling = solid;
 
     if (back_sector)
     {
@@ -397,11 +396,6 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
         {
             markfloor = true;
         }
-    }
-    else
-    {
-        markceiling = true;
-        markfloor = true;
     }
 
     // Setup
@@ -482,49 +476,61 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
                 draw_column(x, 1.0f / ooy, uooy / ooy, floor, bottom, front_sidedef->textures[2], 0, 1.0f);
             }
 
-            if (_ceiling_plane != -1)
+            if (markceiling && _ceiling_plane != -1)
             {
-                int itop = (int)std::floor(top + 0.5f);
+                int iceiling_start = _ceiling_mask[x] + 1;
+                int iceiling_end = (int)std::ceil(top - 0.5f);
 
-                if (itop > _ceiling_height[x] + 1)
+                if (iceiling_end > _floor_mask[x])
                 {
-                    _visplanes[_ceiling_plane].top[x] = _ceiling_height[x] + 1;
-                    _visplanes[_ceiling_plane].bottom[x] = itop;
-                    _visplanes[_ceiling_plane].min_y = std::min(_visplanes[_ceiling_plane].min_y, _ceiling_height[x] + 1);
-                    _visplanes[_ceiling_plane].max_y = std::max(_visplanes[_ceiling_plane].max_y, itop);
+                    iceiling_end = _floor_mask[x];
+                }
+
+                if (iceiling_end > iceiling_start)
+                {
+                    _visplanes[_ceiling_plane].top[x] = iceiling_start;
+                    _visplanes[_ceiling_plane].bottom[x] = iceiling_end;
+                    _visplanes[_ceiling_plane].min_y = std::min(_visplanes[_ceiling_plane].min_y, iceiling_start);
+                    _visplanes[_ceiling_plane].max_y = std::max(_visplanes[_ceiling_plane].max_y, iceiling_end);
                 }
             }
 
-            if (_floor_plane != -1)
+            if (markfloor && _floor_plane != -1)
             {
-                int ibottom = (int)std::ceil(bottom - 0.5f);
+                int ifloor_start = (int)std::floor(bottom - 0.5f) + 1;
+                int ifloor_end = _floor_mask[x];
 
-                if (ibottom < _floor_height[x])
+                if (ifloor_start < _ceiling_mask[x] + 1)
                 {
-                    _visplanes[_floor_plane].top[x] = ibottom;
-                    _visplanes[_floor_plane].bottom[x] = _floor_height[x];
-                    _visplanes[_floor_plane].min_y = std::min(_visplanes[_floor_plane].min_y, ibottom);
-                    _visplanes[_floor_plane].max_y = std::max(_visplanes[_floor_plane].max_y, _floor_height[x]);
+                    ifloor_start = _ceiling_mask[x] + 1;
+                }
+
+                if (ifloor_end > ifloor_start)
+                {
+                    _visplanes[_floor_plane].top[x] = ifloor_start;
+                    _visplanes[_floor_plane].bottom[x] = ifloor_end;
+                    _visplanes[_floor_plane].min_y = std::min(_visplanes[_floor_plane].min_y, ifloor_start);
+                    _visplanes[_floor_plane].max_y = std::max(_visplanes[_floor_plane].max_y, ifloor_end);
                 }
             }
 
             if (markceiling)
             {
-                int iceiling = (int)std::ceil(ceiling - 0.5f);
+                int iceiling = (int)std::floor(ceiling - 0.5f) - 1;
 
-                if (iceiling - 1 > _ceiling_height[x])
+                if (iceiling > _ceiling_mask[x])
                 {
-                    _ceiling_height[x] = iceiling - 1;
+                    _ceiling_mask[x] = iceiling;
                 }
             }
 
             if (markfloor)
             {
-                int ifloor = (int)std::floor(floor + 0.5f);
+                int ifloor = (int)std::floor(floor - 0.5f) + 1;
 
-                if (ifloor < _floor_height[x])
+                if (ifloor < _floor_mask[x])
                 {
-                    _floor_height[x] = ifloor;
+                    _floor_mask[x] = ifloor;
                 }
             }
 
@@ -626,20 +632,20 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
 void Render3D::draw_column(int x, float dist, float texu, float top, float bottom, uint64_t texture_id, uint8_t fade_offset, float sector_light)
 {
     int y1 = (int)std::ceil(top - 0.5f);
-    int y2 = (int)std::floor(bottom +0.5f);
+    int y2 = (int)std::floor(bottom - 0.5f) + 1;
     gli::Sprite* texture = _app->texture_manager().get(texture_id);
     float dvdy = (2.0f * dist) / (_view_distance * _screen_height);
     float texv = (y1 - top) * dvdy;
 
-    if (y1 < _ceiling_height[x] + 1)
+    if (y1 < _ceiling_mask[x] + 1)
     {
-        texv += dvdy * (_ceiling_height[x] + 1 - y1);
-        y1 = _ceiling_height[x] + 1;
+        texv += dvdy * (_ceiling_mask[x] + 1 - y1);
+        y1 = _ceiling_mask[x] + 1;
     }
 
-    if (y2 > _floor_height[x])
+    if (y2 > _floor_mask[x])
     {
-        y2 = _floor_height[x];
+        y2 = _floor_mask[x];
     }
 
     if (texture)
@@ -673,7 +679,7 @@ void Render3D::draw_plane(const ThingPos& viewer, size_t plane)
     float cos_facing = std::cos(viewer.f);
     float sin_facing = std::sin(viewer.f);
 
-    for (int y = vp->min_y; y < vp->max_y; ++y)
+    for (int y = vp->min_y; y <= vp->max_y; ++y)
     {
         if (vp->min_x <= vp->max_x)
         {
@@ -702,7 +708,7 @@ void Render3D::draw_plane(const ThingPos& viewer, size_t plane)
             {
                 for (; span_start <= vp->max_x; ++span_start)
                 {
-                    if (vp->top[span_start] <= y && vp->bottom[span_start] >= y)
+                    if (vp->top[span_start] <= y && vp->bottom[span_start] > y)
                     {
                         break;
                     }
@@ -710,7 +716,7 @@ void Render3D::draw_plane(const ThingPos& viewer, size_t plane)
 
                 for (span_end = span_start; span_end <= vp->max_x; ++span_end)
                 {
-                    if (vp->top[span_end] >= y || vp->bottom[span_end] <= y)
+                    if (vp->top[span_end] > y || vp->bottom[span_end] <= y)
                     {
                         break;
                     }
