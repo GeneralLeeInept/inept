@@ -7,7 +7,7 @@
 #include "gli_sprite.h"
 #include "gli_types.h"
 
-#include "opengl40/glad.h"
+#include "opengl/glad.h"
 
 #include <objbase.h>
 #include <Xinput.h>

@@ -5,7 +5,7 @@
 #include <Windows.h>
 #include <dwmapi.h>
 
-#include "opengl40/glad.h"
+#include "opengl/glad.h"
 #include "wglext.h"
 
 #include "gli_log.h"

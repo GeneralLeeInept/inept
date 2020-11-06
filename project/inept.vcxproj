@@ -142,8 +142,8 @@
     <ClInclude Include="..\src\gli.h" />
     <ClInclude Include="..\src\gli_sprite.h" />
     <ClInclude Include="..\src\gli_types.h" />
-    <ClInclude Include="..\src\opengl40\glad.h" />
-    <ClInclude Include="..\src\opengl40\khrplatform.h" />
+    <ClInclude Include="..\src\opengl\glad.h" />
+    <ClInclude Include="..\src\opengl\khrplatform.h" />
     <ClInclude Include="..\src\wglext.h" />
   </ItemGroup>
   <ItemGroup>
@@ -282,7 +282,7 @@
     <ClCompile Include="..\src\gli_log.cpp" />
     <ClCompile Include="..\src\gli_opengl.cpp" />
     <ClCompile Include="..\src\gli_sprite.cpp" />
-    <ClCompile Include="..\src\opengl40\glad.c" />
+    <ClCompile Include="..\src\opengl\glad.c" />
     <ClCompile Include="..\src\stb_image.cpp" />
     <ClCompile Include="..\src\stb_image_write.cpp" />
   </ItemGroup>

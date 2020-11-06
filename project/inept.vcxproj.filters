@@ -96,10 +96,10 @@
     <ClInclude Include="..\src\wglext.h">
       <Filter>opengl</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\opengl40\glad.h">
+    <ClInclude Include="..\src\opengl\glad.h">
       <Filter>opengl</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\opengl40\khrplatform.h">
+    <ClInclude Include="..\src\opengl\khrplatform.h">
       <Filter>opengl</Filter>
     </ClInclude>
     <ClInclude Include="..\src\gli_opengl.h">
@@ -302,7 +302,7 @@
     <ClCompile Include="..\src\gli_opengl.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\opengl40\glad.c">
+    <ClCompile Include="..\src\opengl\glad.c">
       <Filter>opengl</Filter>
     </ClCompile>
     <ClCompile Include="..\src\gli_sprite.cpp">
