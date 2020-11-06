@@ -407,7 +407,7 @@ bool OpenGL::init(HWND hwnd)
     int context_attributes[] =
     { 
         WGL_CONTEXT_MAJOR_VERSION_ARB, 4, 
-        WGL_CONTEXT_MINOR_VERSION_ARB, 0,
+        WGL_CONTEXT_MINOR_VERSION_ARB, 6,
         WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB, 
         0
     };
