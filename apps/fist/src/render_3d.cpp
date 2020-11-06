@@ -361,7 +361,7 @@ void Render3D::draw_line(const ThingPos& viewer, const LineSeg* lineseg)
 
     bool backface = (dot(v, n) > 0.0f);
 
-    if (solid && backface)
+    if (backface)
     {
         // Line is facing away from viewer
         return;

@@ -20,6 +20,9 @@
 // TODO: Move this into gli::Sprite (and rename that class)
 #include <stb/stb_image_write.h>
 
+// TODO: AVX
+#include "immintrin.h"
+
 extern int gli_main(int argc, char** argv);
 
 static const char* s_shader_source[2]{
@@ -94,6 +97,24 @@ ControllerState _controller_states[4]{};
 int _hide_cursor = 1;
 bool _cursor_hidden = true;
 
+#if 1
+// TODO: Not scaling alpha
+Pixel Pixel::operator*(float f)
+{
+    uint32_t val = argb;
+    __m128 xmm0 = _mm_set1_ps(f);
+    __m128i xmm1 = _mm_cvtsi32_si128(val);
+    xmm1 = _mm_cvtepu8_epi32(xmm1);
+    __m128 xmm2 = _mm_cvtepi32_ps(xmm1);
+    xmm2 = _mm_mul_ps(xmm2, xmm0);
+    xmm1 = _mm_cvtps_epi32(xmm2);
+    xmm1 = _mm_packus_epi32(xmm1, xmm1);
+    xmm1 = _mm_packus_epi16(xmm1, xmm1);
+    val = _mm_cvtsi128_si32(xmm1);
+    val = (val & 0x00FFFFFF) | (argb & 0xFF000000);
+    return Pixel(val);
+}
+#else
 Pixel Pixel::operator*(float f)
 {
     uint8_t fr = (uint8_t)clamp(float(r) * f, 0.0f, 255.0f);
@@ -101,6 +122,7 @@ Pixel Pixel::operator*(float f)
     uint8_t fb = (uint8_t)clamp(float(b) * f, 0.0f, 255.0f);
     return Pixel(fr, fg, fb);
 }
+#endif
 
 bool App::initialize(const char* name, int screen_width, int screen_height, int window_scale)
 {
@@ -1107,21 +1129,17 @@ void App::shutdown()
 
 void App::pump_messages()
 {
-    bool quit = false;
     MSG msg;
 
-    while (!quit)
+    while (GetMessageW(&msg, 0, 0, 0) > 0)
     {
-        while (PeekMessageW(&msg, 0, 0, 0, PM_REMOVE))
+        if (msg.message == WM_QUIT)
         {
-            if (msg.message == WM_QUIT)
-            {
-                quit = true;
-            }
-
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
+            break;
         }
+
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
 
         if (!!_hide_cursor != _cursor_hidden)
         {
