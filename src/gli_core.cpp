@@ -1101,11 +1101,36 @@ Pixel* App::get_framebuffer()
     return m_framebuffer;
 }
 
+
 void App::request_screenshot(const std::string& directory)
 {
     m_screenshot_requested = true;
     m_screenshot_directory = directory;
 }
+
+
+void App::on_render(float delta)
+{
+    if (m_fade > 0.0f)
+    {
+        glClearColor(m_fade_color.r / 255.0f, m_fade_color.g / 255.0f, m_fade_color.b / 255.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+    else
+    {
+        glDisable(GL_BLEND);
+    }
+
+    glBindTexture(GL_TEXTURE_2D, _texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_screen_width, m_screen_height, 0, GL_BGRA, GL_UNSIGNED_BYTE, m_framebuffer);
+    glUseProgram(_shader_program);
+    glUniform1f(_uniform_fade, 1.0f - m_fade);
+    glBindVertexArray(_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+}
+
 
 void App::shutdown()
 {
@@ -1152,10 +1177,12 @@ void App::pump_messages()
 
 void App::engine_loop()
 {
+    _opengl.make_current(true);
     if (!on_create())
     {
         _quit = true;
     }
+    _opengl.make_current(false);
 
     ShowWindow(m_hwnd, SW_SHOW);
     auto prev_time = std::chrono::system_clock::now();
@@ -1258,24 +1285,7 @@ void App::engine_loop()
         // Present
         _opengl.begin_frame();
 
-        if (m_fade > 0.0f)
-        {
-            glClearColor(m_fade_color.r / 255.0f, m_fade_color.g / 255.0f, m_fade_color.b / 255.0f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        }
-        else
-        {
-            glDisable(GL_BLEND);
-        }
-
-        glBindTexture(GL_TEXTURE_2D, _texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_screen_width, m_screen_height, 0, GL_BGRA, GL_UNSIGNED_BYTE, m_framebuffer);
-        glUseProgram(_shader_program);
-        glUniform1f(_uniform_fade, 1.0f - m_fade);
-        glBindVertexArray(_vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        on_render(delta);
 
         if (m_screenshot_requested)
         {
@@ -1309,7 +1319,9 @@ void App::engine_loop()
         m_fade = 0.0f;
     }
 
+    _opengl.make_current(true);
     on_destroy();
+    _opengl.make_current(false);
 
     PostMessage(m_hwnd, WM_DESTROY, 0, 0);
 }
@@ -1317,13 +1329,10 @@ void App::engine_loop()
 
 void App::make_screenshot(const std::string& path)
 {
-    //std::vector<uint32_t> image_data(m_window_width * m_window_height);
     std::vector<uint8_t> image_data(m_window_width * m_window_height * 3);
     glReadBuffer(GL_BACK);
-    //glReadPixels(0, 0, m_window_width, m_window_height, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, &image_data[0]);
     glReadPixels(0, 0, m_window_width, m_window_height, GL_RGB, GL_UNSIGNED_BYTE, &image_data[0]);
     stbi_flip_vertically_on_write(1);
-    //stbi_write_png(path.c_str(), m_window_width, m_window_height, 4, &image_data[0], m_window_width * sizeof(uint32_t));
     stbi_write_png(path.c_str(), m_window_width, m_window_height, 3, &image_data[0], m_window_width * 3);
 }
 

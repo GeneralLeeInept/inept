@@ -294,6 +294,8 @@ public:
 
     void request_screenshot(const std::string& directory);
 
+    virtual void on_render(float delta);
+
 private:
     void shutdown();
     void pump_messages();

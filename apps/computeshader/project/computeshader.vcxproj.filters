@@ -1,0 +1,17 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="src" />
+    <Filter Include="inc" />
+    <Filter Include="res" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\computeshader.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\res\compute_shader.glsl">
+      <Filter>res</Filter>
+    </None>
+  </ItemGroup>
+</Project>

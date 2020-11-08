@@ -27,6 +27,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tetris", "..\apps\tetris\pr
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zilg", "..\apps\zilg\project\zilg.vcxproj", "{F453D65C-BBF7-4598-A2B8-ACDC74A4D74D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "computeshader", "..\apps\computeshader\project\computeshader.vcxproj", "{9DB580B6-9A70-44A7-A269-CC1ED964D013}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -88,6 +90,12 @@ Global
 		{5156831D-F85E-4868-AFB3-B3C7FF0DAB4D}.Development|x64.Build.0 = Development|x64
 		{5156831D-F85E-4868-AFB3-B3C7FF0DAB4D}.Release|x64.ActiveCfg = Release|x64
 		{5156831D-F85E-4868-AFB3-B3C7FF0DAB4D}.Release|x64.Build.0 = Release|x64
+		{9DB580B6-9A70-44A7-A269-CC1ED964D013}.Debug|x64.ActiveCfg = Debug|x64
+		{9DB580B6-9A70-44A7-A269-CC1ED964D013}.Debug|x64.Build.0 = Debug|x64
+		{9DB580B6-9A70-44A7-A269-CC1ED964D013}.Development|x64.ActiveCfg = Development|x64
+		{9DB580B6-9A70-44A7-A269-CC1ED964D013}.Development|x64.Build.0 = Development|x64
+		{9DB580B6-9A70-44A7-A269-CC1ED964D013}.Release|x64.ActiveCfg = Release|x64
+		{9DB580B6-9A70-44A7-A269-CC1ED964D013}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -102,6 +110,7 @@ Global
 		{03F533ED-E3A5-4725-9CBC-A74AC68ABA37} = {EC377912-C95A-4A3F-8879-6972ED1F491C}
 		{F453D65C-BBF7-4598-A2B8-ACDC74A4D74D} = {EC377912-C95A-4A3F-8879-6972ED1F491C}
 		{5156831D-F85E-4868-AFB3-B3C7FF0DAB4D} = {EC377912-C95A-4A3F-8879-6972ED1F491C}
+		{9DB580B6-9A70-44A7-A269-CC1ED964D013} = {EC377912-C95A-4A3F-8879-6972ED1F491C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {BA9002FF-A1FF-4D0C-B7F4-E8563189C38F}
