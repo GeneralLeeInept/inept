@@ -10,6 +10,14 @@
 
 #include "gli_log.h"
 
+#if !defined(GLI_DEBUG_GL)
+#if defined(GLI_RELEASE)
+#define GLI_DEBUG_GL 0
+#else
+#define GLI_DEBUG_GL 1
+#endif
+#endif
+
 struct Wgl
 {
     typedef HGLRC(__stdcall* PFNWGLCREATECONTEXT)(HDC);
@@ -282,14 +290,14 @@ bool load_gl(WindowCleaner& cleaner)
         gli::logf("wglCreateContext failed - %08X\n", GetLastError());
         return false;
     }
-    
+
     cleaner.set_glrc(glrc);
 
     if (!wgl.makeCurrent((HDC)cleaner, (HGLRC)cleaner))
     {
         return false;
     }
-    
+
     if (!gladLoadGL())
     {
         return false;
@@ -298,6 +306,94 @@ bool load_gl(WindowCleaner& cleaner)
     wgl.swapInterval = (PFNWGLSWAPINTERVALEXTPROC)wgl.getProcAddress("wglSwapIntervalEXT");
 
     return true;
+}
+
+
+static void APIENTRY debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message,
+                                            const void* userParam)
+{
+    const char* source_string = "???";
+
+    if (source == GL_DEBUG_SOURCE_API)
+    {
+        source_string = "API";
+    }
+    else if (source == GL_DEBUG_SOURCE_WINDOW_SYSTEM)
+    {
+        source_string = "WINDOW SYSTEM";
+    }
+    else if (source == GL_DEBUG_SOURCE_SHADER_COMPILER)
+    {
+        source_string = "SHADER COMPILER";
+    }
+    else if (source == GL_DEBUG_SOURCE_THIRD_PARTY)
+    {
+        source_string = "THIRD PARTY";
+    }
+    else if (source == GL_DEBUG_SOURCE_APPLICATION)
+    {
+        source_string = "APPLICATION";
+    }
+    else if (source == GL_DEBUG_SOURCE_OTHER)
+    {
+        source_string = "OTHER";
+    }
+
+    gli::LogLevel log_level = gli::LogLevel::Warning;
+    const char* type_string = "???";
+
+    if (type == GL_DEBUG_TYPE_ERROR)
+    {
+        log_level = gli::LogLevel::Error;
+        type_string = "ERROR";
+    }
+    else if (type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR)
+    {
+        log_level = gli::LogLevel::Warning;
+        type_string = "DEPRECATED BEHAVIOR";
+    }
+    else if (type == GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR)
+    {
+        log_level = gli::LogLevel::Error;
+        type_string = "UNDEFINED BEHAVIOR";
+    }
+    else if (type == GL_DEBUG_TYPE_PORTABILITY)
+    {
+        log_level = gli::LogLevel::Warning;
+        type_string = "PORTABILITY";
+    }
+    else if (type == GL_DEBUG_TYPE_PERFORMANCE)
+    {
+        log_level = gli::LogLevel::Warning;
+        type_string = "PERFORMANCE";
+    }
+    else if (type == GL_DEBUG_TYPE_OTHER)
+    {
+        log_level = gli::LogLevel::Info;
+        type_string = "OTHER";
+    }
+
+    const char* severity_string = "???";
+
+    if (severity == GL_DEBUG_SEVERITY_HIGH)
+    {
+        severity_string = "HIGH";
+    }
+    else if (severity == GL_DEBUG_SEVERITY_MEDIUM)
+    {
+        severity_string = "MEDIUM";
+    }
+    else if (severity == GL_DEBUG_SEVERITY_LOW)
+    {
+        severity_string = "LOW";
+    }
+    else if (severity == GL_DEBUG_SEVERITY_NOTIFICATION)
+    {
+        severity_string = "NOTIFICATION";
+    }
+
+    gliLog(log_level, "OpenGL Driver", "debug_message_callback", "source = 0x%x [%s], type = 0x%x [%s], severity = 0x%x [%s], message = %s", source,
+           source_string, type, type_string, severity, severity_string, message);
 }
 
 
@@ -312,7 +408,7 @@ bool OpenGL::init(HWND hwnd)
 
     HINSTANCE hinstance = GetModuleHandle(nullptr);
     WindowCleaner cleaner(hinstance);
-    
+
     if (!(create_dummy_window(cleaner) && load_gl(cleaner)))
     {
         return false;
@@ -406,9 +502,12 @@ bool OpenGL::init(HWND hwnd)
     /* clang-format off */
     int context_attributes[] =
     { 
-        WGL_CONTEXT_MAJOR_VERSION_ARB, 4, 
-        WGL_CONTEXT_MINOR_VERSION_ARB, 6,
-        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB, 
+        WGL_CONTEXT_MAJOR_VERSION_ARB,  4, 
+        WGL_CONTEXT_MINOR_VERSION_ARB,  6,
+        WGL_CONTEXT_PROFILE_MASK_ARB,   WGL_CONTEXT_CORE_PROFILE_BIT_ARB, 
+#if GLI_DEBUG_GL
+        WGL_CONTEXT_FLAGS_ARB,          WGL_CONTEXT_DEBUG_BIT_ARB,
+#endif
         0
     };
     /* clang-format on */
@@ -425,6 +524,10 @@ bool OpenGL::init(HWND hwnd)
         wgl.deleteContext(glrc);
         return false;
     }
+
+#if GLI_DEBUG_GL
+    glDebugMessageCallback(debug_message_callback, nullptr);
+#endif
 
     wgl.makeCurrent(nullptr, nullptr);
 
@@ -476,4 +579,4 @@ void OpenGL::clear(float r, float g, float b, float a)
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-}
+} // namespace gli

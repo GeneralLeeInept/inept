@@ -36,6 +36,54 @@ void main()
     )"
 };
 
+// clang-format off
+static const int s_map_data[]{
+    16, 16, // width, height
+
+    // Tiles
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1,
+    1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    //1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    //1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+};
+// clang-format on
+
+struct ViewParams
+{
+    int view_width;
+    int view_height;
+    float viewer_pos[2];
+    float viewer_angle;
+    float fov_y;
+};
 
 class ComputeShader : public gli::App
 {
@@ -45,7 +93,10 @@ public:
     GLuint _vbo{};
     GLuint _vao{};
     GLuint _texture{};
+    GLuint _map_ssbo{};
+    GLuint _view_params_ssbo{};
     bool _reload_compute_shader{};
+    ViewParams _view_params{};
 
     static const int _tex_w = 512;
     static const int _tex_h = 512;
@@ -129,15 +180,32 @@ bool ComputeShader::on_create()
     glBindTexture(GL_TEXTURE_2D, _texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, _tex_w, _tex_h, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, _tex_w, _tex_h, 0, GL_RGBA, GL_FLOAT, nullptr);
+
+    GLuint buffer_names[2];
+    glCreateBuffers(2, buffer_names);
+
+    _map_ssbo = buffer_names[0];
+    glNamedBufferData(_map_ssbo, sizeof(s_map_data), &s_map_data[0], GL_STATIC_DRAW);
+
+    _view_params_ssbo = buffer_names[1];
+    glNamedBufferData(_view_params_ssbo, sizeof(ViewParams), nullptr, GL_STREAM_DRAW);
 
     _reload_compute_shader = true;
+
+    _view_params.view_width = 512;
+    _view_params.view_height = 512;
+    _view_params.fov_y = 3.1415926535897932384626433832795f * 0.5f;
+    _view_params.viewer_pos[0] = 7.5f;
+    _view_params.viewer_pos[1] = 7.5f;
 
     return true;
 }
 
 void ComputeShader::on_destroy()
 {
+    GLuint buffer_names[2] = { _map_ssbo, _view_params_ssbo };
+    glDeleteBuffers(2, buffer_names);
     glDeleteTextures(1, &_texture);
     glDeleteVertexArrays(1, &_vao);
     glDeleteBuffers(1, &_vbo);
@@ -146,10 +214,56 @@ void ComputeShader::on_destroy()
 
 bool ComputeShader::on_update(float delta)
 {
+    if (key_state(gli::Key_Left).down)
+    {
+        _view_params.viewer_angle += 3.141f * delta;
+    }
+
+    if (key_state(gli::Key_Right).down)
+    {
+        _view_params.viewer_angle -= 3.141f * delta; 
+    }
+
+    float cos_facing = cosf(_view_params.viewer_angle);
+    float sin_facing = -sinf(_view_params.viewer_angle);
+
+    // Move
+    const float walk_speed = 1.0f;
+    float move_x = 0.0f;
+    float move_y = 0.0f;
+
+    if (key_state(gli::Key_W).down)
+    {
+        move_x += cos_facing * delta * walk_speed;
+        move_y += sin_facing * delta * walk_speed;
+    }
+
+    if (key_state(gli::Key_S).down)
+    {
+        move_x -= cos_facing * delta * walk_speed;
+        move_y -= sin_facing * delta * walk_speed;
+    }
+
+    if (key_state(gli::Key_A).down)
+    {
+        move_x += sin_facing * delta * walk_speed;
+        move_y -= cos_facing * delta * walk_speed;
+    }
+
+    if (key_state(gli::Key_D).down)
+    {
+        move_x -= sin_facing * delta * walk_speed;
+        move_y += cos_facing * delta * walk_speed;
+    }
+
     if (key_state(gli::Key_F5).pressed)
     {
         _reload_compute_shader = true;
     }
+
+    _view_params.viewer_pos[0] += move_x;
+    _view_params.viewer_pos[1] += move_y;
+
     return true;
 }
 
@@ -164,10 +278,13 @@ void ComputeShader::on_render(float delta)
     if (_compute_program)
     {
         glBindImageTexture(0, _texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _map_ssbo);
+        glNamedBufferSubData(_view_params_ssbo, 0, sizeof(ViewParams), &_view_params);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, _view_params_ssbo);
 
         // launch compute shaders!
         glUseProgram(_compute_program);
-        glDispatchCompute(_tex_w, _tex_h, 1);
+        glDispatchCompute(_tex_w, 1, 1);
 
         // make sure writing to image has finished before read
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);

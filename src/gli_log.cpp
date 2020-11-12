@@ -74,25 +74,27 @@ static const char* log_level_string(int loglevel)
 static void print(std::string& buffer, const char* format, va_list args)
 {
     static const size_t buffer_initial_size = 128;
-    size_t len = 0;
 
     if (buffer.size() == 0)
     {
         buffer.resize(buffer_initial_size);
     }
 
-    do
+    for (;;)
     {
         std::va_list args_copy;
         va_copy(args_copy, args);
-        len = std::vsnprintf(&buffer[0], buffer.size(), format, args) + 1;
+        size_t len = len = std::vsnprintf(&buffer[0], buffer.size(), format, args) + 1;
         va_end(args_copy);
 
-        if (len > buffer.size())
+        if (len <= buffer.size())
         {
-            buffer.resize(len);
+            break;
         }
-    } while (len > buffer.size());
+
+        len = buffer.size() * 2;
+        buffer.resize(len);
+    }
 }
 
 
