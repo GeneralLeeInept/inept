@@ -11,4 +11,4 @@ Added vorbis -
 git subtree add --prefix extern/vorbis https://github.com/xiph/vorbis.git v1.3.7 --squash
 
 Added imgui (docking) - 
-git subtree add --prefix extern/imgui https://https://github.com/ocornut/imgui.git docking --squash
+git subtree add --prefix extern/imgui https://github.com/ocornut/imgui.git docking --squash
