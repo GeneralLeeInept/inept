@@ -1,0 +1,29 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="src" />
+    <Filter Include="inc" />
+    <Filter Include="res" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\deadplanet.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\tilemap.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\vread.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\tilemap.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\types.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\vread.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

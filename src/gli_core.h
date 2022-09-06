@@ -242,6 +242,7 @@ public:
     virtual bool on_create() = 0;
     virtual void on_destroy() = 0;
     virtual bool on_update(float delta) = 0;
+    virtual void on_render(float delta); // FIXME - don't do this, do render layers
 
     bool initialize(const char* name, int screen_width_, int screen_height_, int window_scale);
     void run();
@@ -294,7 +295,7 @@ public:
 
     void request_screenshot(const std::string& directory);
 
-    virtual void on_render(float delta);
+    HWND get_window_handle() { return m_hwnd; }
 
 private:
     void shutdown();
